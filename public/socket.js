@@ -10,46 +10,35 @@ export function initializeWebSocket(roomId, handleMessage) {
   socket = new WebSocket(`wss://${window.location.host}`);
 
   socket.onopen = () => {
-    // Store the current room ID
     currentRoomId = roomId;
-    // Generate or prompt user for a unique name
     userName = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
-    
-    // Send the 'join' message with the user and roomId
+
     socket.send(JSON.stringify({
       type: 'join',
       user: userName,
       roomId: roomId,
     }));
+
+    // Start a keep-alive ping every 30 seconds
+    setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
   };
 
   socket.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-     handleRoomData(msg);
-      if (msg.type === 'userList') {
-    updateUserList(msg.users);
-  }
-};
+    handleRoomData(msg);
 
- //    switch (msg.type) {
-  //  case 'userList':
-   //   updateUserList(msg.users);
-    //  break;
+    if (msg.type === 'userList') {
+      updateUserList(msg.users);
+    }
 
-    //case 'voteUpdate':
-      // existing logic
-      //    handleRoomData(msg);
-      //break;
-
-    //case 'storyChange':
-      // existing logic
-      //    handleRoomData(msg);
-      //break;
-        //     default:
-      //console.warn('Unknown message type:', msg.type);
-  //}
-    //handleMessage(msg);
-  //};
+    if (typeof handleMessage === 'function') {
+      handleMessage(msg); // Optional external message handler
+    }
+  };
 
   socket.onerror = (error) => {
     console.error('WebSocket error:', error);
@@ -79,15 +68,13 @@ export function getUserId() {
 function handleRoomData(msg) {
   switch (msg.type) {
     case 'userList':
-      // Update the list of users in the current room
       if (!rooms[currentRoomId]) {
         rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
       }
-      rooms[currentRoomId].users = msg.users; // Update the users list
+      rooms[currentRoomId].users = msg.users;
       break;
 
     case 'voteUpdate':
-      // Update the votes for the selected story in the current room
       if (!rooms[currentRoomId]) {
         rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
       }
@@ -95,7 +82,6 @@ function handleRoomData(msg) {
       break;
 
     case 'storyChange':
-      // Update the selected story in the current room
       if (!rooms[currentRoomId]) {
         rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
       }
@@ -103,7 +89,6 @@ function handleRoomData(msg) {
       break;
 
     case 'userJoined':
-      // Add a new user to the list of users in the current room
       if (!rooms[currentRoomId]) {
         rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
       }
@@ -115,11 +100,23 @@ function handleRoomData(msg) {
   }
 }
 
-// Listen to room-specific data and notify all users in the room
+// Update the user list UI
+function updateUserList(users) {
+  const container = document.getElementById('user-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  users.forEach(user => {
+    const div = document.createElement('div');
+    div.textContent = user;
+    container.appendChild(div);
+  });
+}
+
+// Broadcast updated room data to all users
 function broadcastRoomData() {
   if (rooms[currentRoomId]) {
     const roomData = rooms[currentRoomId];
-    // Broadcast user list, story votes, and selected story to all clients in the room
     sendMessage('userList', { users: roomData.users });
     sendMessage('voteUpdate', {
       story: roomData.selectedStory,
@@ -131,17 +128,8 @@ function broadcastRoomData() {
     });
   }
 }
-function updateUserList(users) {
-  const container = document.getElementById('user-list'); // example element
-  container.innerHTML = '';
 
-  users.forEach(user => {
-    const div = document.createElement('div');
-    div.textContent = user;
-    container.appendChild(div);
-  });
-}
-// For updating user votes on a story in the room
+// Record a vote for a story
 export function updateVote(story, vote) {
   if (rooms[currentRoomId]) {
     if (!rooms[currentRoomId].storyVotesByUser[story]) {
@@ -155,7 +143,7 @@ export function updateVote(story, vote) {
   }
 }
 
-// For changing the selected story in the room
+// Change the current story
 export function changeStory(story) {
   if (rooms[currentRoomId]) {
     rooms[currentRoomId].selectedStory = story;
