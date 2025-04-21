@@ -21,6 +21,27 @@ function ensureRoomId() {
 const currentRoomId = ensureRoomId();
 
 initializeWebSocket(currentRoomId, handleMessage);
+function initializeWebSocket(roomId, handleMessage) {
+  const socket = new WebSocket(`wss://${window.location.host}`);
+
+  socket.onopen = () => {
+    const user = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
+    socket.send(JSON.stringify({
+      type: 'join',
+      user: user,
+      roomId: roomId,
+    }));
+  };
+
+  socket.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
+  };
+
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
+}
 function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
