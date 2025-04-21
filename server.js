@@ -61,9 +61,12 @@ wss.on('connection', function connection(ws) {
             selectedStory: null,
           };
         }
-
+ // Prevent duplicate connections from same user
+  if (!roomData[roomId].users.includes(user)) {
+    roomData[roomId].users.push(user);
+  }
         rooms[roomId].push(ws);
-        roomData[roomId].users.push(user);
+       // roomData[roomId].users.push(user);
 
         console.log(`User ${user} joined room ${roomId}`);
 
@@ -78,15 +81,15 @@ wss.on('connection', function connection(ws) {
           ws.send(JSON.stringify({
             type: 'storyChange',
             story: roomData[roomId].selectedStory,
-            index: index || 0,
+            index: 0,
           }));
         }
 
-        const currentVotes = roomData[roomId].votesByStory[roomData[roomId].selectedStory] || {};
+        const votes = roomData[roomId].votesByStory[roomData[roomId].selectedStory] || {};
         ws.send(JSON.stringify({
           type: 'voteUpdate',
           story: roomData[roomId].selectedStory,
-          votes: currentVotes,
+          votes,
         }));
       }
 
@@ -124,25 +127,30 @@ wss.on('connection', function connection(ws) {
     }
   });
 
-  ws.on('close', () => {
-    const roomId = ws.roomId;
-    const user = ws.user;
+ws.on('close', () => {
+  const roomId = ws.roomId;
+  const user = ws.user;
 
-    if (roomId && rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(client => client !== ws);
-      if (roomData[roomId]) {
-        roomData[roomId].users = roomData[roomId].users.filter(u => u !== user);
-      }
+  if (roomId && rooms[roomId]) {
+    // Remove WebSocket connection from room
+    rooms[roomId] = rooms[roomId].filter(client => client !== ws);
 
-      broadcastToRoom(roomId, {
-        type: 'userList',
-        users: roomData[roomId]?.users || [],
-      });
-
-      console.log(`User ${user} left room ${roomId}`);
+    // Remove username from user list (if no other WS clients from same user)
+    const otherSocketsWithSameUser = rooms[roomId].some(client => client.user === user);
+    if (!otherSocketsWithSameUser && roomData[roomId]) {
+      roomData[roomId].users = roomData[roomId].users.filter(u => u !== user);
     }
-  });
+
+    // Broadcast new user list
+    broadcastToRoom(roomId, {
+      type: 'userList',
+      users: roomData[roomId]?.users || [],
+    });
+
+    console.log(`User ${user} left room ${roomId}`);
+  }
 });
+
 
 function broadcastToRoom(roomId, message) {
   if (!rooms[roomId]) return;
