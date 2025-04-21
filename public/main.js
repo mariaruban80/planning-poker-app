@@ -20,7 +20,9 @@ function ensureRoomId() {
 
 const currentRoomId = ensureRoomId();
 
+// Initialize WebSocket connection
 initializeWebSocket(currentRoomId, handleMessage);
+
 function initializeWebSocket(roomId, handleMessage) {
   const socket = new WebSocket(`wss://${window.location.host}`);
 
@@ -43,6 +45,7 @@ function initializeWebSocket(roomId, handleMessage) {
     console.error('WebSocket error:', error);
   };
 }
+
 function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
@@ -51,18 +54,28 @@ function handleMessage(msg) {
       break;
 
     case 'voteUpdate':
-      storyVotesByUser[msg.story] = msg.votes; // update the votes for the story
-      renderUsers(); // re-render the votes and users
+      // Update the votes for the story and re-render
+      storyVotesByUser[msg.story] = msg.votes;
+      renderUsers();
       break;
 
     case 'storyChange':
-      selectedStory = msg.story; // change the story in question
-      currentStoryIndex = msg.index; // update the index of the current story
-      renderUsers(); // re-render story and votes
+      // Update the selected story and current story index
+      selectedStory = msg.story;
+      currentStoryIndex = msg.index;
+      renderUsers(); // re-render with the new story
       break;
+
+    case 'userJoined':
+      // Update users when a new user joins
+      users.push(msg.user);
+      renderUsers();
+      break;
+
+    default:
+      console.warn('Unknown message type:', msg.type);
   }
 }
-
 
 function renderUsers() {
   app.innerHTML = `
@@ -70,10 +83,15 @@ function renderUsers() {
     <h3>Users:</h3>
     <ul>${users.map(user => `<li>${user}</li>`).join('')}</ul>
     <p><strong>Selected story:</strong> ${selectedStory || "None"}</p>
+    <div>
+      ${selectedStory ? `<strong>Votes for ${selectedStory}:</strong>
+        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>` 
+        : 'No story selected'}
+    </div>
   `;
 }
 
-// Example vote update on timer (for demo)
+// Update vote after a timeout (this is just for demo purposes)
 setTimeout(() => {
   selectedStory = 'Story A';
   storyVotesByUser[selectedStory] = { [getUserId()]: '5' };
@@ -82,3 +100,25 @@ setTimeout(() => {
     votes: storyVotesByUser[selectedStory]
   });
 }, 3000);
+
+// Broadcast user votes when updated
+function updateVote(story, vote) {
+  storyVotesByUser[story] = {
+    ...storyVotesByUser[story],
+    [getUserId()]: vote
+  };
+  sendMessage('voteUpdate', {
+    story: story,
+    votes: storyVotesByUser[story]
+  });
+}
+
+// Change selected story
+function changeStory(story, index) {
+  selectedStory = story;
+  currentStoryIndex = index;
+  sendMessage('storyChange', {
+    story: story,
+    index: index
+  });
+}
