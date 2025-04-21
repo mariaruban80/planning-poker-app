@@ -5,7 +5,6 @@ const http = require('http');
 
 const rooms = {};
 
-// 📦 Serve static files from public/
 const server = http.createServer((req, res) => {
   let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
   const ext = path.extname(filePath);
@@ -17,14 +16,29 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      res.writeHead(404);
-      res.end('Not Found');
+      // ✅ fallback to index.html for client-side routing (e.g., /room/xyz)
+      if (!ext) {
+        fs.readFile(path.join(__dirname, 'public', 'index.html'), (error, indexContent) => {
+          if (error) {
+            res.writeHead(500);
+            res.end('Error loading index.html');
+          } else {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(indexContent);
+          }
+        });
+      } else {
+        res.writeHead(404);
+        res.end('Not Found');
+      }
     } else {
       res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
       res.end(content);
     }
   });
 });
+
+
 
 // ✅ Add this for Render HTTP port check
 //const server = http.createServer((req, res) => {
