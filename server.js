@@ -150,7 +150,7 @@ ws.on('close', () => {
     console.log(`User ${user} left room ${roomId}`);
   }
 });
-
+}};
 
 function broadcastToRoom(roomId, message) {
   if (!rooms[roomId]) return;
