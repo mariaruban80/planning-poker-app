@@ -1,16 +1,24 @@
-// socket.js
 let socket;
+let currentRoomId = null;
+let userName = null;
 
+const rooms = {}; // In-memory storage of rooms and their data
+
+// Function to initialize WebSocket connection and join a room
 export function initializeWebSocket(roomId, handleMessage) {
   // Establish WebSocket connection
   socket = new WebSocket(`wss://${window.location.host}`);
 
   socket.onopen = () => {
+    // Store the current room ID
+    currentRoomId = roomId;
+    // Generate or prompt user for a unique name
+    userName = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
+    
     // Send the 'join' message with the user and roomId
-    const user = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
     socket.send(JSON.stringify({
       type: 'join',
-      user: user,
+      user: userName,
       roomId: roomId,
     }));
   };
@@ -25,13 +33,96 @@ export function initializeWebSocket(roomId, handleMessage) {
   };
 }
 
+// Function to send messages to the WebSocket server
 export function sendMessage(type, data) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type, ...data }));
   }
 }
 
+// Function to get the current user's ID (e.g., their name)
 export function getUserId() {
-  // Return some unique ID, e.g., username or a random ID
-  return `User-${Math.floor(Math.random() * 1000)}`;
+  return userName;
+}
+
+// Handle server messages and update room data
+function handleRoomData(msg) {
+  switch (msg.type) {
+    case 'userList':
+      // Update the list of users in the current room
+      if (!rooms[currentRoomId]) {
+        rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
+      }
+      rooms[currentRoomId].users = msg.users; // Update the users list
+      break;
+
+    case 'voteUpdate':
+      // Update the votes for the selected story in the current room
+      if (!rooms[currentRoomId]) {
+        rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
+      }
+      rooms[currentRoomId].storyVotesByUser[msg.story] = msg.votes;
+      break;
+
+    case 'storyChange':
+      // Update the selected story in the current room
+      if (!rooms[currentRoomId]) {
+        rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
+      }
+      rooms[currentRoomId].selectedStory = msg.story;
+      break;
+
+    case 'userJoined':
+      // Add a new user to the list of users in the current room
+      if (!rooms[currentRoomId]) {
+        rooms[currentRoomId] = { users: [], storyVotesByUser: {}, selectedStory: null };
+      }
+      rooms[currentRoomId].users.push(msg.user);
+      break;
+
+    default:
+      console.warn('Unknown message type:', msg.type);
+  }
+}
+
+// Listen to room-specific data and notify all users in the room
+function broadcastRoomData() {
+  if (rooms[currentRoomId]) {
+    const roomData = rooms[currentRoomId];
+    // Broadcast user list, story votes, and selected story to all clients in the room
+    sendMessage('userList', { users: roomData.users });
+    sendMessage('voteUpdate', {
+      story: roomData.selectedStory,
+      votes: roomData.storyVotesByUser[roomData.selectedStory] || {},
+    });
+    sendMessage('storyChange', {
+      story: roomData.selectedStory,
+      index: roomData.selectedStory ? Object.keys(roomData.storyVotesByUser).indexOf(roomData.selectedStory) : 0,
+    });
+  }
+}
+
+// For updating user votes on a story in the room
+export function updateVote(story, vote) {
+  if (rooms[currentRoomId]) {
+    if (!rooms[currentRoomId].storyVotesByUser[story]) {
+      rooms[currentRoomId].storyVotesByUser[story] = {};
+    }
+    rooms[currentRoomId].storyVotesByUser[story][userName] = vote;
+    sendMessage('voteUpdate', {
+      story: story,
+      votes: rooms[currentRoomId].storyVotesByUser[story],
+    });
+  }
+}
+
+// For changing the selected story in the room
+export function changeStory(story) {
+  if (rooms[currentRoomId]) {
+    rooms[currentRoomId].selectedStory = story;
+    sendMessage('storyChange', {
+      story: story,
+      index: Object.keys(rooms[currentRoomId].storyVotesByUser).indexOf(story),
+    });
+  }
 }
