@@ -3,10 +3,10 @@ const http = require('http');
 
 const rooms = {};
 
-// Add HTTP response
+// ✅ Add this for Render HTTP port check
 const server = http.createServer((req, res) => {
   res.writeHead(200);
-  res.end('WebSocket server is running');
+  res.end('WebSocket server is live');
 });
 
 const wss = new WebSocket.Server({ server });
