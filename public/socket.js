@@ -25,18 +25,22 @@ export function initializeWebSocket(roomId, handleMessage) {
 
   socket.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-     switch (message.type) {
+     switch (msg.type) {
     case 'userList':
-      updateUserList(message.users);
+      updateUserList(msg.users);
       break;
 
     case 'voteUpdate':
       // existing logic
+          handleRoomData(msg);
       break;
 
     case 'storyChange':
       // existing logic
+          handleRoomData(msg);
       break;
+             default:
+      console.warn('Unknown message type:', msg.type);
   }
     //handleMessage(msg);
   };
