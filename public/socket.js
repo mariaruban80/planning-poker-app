@@ -25,7 +25,20 @@ export function initializeWebSocket(roomId, handleMessage) {
 
   socket.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    handleMessage(msg);
+     switch (message.type) {
+    case 'userList':
+      updateUserList(message.users);
+      break;
+
+    case 'voteUpdate':
+      // existing logic
+      break;
+
+    case 'storyChange':
+      // existing logic
+      break;
+  }
+    //handleMessage(msg);
   };
 
   socket.onerror = (error) => {
@@ -108,7 +121,16 @@ function broadcastRoomData() {
     });
   }
 }
+function updateUserList(users) {
+  const container = document.getElementById('user-list'); // example element
+  container.innerHTML = '';
 
+  users.forEach(user => {
+    const div = document.createElement('div');
+    div.textContent = user;
+    container.appendChild(div);
+  });
+}
 // For updating user votes on a story in the room
 export function updateVote(story, vote) {
   if (rooms[currentRoomId]) {
