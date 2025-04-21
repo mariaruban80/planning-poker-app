@@ -1,41 +1,37 @@
 // socket.js
-
 let socket;
-let userId;
-let roomId;
-let onMessageCallback = () => {};
 
-export const initializeWebSocket = (currentRoomId, messageHandler) => {
-  roomId = currentRoomId;
-  userId = "User" + Math.floor(Math.random() * 10000);
-  onMessageCallback = messageHandler;
-
-  socket = new WebSocket('wss://your-app-name.onrender.com'); // Change this
+export function initializeWebSocket(roomId, handleMessage) {
+  // Establish WebSocket connection
+  socket = new WebSocket(`wss://${window.location.host}`);
 
   socket.onopen = () => {
+    // Send the 'join' message with the user and roomId
+    const user = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
     socket.send(JSON.stringify({
-      type: "join",
-      user: userId,
-      roomId
+      type: 'join',
+      user: user,
+      roomId: roomId,
     }));
-    console.log(`Joined room ${roomId} as ${userId}`);
   };
 
   socket.onmessage = (event) => {
-    const message = JSON.parse(event.data);
-    if (typeof onMessageCallback === 'function') {
-      onMessageCallback(message);
-    }
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
   };
 
-  socket.onerror = (error) => console.error('WebSocket error:', error);
-  socket.onclose = () => console.log('WebSocket closed');
-};
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
+}
 
-export const sendMessage = (type, payload = {}) => {
+export function sendMessage(type, data) {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type, user: userId, roomId, ...payload }));
+    socket.send(JSON.stringify({ type, ...data }));
   }
-};
+}
 
-export const getUserId = () => userId;
+export function getUserId() {
+  // Return some unique ID, e.g., username or a random ID
+  return `User-${Math.floor(Math.random() * 1000)}`;
+}
