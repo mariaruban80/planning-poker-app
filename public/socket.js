@@ -7,7 +7,8 @@ const rooms = {}; // In-memory storage of rooms and their data
 // Function to initialize WebSocket connection and join a room
 export function initializeWebSocket(roomId, handleMessage) {
   // Establish WebSocket connection
-  socket = new WebSocket(`wss://${window.location.host}`);
+//  socket = new WebSocket(`wss://${window.location.host}`);
+  socket = new WebSocket(`wss://https://planning-poker-app-1.onrender.com`);
 
   socket.onopen = () => {
     currentRoomId = roomId;
