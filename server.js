@@ -55,18 +55,22 @@ wss.on('connection', function connection(ws) {
       const { type, user, roomId, ...rest } = msg;
 
       if (type === 'join') {
-        ws.user = user;
-        ws.roomId = roomId;
+        ws.user = user;  // Store the user who joined
+        ws.roomId = roomId;  // Store the room ID for the current user
 
-        if (!rooms[roomId]) rooms[roomId] = [];
-        rooms[roomId].push(ws);
+        if (!rooms[roomId]) rooms[roomId] = [];  // Initialize the room if not already
+        rooms[roomId].push(ws);  // Add the user to the room
 
+        console.log(`User ${user} joined room: ${roomId}`);
+
+        // Broadcast updated user list to all clients in the room
         broadcastToRoom(roomId, {
           type: 'userList',
           users: rooms[roomId].map(client => client.user),
         });
       }
 
+      // Handle vote updates
       if (['voteUpdate', 'storyChange'].includes(type)) {
         broadcastToRoom(roomId, { type, user, ...rest });
       }
@@ -76,13 +80,14 @@ wss.on('connection', function connection(ws) {
     }
   });
 
+  // Handle WebSocket closure (remove user from the room)
   ws.on('close', () => {
     const roomId = ws.roomId;
     if (roomId && rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(client => client !== ws);
+      rooms[roomId] = rooms[roomId].filter(client => client !== ws);  // Remove user
       broadcastToRoom(roomId, {
         type: 'userList',
-        users: rooms[roomId].map(client => client.user),
+        users: rooms[roomId].map(client => client.user),  // Update user list
       });
     }
   });
@@ -97,6 +102,8 @@ function broadcastToRoom(roomId, message) {
     }
   });
 }
+
+
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
