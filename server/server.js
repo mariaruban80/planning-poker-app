@@ -57,6 +57,8 @@ function broadcastToRoom(roomId, message) {
 }
 
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log(`WebSocket server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+console.log(`Server listening on ${PORT}`);
+ 
 });
+
