@@ -1,13 +1,36 @@
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 
 const rooms = {};
 
-// ✅ Add this for Render HTTP port check
+// 📦 Serve static files from public/
 const server = http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('WebSocket server is live');
+  let filePath = path.join(__dirname, 'client', req.url === '/' ? 'index.html' : req.url);
+  const ext = path.extname(filePath);
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+  };
+
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(404);
+      res.end('Not Found');
+    } else {
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+      res.end(content);
+    }
+  });
 });
+
+// ✅ Add this for Render HTTP port check
+//const server = http.createServer((req, res) => {
+  // res.writeHead(200);
+  //res.end('WebSocket server is live');
+//});
 
 const wss = new WebSocket.Server({ server });
 
