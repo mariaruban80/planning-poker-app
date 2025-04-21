@@ -7,7 +7,7 @@ const rooms = {};
 
 // 📦 Serve static files from public/
 const server = http.createServer((req, res) => {
-  let filePath = path.join(__dirname, 'client', req.url === '/' ? 'index.html' : req.url);
+  let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
   const ext = path.extname(filePath);
   const mimeTypes = {
     '.html': 'text/html',
