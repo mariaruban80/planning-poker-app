@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-const rooms = {};
+const roomData = {}; // Holds state per room { roomId: { users: [], votes: {}, selectedStory: '' } }
 
 const server = http.createServer((req, res) => {
   let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
@@ -16,7 +16,6 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      // ✅ fallback to index.html for client-side routing (e.g., /room/xyz)
       if (!ext) {
         fs.readFile(path.join(__dirname, 'public', 'index.html'), (error, indexContent) => {
           if (error) {
@@ -38,43 +37,86 @@ const server = http.createServer((req, res) => {
   });
 });
 
-
-
-// ✅ Add this for Render HTTP port check
-//const server = http.createServer((req, res) => {
-  // res.writeHead(200);
-  //res.end('WebSocket server is live');
-//});
-
 const wss = new WebSocket.Server({ server });
+
+// Track which clients belong to which rooms
+const rooms = {}; // { roomId: [ws1, ws2, ...] }
 
 wss.on('connection', function connection(ws) {
   ws.on('message', function incoming(message) {
     try {
       const msg = JSON.parse(message);
-      const { type, user, roomId, ...rest } = msg;
+      const { type, user, roomId, story, votes, index } = msg;
 
+      // Handle user joining
       if (type === 'join') {
-        ws.user = user;  // Store the user who joined
-        ws.roomId = roomId;  // Store the room ID for the current user
-        console.log(`Received join message: ${user} joined ${roomId}`);
+        ws.user = user;
+        ws.roomId = roomId;
 
-        if (!rooms[roomId]) rooms[roomId] = [];  // Initialize the room if not already
-        rooms[roomId].push(ws);  // Add the user to the room
-         console.log(`Current users in ${roomId}:`, rooms[roomId].map(client => client.user));
+        if (!rooms[roomId]) rooms[roomId] = [];
+        if (!roomData[roomId]) {
+          roomData[roomId] = {
+            users: [],
+            votesByStory: {},
+            selectedStory: null,
+          };
+        }
 
-     //   console.log(`User ${user} joined room: ${roomId}`);
+        rooms[roomId].push(ws);
+        roomData[roomId].users.push(user);
 
-        // Broadcast updated user list to all clients in the room
+        console.log(`User ${user} joined room ${roomId}`);
+
+        // Notify others in the room
         broadcastToRoom(roomId, {
           type: 'userList',
-          users: rooms[roomId].map(client => client.user),
+          users: roomData[roomId].users,
+        });
+
+        // Also send current state (if any) to new user
+        if (roomData[roomId].selectedStory) {
+          ws.send(JSON.stringify({
+            type: 'storyChange',
+            story: roomData[roomId].selectedStory,
+            index: index || 0,
+          }));
+        }
+
+        const currentVotes = roomData[roomId].votesByStory[roomData[roomId].selectedStory] || {};
+        ws.send(JSON.stringify({
+          type: 'voteUpdate',
+          story: roomData[roomId].selectedStory,
+          votes: currentVotes,
+        }));
+      }
+
+      // Handle vote update
+      if (type === 'voteUpdate') {
+        if (!roomData[roomId].votesByStory[story]) {
+          roomData[roomId].votesByStory[story] = {};
+        }
+
+        roomData[roomId].votesByStory[story] = {
+          ...roomData[roomId].votesByStory[story],
+          ...votes,
+        };
+
+        broadcastToRoom(roomId, {
+          type: 'voteUpdate',
+          story,
+          votes: roomData[roomId].votesByStory[story],
         });
       }
 
-      // Handle vote updates
-      if (['voteUpdate', 'storyChange'].includes(type)) {
-        broadcastToRoom(roomId, { type, user, ...rest });
+      // Handle story change
+      if (type === 'storyChange') {
+        roomData[roomId].selectedStory = story;
+
+        broadcastToRoom(roomId, {
+          type: 'storyChange',
+          story,
+          index: index || 0,
+        });
       }
 
     } catch (e) {
@@ -82,15 +124,22 @@ wss.on('connection', function connection(ws) {
     }
   });
 
-  // Handle WebSocket closure (remove user from the room)
   ws.on('close', () => {
     const roomId = ws.roomId;
+    const user = ws.user;
+
     if (roomId && rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(client => client !== ws);  // Remove user
+      rooms[roomId] = rooms[roomId].filter(client => client !== ws);
+      if (roomData[roomId]) {
+        roomData[roomId].users = roomData[roomId].users.filter(u => u !== user);
+      }
+
       broadcastToRoom(roomId, {
         type: 'userList',
-        users: rooms[roomId].map(client => client.user),  // Update user list
+        users: roomData[roomId]?.users || [],
       });
+
+      console.log(`User ${user} left room ${roomId}`);
     }
   });
 });
@@ -104,8 +153,6 @@ function broadcastToRoom(roomId, message) {
     }
   });
 }
-
-
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
