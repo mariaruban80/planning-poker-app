@@ -31,6 +31,7 @@ function initializeWebSocket(roomId, handleMessage) {
       user: user,
       roomId: roomId,
     }));
+    console.log(`Sent join message: ${user} joined ${roomId}`);
   };
 
   socket.onmessage = (event) => {
