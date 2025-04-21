@@ -57,11 +57,13 @@ wss.on('connection', function connection(ws) {
       if (type === 'join') {
         ws.user = user;  // Store the user who joined
         ws.roomId = roomId;  // Store the room ID for the current user
+        console.log(`Received join message: ${user} joined ${roomId}`);
 
         if (!rooms[roomId]) rooms[roomId] = [];  // Initialize the room if not already
         rooms[roomId].push(ws);  // Add the user to the room
+         console.log(`Current users in ${roomId}:`, rooms[roomId].map(client => client.user));
 
-        console.log(`User ${user} joined room: ${roomId}`);
+     //   console.log(`User ${user} joined room: ${roomId}`);
 
         // Broadcast updated user list to all clients in the room
         broadcastToRoom(roomId, {
