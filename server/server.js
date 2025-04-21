@@ -3,7 +3,12 @@ const http = require('http');
 
 const rooms = {};
 
-const server = http.createServer();
+// Add HTTP response
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('WebSocket server is running');
+});
+
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', function connection(ws) {
@@ -58,7 +63,5 @@ function broadcastToRoom(roomId, message) {
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
-console.log(`Server listening on ${PORT}`);
- 
+  console.log(`Server listening on ${PORT}`);
 });
-
