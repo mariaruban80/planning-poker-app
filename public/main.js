@@ -21,24 +21,26 @@ function ensureRoomId() {
 const currentRoomId = ensureRoomId();
 
 initializeWebSocket(currentRoomId, handleMessage);
-
 function handleMessage(msg) {
   switch (msg.type) {
-    case "userList":
-      users = msg.users;
-      renderUsers();
+    case 'userList':
+      users = msg.users; // update the list of users
+      renderUsers(); // re-render the user list
       break;
-    case "voteUpdate":
-      storyVotesByUser[msg.story] = msg.votes;
-      renderUsers();
+
+    case 'voteUpdate':
+      storyVotesByUser[msg.story] = msg.votes; // update the votes for the story
+      renderUsers(); // re-render the votes and users
       break;
-    case "storyChange":
-      selectedStory = msg.story;
-      currentStoryIndex = msg.index;
-      renderUsers();
+
+    case 'storyChange':
+      selectedStory = msg.story; // change the story in question
+      currentStoryIndex = msg.index; // update the index of the current story
+      renderUsers(); // re-render story and votes
       break;
   }
 }
+
 
 function renderUsers() {
   app.innerHTML = `
