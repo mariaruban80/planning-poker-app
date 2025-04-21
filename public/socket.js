@@ -1,7 +1,7 @@
 let socket;
 let currentRoomId = null;
 let userName = null;
-
+let userId = null;
 const rooms = {}; // In-memory storage of rooms and their data
 
 // Function to initialize WebSocket connection and join a room
@@ -42,7 +42,14 @@ export function sendMessage(type, data) {
 
 // Function to get the current user's ID (e.g., their name)
 export function getUserId() {
-  return userName;
+  if (!userId) {
+    userId = sessionStorage.getItem('userId');
+    if (!userId) {
+      userId = `User-${Math.floor(Math.random() * 10000)}`;
+      sessionStorage.setItem('userId', userId);
+    }
+  }
+  return userId;
 }
 
 // Handle server messages and update room data
