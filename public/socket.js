@@ -25,25 +25,31 @@ export function initializeWebSocket(roomId, handleMessage) {
 
   socket.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-     switch (msg.type) {
-    case 'userList':
-      updateUserList(msg.users);
-      break;
-
-    case 'voteUpdate':
-      // existing logic
-          handleRoomData(msg);
-      break;
-
-    case 'storyChange':
-      // existing logic
-          handleRoomData(msg);
-      break;
-             default:
-      console.warn('Unknown message type:', msg.type);
+     handleRoomData(msg);
+      if (msg.type === 'userList') {
+    updateUserList(msg.users);
   }
+};
+
+ //    switch (msg.type) {
+  //  case 'userList':
+   //   updateUserList(msg.users);
+    //  break;
+
+    //case 'voteUpdate':
+      // existing logic
+      //    handleRoomData(msg);
+      //break;
+
+    //case 'storyChange':
+      // existing logic
+      //    handleRoomData(msg);
+      //break;
+        //     default:
+      //console.warn('Unknown message type:', msg.type);
+  //}
     //handleMessage(msg);
-  };
+  //};
 
   socket.onerror = (error) => {
     console.error('WebSocket error:', error);
