@@ -7,6 +7,15 @@ let currentStoryIndex = 0;
 let currentUser = null;
 
 const app = document.getElementById('app');
+// Function to submit the user's name
+window.submitName = function () {
+  const userName = document.getElementById('userName').value;
+  if (userName) {
+    currentUser = userName; // Store the entered name
+    sendMessage('userJoin', { userName }); // Send the name to the server
+    document.getElementById('nameInput').style.display = 'none'; // Hide name input field
+  }
+};
 
 function ensureRoomId() {
   const url = new URL(window.location.href);
