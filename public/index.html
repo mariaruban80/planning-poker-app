@@ -184,7 +184,33 @@
 </head>
 <body>
   <div class="banner">Planning Poker</div>
+<div id="app">
+  <!-- Room Details -->
+  <h2>Room: <span id="roomId"></span></h2>
+  
+  <!-- List of Users -->
+  <h3>Users:</h3>
+  <ul id="userList">
+    <!-- Users will be rendered here dynamically -->
+  </ul>
 
+  <!-- Other sections for story voting, file upload, etc. -->
+  <div id="storySection">
+    <!-- Story-related UI here -->
+  </div>
+
+  <!-- Add Member Modal (if not already in the HTML) -->
+  <div id="addMemberModal" style="display: none;">
+    <div class="modal-content">
+      <h3>Enter your name:</h3>
+      <form id="addMemberForm">
+        <input type="text" id="userNameInput" placeholder="Your Name" required />
+        <button type="submit">Join Room</button>
+      </form>
+    </div>
+  </div>
+</div>
+  
   <div class="upload-section">
     <div class="upload-right">
       <input type="file" id="csvInput" accept=".csv" />
