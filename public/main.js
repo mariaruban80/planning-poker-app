@@ -61,6 +61,11 @@ function handleMessage(msg) {
       renderFileUpload();
       break;
 
+      case 'userList':
+      users = msg.users;
+      renderUserList(); // Function to render user list
+      break;
+
     default:
       console.warn('Unknown message type:', msg.type);
   }
@@ -68,8 +73,9 @@ function handleMessage(msg) {
 
 // Render Users
 function renderUsers() {
-  const userList = document.getElementById("userList");
-  userList.innerHTML = ''; // Clear the current list
+  const userListContainer = document.getElementById('userList');
+  userListContainer.innerHTML = users.map(user => `<li>${user}</li>`).join('');
+
   users.forEach(user => {
     const div = document.createElement("div");
     div.textContent = user;
