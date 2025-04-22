@@ -326,6 +326,27 @@ display: flex; /* Aligning the children horizontally */
 
   // Example usage: pass roomId to server if needed
   // socket.send(JSON.stringify({ type: "join", user: userId, roomId: currentRoomId }));
+const socket = new WebSocket("ws://your-server-url");
+
+socket.addEventListener("open", () => {
+  socket.send(JSON.stringify({ type: "join", roomId: currentRoomId, user: userName }));
+});
+
+socket.addEventListener("message", event => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === "users-update") {
+    users = data.users;
+    renderUsers();
+  }
+
+  if (data.type === "votes-update") {
+    storyVotesByUser = data.votes;
+    renderUsers();
+  }
+});
+
+  
 </script>
 
 <script>
