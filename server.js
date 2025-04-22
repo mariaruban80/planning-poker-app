@@ -57,7 +57,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, path: '/ws' });
 
 wss.on('connection', (ws) => {
   ws.on('message', (message) => {
