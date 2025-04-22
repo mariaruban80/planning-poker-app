@@ -1,104 +1,150 @@
+import { initializeWebSocket, sendMessage, getUserId } from './socket.js';
+
+let users = [];
+let storyVotesByUser = {};
+let selectedStory = null;
+let currentStoryIndex = 0;
+let currentUser = null;
+
+const app = document.getElementById('app');
+
+// Ensure a valid roomId, or generate one if necessary
+function ensureRoomId() {
+  const url = new URL(window.location.href);
+  let roomId = url.searchParams.get("roomId");
+  if (!roomId) {
+    roomId = 'room-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+    url.searchParams.set("roomId", roomId);
+    window.history.replaceState({}, '', url);
+  }
+  return roomId;
+}
+
+const currentRoomId = ensureRoomId();
+initializeWebSocket(currentRoomId, handleMessage);
+
+// Handle WebSocket messages
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'userList':
+      users = msg.users;
+      renderUI();
+      break;
+
+    case 'voteUpdate':
+      storyVotesByUser[msg.story] = msg.votes;
+      renderUI();
+      break;
+
+    case 'storyChange':
+      selectedStory = msg.story;
+      currentStoryIndex = msg.index;
+      renderUI();
+      break;
+
+    case 'revealVotes':
+      alert('Votes revealed!');
+      renderUI(); // already uses storyVotesByUser
+      break;
+
+    default:
+      console.warn('Unknown message type:', msg.type);
+  }
+}
+
+// Render the UI dynamically based on the latest state
 function renderUI() {
-  const roomId = getRoomId(); // Get the current room ID
-  const user = getUserId(); // Get the current user ID
-  const currentStory = getCurrentStory(); // Get the current selected story
-  
-  // Render the user list
-  renderUserList(roomId);
+  app.innerHTML = `
+    <h2>Room: ${currentRoomId}</h2>
+    <h3>Users:</h3>
+    <ul>${users.map(user => `<li>${user}</li>`).join('')}</ul>
+    
+    <div>
+      <label>Selected Story: </label>
+      <input type="text" id="storyInput" value="${selectedStory || ''}" placeholder="Enter story..." />
+      <button onclick="window.changeStory()">Set Story</button>
+    </div>
 
-  // Render the stories palette (ensure it shows the available stories)
-  renderStoryPalette();
+    <div>
+      ${selectedStory ? ` 
+        <p><strong>Votes for ${selectedStory}:</strong></p>
+        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
+        <label>Your Vote:</label>
+        <input type="text" id="voteInput" placeholder="Enter your vote" />
+        <button onclick="window.submitVote()">Submit Vote</button>
+      ` : '<p>No story selected.</p>'}
+    </div>
 
-  // Render the selected story and its votes
-  if (currentStory) {
-    renderStory(currentStory);
-    renderVotes(currentStory);
-  }
-  
-  // Render the file upload UI
-  renderFileUploadUI(roomId);
+    <div>
+      <button onclick="window.revealVotes()">Reveal Votes</button>
+      <button onclick="window.resetVotes()">Reset Votes</button>
+    </div>
 
-  // Other UI updates, such as voting buttons and other controls
+    <hr />
+    <h3>Upload File:</h3>
+    <form id="uploadForm">
+      <input type="file" name="storyFile" />
+      <button type="submit">Upload</button>
+    </form>
+  `;
+
+  // Add event listener to handle file upload
+  document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
 }
 
-function renderUserList(roomId) {
-  const userListElement = document.getElementById('userList');
-  if (!userListElement) return;
+// Interaction functions for story change, vote submission, and revealing votes
 
-  // Get the current user list from the server (via socket event or saved state)
-  socket.on('userList', ({ users }) => {
-    // Clear the current list and append the updated list of users
-    userListElement.innerHTML = '';
-    users.forEach(user => {
-      const userElement = document.createElement('div');
-      userElement.textContent = user;
-      userListElement.appendChild(userElement);
+window.changeStory = function () {
+  const story = document.getElementById('storyInput').value;
+  if (story) {
+    selectedStory = story;
+    storyVotesByUser[story] = storyVotesByUser[story] || {};
+    sendMessage('storyChange', { story, index: 0 });
+  }
+};
+
+window.submitVote = function () {
+  const vote = document.getElementById('voteInput').value;
+  if (selectedStory && vote) {
+    storyVotesByUser[selectedStory] = {
+      ...storyVotesByUser[selectedStory],
+      [getUserId()]: vote
+    };
+    sendMessage('voteUpdate', {
+      story: selectedStory,
+      votes: storyVotesByUser[selectedStory]
     });
-  });
-}
-
-function renderStoryPalette() {
-  const storyPalette = document.getElementById('storyPalette');
-  if (!storyPalette) return;
-
-  // Clear the current stories and add new ones
-  storyPalette.innerHTML = '';
-
-  // Get the available stories (from a predefined list or a server-side list)
-  const availableStories = ['Story 1', 'Story 2', 'Story 3', 'Story 4']; // Example
-
-  availableStories.forEach(story => {
-    const storyButton = document.createElement('button');
-    storyButton.textContent = story;
-    storyButton.onclick = () => selectStory(story);
-    storyPalette.appendChild(storyButton);
-  });
-}
-
-function renderStory(story) {
-  const storyElement = document.getElementById('selectedStory');
-  if (!storyElement) return;
-
-  storyElement.textContent = `Selected Story: ${story}`;
-}
-
-function renderVotes(story) {
-  const votesElement = document.getElementById('voteDisplay');
-  if (!votesElement) return;
-
-  // Get the current votes for the story
-  socket.emit('voteUpdate', { story, votes: getVotesForStory(story) });
-
-  // Here you can dynamically update the votes UI based on the current state
-  // (e.g., updating the vote display with users' votes)
-}
-
-function renderFileUploadUI(roomId) {
-  const uploadButton = document.getElementById('uploadButton');
-  if (!uploadButton) return;
-
-  uploadButton.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Emit file upload event to the server
-      socket.emit('fileUploaded', { file, roomId });
-
-      // Show a message or update the UI with the uploaded file information
-      const fileNameDisplay = document.getElementById('fileNameDisplay');
-      fileNameDisplay.textContent = `Uploaded file: ${file.name}`;
-    }
-  });
-}
-
-// Ensure socket event listeners are correctly handling real-time updates
-socket.on('fileUploaded', ({ file }) => {
-  const fileNameDisplay = document.getElementById('fileNameDisplay');
-  if (fileNameDisplay) {
-    fileNameDisplay.textContent = `File uploaded: ${file.name}`;
   }
-});
+};
 
-socket.on('voteUpdate', ({ story, votes }) => {
-  // Update the votes UI dynamically whenever vote updates occur
-  renderVotes(story);
-});
+window.revealVotes = function () {
+  sendMessage('revealVotes', { roomId: currentRoomId });
+};
+
+window.resetVotes = function () {
+  if (selectedStory) {
+    storyVotesByUser[selectedStory] = {};
+    sendMessage('resetVotes', { story: selectedStory });
+  }
+};
+
+// File Upload Handler
+function handleFileUpload(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+
+  fetch('/upload', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      alert('File uploaded successfully!');
+      console.log('Uploaded file info:', data);
+    })
+    .catch(err => {
+      alert('Upload failed.');
+      console.error(err);
+    });
+}
