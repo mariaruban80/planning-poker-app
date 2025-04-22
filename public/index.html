@@ -569,7 +569,7 @@ updateStoryHighlights();
   window.addEventListener('DOMContentLoaded', () => {
     const stories = JSON.parse(localStorage.getItem('stories')) || [];
     loadStories(stories);
-initWebSocket();
+
     renderUsers();
   });
 function showInviteModal() {
