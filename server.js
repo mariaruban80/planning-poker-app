@@ -1,225 +1,95 @@
-const WebSocket = require('ws');
-const fs = require('fs');
-const path = require('path');
 const http = require('http');
-const { parse } = require('url');
-const formidable = require('formidable'); // Add this to handle file uploads
+const express = require('express');
+const { Server } = require('socket.io');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  }
+});
+
+// Serve static files from public folder
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Room state
 const roomData = {};
-const rooms = {}; // roomId: [ws1, ws2, ...]
 
-const server = http.createServer((req, res) => {
-  const parsedUrl = parse(req.url, true);
+io.on('connection', (socket) => {
+  socket.on('join', ({ user, roomId }) => {
+    socket.join(roomId);
+    socket.user = user;
+    socket.roomId = roomId;
 
-  // Handle file upload
-  if (req.method === 'POST' && parsedUrl.pathname === '/upload') {
-    const form = new formidable.IncomingForm({ uploadDir: path.join(__dirname, 'uploads'), keepExtensions: true });
+    if (!roomData[roomId]) {
+      roomData[roomId] = {
+        users: [],
+        votesByStory: {},
+        selectedStory: null
+      };
+    }
 
-    form.parse(req, (err, fields, files) => {
-      if (err) {
-        res.writeHead(500);
-        res.end('File upload error');
-        return;
-      }
+    if (!roomData[roomId].users.includes(user)) {
+      roomData[roomId].users.push(user);
+    }
 
-      // You can process or broadcast uploaded file info if needed
-      res.writeHead(200);
-      res.end(JSON.stringify({ fields, files }));
+    io.to(roomId).emit('userList', { users: roomData[roomId].users });
+
+    // Send story state if any
+    const story = roomData[roomId].selectedStory;
+    if (story) {
+      socket.emit('storyChange', { story });
+      socket.emit('voteUpdate', {
+        story,
+        votes: roomData[roomId].votesByStory[story] || {}
+      });
+    }
+  });
+
+  socket.on('storyChange', ({ story }) => {
+    const roomId = socket.roomId;
+    roomData[roomId].selectedStory = story;
+    io.to(roomId).emit('storyChange', { story });
+  });
+
+  socket.on('voteUpdate', ({ story, votes }) => {
+    const roomId = socket.roomId;
+    const prevVotes = roomData[roomId].votesByStory[story] || {};
+    roomData[roomId].votesByStory[story] = { ...prevVotes, ...votes };
+    io.to(roomId).emit('voteUpdate', {
+      story,
+      votes: roomData[roomId].votesByStory[story]
     });
-    return;
-  }
-
-  // Serve static files
-  let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
-  const ext = path.extname(filePath);
-  const mimeTypes = {
-    '.html': 'text/html',
-    '.js': 'application/javascript',
-    '.css': 'text/css',
-  };
-
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (!ext) {
-        fs.readFile(path.join(__dirname, 'public', 'index.html'), (error, indexContent) => {
-          res.writeHead(error ? 500 : 200, { 'Content-Type': 'text/html' });
-          res.end(error ? 'Error loading index.html' : indexContent);
-        });
-      } else {
-        res.writeHead(404);
-        res.end('Not Found');
-      }
-    } else {
-      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-      res.end(content);
-    }
-  });
-});
-
-const wss = new WebSocket.Server({ server, path: '/ws' });
-
-wss.on('connection', (ws) => {
-  ws.on('message', (message) => {
-    try {
-      const msg = JSON.parse(message);
-      const { type, user, roomId, story, votes, index } = msg;
-
-      switch (type) {
-        case 'join':
-          handleJoin(ws, user, roomId);
-          break;
-        case 'voteUpdate':
-          handleVoteUpdate(roomId, story, votes);
-          break;
-        case 'storyChange':
-          handleStoryChange(roomId, story, index);
-          break;
-        case 'revealVotes':
-          handleRevealVotes(roomId);
-          break;
-        case 'resetVotes':
-          handleResetVotes(roomId, story);
-          break;
-          case 'userJoin':
-            users.push(msg.userName);
-            broadcast({ type: 'userList', users });          
-          break;
-        default:
-          console.warn('Unhandled message type:', type);
-      }
-    } catch (e) {
-      console.error('Invalid message:', message);
-    }
   });
 
-  ws.on('close', () => handleDisconnect(ws));
-});
-
-// --- Event Handlers ---
-
-function handleJoin(ws, user, roomId) {
- if (type === 'join') { 
-  ws.user = user;
-  ws.roomId = roomId;
-
-  if (!rooms[roomId]) rooms[roomId] = [];
-  if (!roomData[roomId]) {
-    roomData[roomId] = {
-      users: [],
-      votesByStory: {},
-      selectedStory: null,
-    };
-  }
-
-  if (!roomData[roomId].users.includes(user)) {
-    roomData[roomId].users.push(user);
-  }
-
-  rooms[roomId].push(ws);
-
-  console.log(`User ${user} joined room ${roomId}`);
-
-  broadcastToRoom(roomId, {
-    type: 'userList',
-    users: roomData[roomId].users,
+  socket.on('revealVotes', () => {
+    const roomId = socket.roomId;
+    const story = roomData[roomId].selectedStory;
+    io.to(roomId).emit('revealVotes', {
+      story,
+      votes: roomData[roomId].votesByStory[story] || {}
+    });
   });
- }
-  const currentStory = roomData[roomId].selectedStory;
-  if (currentStory) {
-    ws.send(JSON.stringify({ type: 'storyChange', story: currentStory, index: 0 }));
 
-    const currentVotes = roomData[roomId].votesByStory[currentStory] || {};
-    ws.send(JSON.stringify({ type: 'voteUpdate', story: currentStory, votes: currentVotes }));
-  }
-}
-
-function handleVoteUpdate(roomId, story, votes) {
-  if (!roomData[roomId].votesByStory[story]) {
+  socket.on('resetVotes', ({ story }) => {
+    const roomId = socket.roomId;
     roomData[roomId].votesByStory[story] = {};
-  }
-
-  roomData[roomId].votesByStory[story] = {
-    ...roomData[roomId].votesByStory[story],
-    ...votes,
-  };
-
-  broadcastToRoom(roomId, {
-    type: 'voteUpdate',
-    story,
-    votes: roomData[roomId].votesByStory[story],
+    io.to(roomId).emit('voteUpdate', { story, votes: {} });
   });
-}
 
-function handleStoryChange(roomId, story, index) {
-  roomData[roomId].selectedStory = story;
-
-  broadcastToRoom(roomId, {
-    type: 'storyChange',
-    story,
-    index: index || 0,
-  });
-}
-
-function handleRevealVotes(roomId) {
-  const story = roomData[roomId].selectedStory;
-  const votes = roomData[roomId].votesByStory[story] || {};
-
-  broadcastToRoom(roomId, {
-    type: 'revealVotes',
-    story,
-    votes,
-  });
-}
-
-function handleResetVotes(roomId, story) {
-  if (roomData[roomId].votesByStory[story]) {
-    roomData[roomId].votesByStory[story] = {};
-  }
-
-  broadcastToRoom(roomId, {
-    type: 'voteUpdate',
-    story,
-    votes: {},
-  });
-}
-
-function handleDisconnect(ws) {
-  const roomId = ws.roomId;
-  const user = ws.user;
-
-  if (roomId && rooms[roomId]) {
-    rooms[roomId] = rooms[roomId].filter(client => client !== ws);
-
-    const userStillConnected = rooms[roomId].some(client => client.user === user);
-    if (!userStillConnected && roomData[roomId]) {
+  socket.on('disconnect', () => {
+    const roomId = socket.roomId;
+    const user = socket.user;
+    if (roomId && roomData[roomId]) {
       roomData[roomId].users = roomData[roomId].users.filter(u => u !== user);
-    }
-
-    broadcastToRoom(roomId, {
-      type: 'userList',
-      users: roomData[roomId]?.users || [],
-    });
-
-    console.log(`User ${user} left room ${roomId}`);
-  }
-}
-
-// --- Utility ---
-
-function broadcastToRoom(roomId, message) {
-  if (!rooms[roomId]) return;
-  const data = JSON.stringify(message);
-  rooms[roomId].forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+      io.to(roomId).emit('userList', { users: roomData[roomId].users });
     }
   });
-}
-
-// --- Start Server ---
+});
 
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
