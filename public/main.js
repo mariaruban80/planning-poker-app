@@ -35,7 +35,7 @@ function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
       users = msg.users;
-      renderUI();
+      renderUI(); // Re-render the UI when user list is updated
       break;
 
     case 'voteUpdate':
@@ -96,6 +96,7 @@ function renderUI() {
 
   document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
 }
+
 
 // --- Interaction Functions (bound to window so inline handlers work) ---
 
