@@ -6,7 +6,7 @@ const rooms = {}; // In-memory client cache
 
 // Initialize WebSocket connection
 export function initializeWebSocket(roomId, handleMessage) {
-  socket = new WebSocket(`wss://planning-poker-app-1.onrender.com`); // FIXED URL
+  socket = new WebSocket(`wss://planning-poker-app-2.onrender.com`); // FIXED URL
 
   socket.onopen = () => {
     currentRoomId = roomId;
@@ -36,12 +36,19 @@ export function initializeWebSocket(roomId, handleMessage) {
   socket.onerror = (error) => {
     console.error('WebSocket error:', error);
   };
+
+  socket.onclose = () => {
+    console.warn('WebSocket connection closed. Attempting to reconnect...');
+    setTimeout(() => initializeWebSocket(roomId, handleMessage), 5000); // Auto-reconnect after 5 seconds
+  };
 }
 
 // Send structured message
 export function sendMessage(type, data) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type, ...data }));
+  } else {
+    console.error('WebSocket not open, unable to send message');
   }
 }
 
