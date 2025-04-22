@@ -130,9 +130,9 @@ io.on('connection', (socket) => {
     if (users.length === 0) {
       delete roomData[roomId];
     }
-  });
 
-  console.log('A user disconnected:', socket.id);
+    console.log('A user disconnected:', socket.id);
+  });
 });
 
 // Start the server
