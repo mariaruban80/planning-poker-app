@@ -81,6 +81,10 @@ wss.on('connection', (ws) => {
         case 'resetVotes':
           handleResetVotes(roomId, story);
           break;
+          case 'userJoin':
+            users.push(msg.userName);
+            broadcast({ type: 'userList', users });          
+          break;
         default:
           console.warn('Unhandled message type:', type);
       }
