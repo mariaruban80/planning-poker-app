@@ -4,6 +4,7 @@ let users = [];
 let storyVotesByUser = {};
 let selectedStory = null;
 let currentStoryIndex = 0;
+let currentUser = null;
 
 const app = document.getElementById('app');
 
@@ -19,57 +20,29 @@ function ensureRoomId() {
 }
 
 const currentRoomId = ensureRoomId();
-
-// Initialize WebSocket connection
 initializeWebSocket(currentRoomId, handleMessage);
-
-function initializeWebSocket(roomId, handleMessage) {
-  const socket = new WebSocket(`wss://${window.location.host}`);
-
-  socket.onopen = () => {
-    const user = prompt('Enter your name: ') || `User-${Math.floor(Math.random() * 1000)}`;
-    socket.send(JSON.stringify({
-      type: 'join',
-      user: user,
-      roomId: roomId,
-    }));
-    console.log(`Sent join message: ${user} joined ${roomId}`);
-  };
-
-  socket.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleMessage(msg);
-  };
-
-  socket.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
-}
 
 function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
-      users = msg.users; // update the list of users
-      renderUsers(); // re-render the user list
+      users = msg.users;
+      renderUI();
       break;
 
     case 'voteUpdate':
-      // Update the votes for the story and re-render
       storyVotesByUser[msg.story] = msg.votes;
-      renderUsers();
+      renderUI();
       break;
 
     case 'storyChange':
-      // Update the selected story and current story index
       selectedStory = msg.story;
       currentStoryIndex = msg.index;
-      renderUsers(); // re-render with the new story
+      renderUI();
       break;
 
-    case 'userJoined':
-      // Update users when a new user joins
-      users.push(msg.user);
-      renderUsers();
+    case 'revealVotes':
+      alert('Votes revealed!');
+      renderUI(); // already uses storyVotesByUser
       break;
 
     default:
@@ -77,48 +50,98 @@ function handleMessage(msg) {
   }
 }
 
-function renderUsers() {
+function renderUI() {
   app.innerHTML = `
     <h2>Room: ${currentRoomId}</h2>
     <h3>Users:</h3>
     <ul>${users.map(user => `<li>${user}</li>`).join('')}</ul>
-    <p><strong>Selected story:</strong> ${selectedStory || "None"}</p>
+    
     <div>
-      ${selectedStory ? `<strong>Votes for ${selectedStory}:</strong>
-        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>` 
-        : 'No story selected'}
+      <label>Selected Story: </label>
+      <input type="text" id="storyInput" value="${selectedStory || ''}" placeholder="Enter story..." />
+      <button onclick="window.changeStory()">Set Story</button>
     </div>
+
+    <div>
+      ${selectedStory ? `
+        <p><strong>Votes for ${selectedStory}:</strong></p>
+        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
+        <label>Your Vote:</label>
+        <input type="text" id="voteInput" placeholder="Enter your vote" />
+        <button onclick="window.submitVote()">Submit Vote</button>
+      ` : '<p>No story selected.</p>'}
+    </div>
+
+    <div>
+      <button onclick="window.revealVotes()">Reveal Votes</button>
+      <button onclick="window.resetVotes()">Reset Votes</button>
+    </div>
+
+    <hr />
+    <h3>Upload File:</h3>
+    <form id="uploadForm">
+      <input type="file" name="storyFile" />
+      <button type="submit">Upload</button>
+    </form>
   `;
+
+  document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
 }
 
-// Update vote after a timeout (this is just for demo purposes)
-setTimeout(() => {
-  selectedStory = 'Story A';
-  storyVotesByUser[selectedStory] = { [getUserId()]: '5' };
-  sendMessage('voteUpdate', {
-    story: selectedStory,
-    votes: storyVotesByUser[selectedStory]
-  });
-}, 3000);
+// --- Interaction Functions (bound to window so inline handlers work) ---
 
-// Broadcast user votes when updated
-function updateVote(story, vote) {
-  storyVotesByUser[story] = {
-    ...storyVotesByUser[story],
-    [getUserId()]: vote
-  };
-  sendMessage('voteUpdate', {
-    story: story,
-    votes: storyVotesByUser[story]
-  });
-}
+window.changeStory = function () {
+  const story = document.getElementById('storyInput').value;
+  if (story) {
+    selectedStory = story;
+    storyVotesByUser[story] = storyVotesByUser[story] || {};
+    sendMessage('storyChange', { story, index: 0 });
+  }
+};
 
-// Change selected story
-function changeStory(story, index) {
-  selectedStory = story;
-  currentStoryIndex = index;
-  sendMessage('storyChange', {
-    story: story,
-    index: index
-  });
+window.submitVote = function () {
+  const vote = document.getElementById('voteInput').value;
+  if (selectedStory && vote) {
+    storyVotesByUser[selectedStory] = {
+      ...storyVotesByUser[selectedStory],
+      [getUserId()]: vote
+    };
+    sendMessage('voteUpdate', {
+      story: selectedStory,
+      votes: storyVotesByUser[selectedStory]
+    });
+  }
+};
+
+window.revealVotes = function () {
+  sendMessage('revealVotes', { roomId: currentRoomId });
+};
+
+window.resetVotes = function () {
+  if (selectedStory) {
+    storyVotesByUser[selectedStory] = {};
+    sendMessage('resetVotes', { story: selectedStory });
+  }
+};
+
+// --- File Upload Handler ---
+
+function handleFileUpload(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+
+  fetch('/upload', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      alert('File uploaded successfully!');
+      console.log('Uploaded file info:', data);
+    })
+    .catch(err => {
+      alert('Upload failed.');
+      console.error(err);
+    });
 }
