@@ -22,6 +22,28 @@ function ensureRoomId() {
 const currentRoomId = ensureRoomId();
 initializeWebSocket(currentRoomId, handleMessage);
 
+function initializeWebSocket(roomId, messageHandler) {
+  const socket = new WebSocket(`wss://https://planning-poker-app-2.onrender.com/${roomId}`);
+
+  socket.addEventListener('open', () => {
+    console.log('WebSocket connection established');
+  });
+
+  socket.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+    messageHandler(msg);
+  });
+
+  socket.addEventListener('close', () => {
+    console.warn('WebSocket connection closed. Attempting to reconnect...');
+    setTimeout(() => initializeWebSocket(roomId, messageHandler), 5000);
+  });
+
+  socket.addEventListener('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+}
+
 function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
