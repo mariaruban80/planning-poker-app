@@ -95,6 +95,7 @@ wss.on('connection', (ws) => {
 // --- Event Handlers ---
 
 function handleJoin(ws, user, roomId) {
+ if (type === 'join') { 
   ws.user = user;
   ws.roomId = roomId;
 
@@ -119,7 +120,7 @@ function handleJoin(ws, user, roomId) {
     type: 'userList',
     users: roomData[roomId].users,
   });
-
+ }
   const currentStory = roomData[roomId].selectedStory;
   if (currentStory) {
     ws.send(JSON.stringify({ type: 'storyChange', story: currentStory, index: 0 }));
