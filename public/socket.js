@@ -6,7 +6,7 @@ const rooms = {}; // In-memory client cache
 
 // Initialize WebSocket connection
 export function initializeWebSocket(roomId, handleMessage) {
-  socket = new WebSocket(`wss://planning-poker-app-2.onrender.com`); // FIXED URL
+  socket = new WebSocket(`wss://planning-poker-app-2.onrender.com/ws`); // FIXED URL
 
   socket.onopen = () => {
     currentRoomId = roomId;
