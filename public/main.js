@@ -5,6 +5,7 @@ let storyVotesByUser = {};
 let selectedStory = null;
 let currentStoryIndex = 0;
 let currentUser = null;
+let uploadedFile = null; // Track the uploaded file
 
 const app = document.getElementById('app');
 // Function to submit the user's name
@@ -54,6 +55,11 @@ function handleMessage(msg) {
       renderUI(); // already uses storyVotesByUser
       break;
 
+    case 'fileUploaded':
+      uploadedFile = msg.file;
+      renderUI();
+      break;
+
     default:
       console.warn('Unknown message type:', msg.type);
   }
@@ -72,7 +78,7 @@ function renderUI() {
     </div>
 
     <div>
-      ${selectedStory ? `
+      ${selectedStory ? ` 
         <p><strong>Votes for ${selectedStory}:</strong></p>
         <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
         <label>Your Vote:</label>
@@ -92,6 +98,7 @@ function renderUI() {
       <input type="file" name="storyFile" />
       <button type="submit">Upload</button>
     </form>
+    ${uploadedFile ? `<p>File uploaded: <a href="${uploadedFile.url}" target="_blank">${uploadedFile.name}</a></p>` : ''}
   `;
 
   document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
@@ -148,6 +155,7 @@ function handleFileUpload(event) {
     .then(res => res.json())
     .then(data => {
       alert('File uploaded successfully!');
+      sendMessage('fileUploaded', { file: data }); // Notify other users about the uploaded file
       console.log('Uploaded file info:', data);
     })
     .catch(err => {
