@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "*", // You can specify allowed origins if needed
   }
 });
 
@@ -19,6 +19,9 @@ const roomData = {};
 
 // Handle socket connections
 io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // Handle user joining a room
   socket.on('join', ({ user, roomId }) => {
     if (!user || !roomId) return;
 
@@ -31,7 +34,7 @@ io.on('connection', (socket) => {
       roomData[roomId] = {
         users: [],
         votesByStory: {},
-        selectedStory: null
+        selectedStory: null,
       };
     }
 
@@ -50,11 +53,12 @@ io.on('connection', (socket) => {
       socket.emit('storyChange', { story: currentStory });
       socket.emit('voteUpdate', {
         story: currentStory,
-        votes: roomData[roomId].votesByStory[currentStory] || {}
+        votes: roomData[roomId].votesByStory[currentStory] || {},
       });
     }
   });
 
+  // Handle story change event
   socket.on('storyChange', ({ story }) => {
     const roomId = socket.roomId;
     if (!roomId || !story || !roomData[roomId]) return;
@@ -65,6 +69,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('storyChange', { story });
   });
 
+  // Handle vote updates
   socket.on('voteUpdate', ({ story, votes }) => {
     const roomId = socket.roomId;
     if (!roomId || !story || !votes || !roomData[roomId]) return;
@@ -72,12 +77,14 @@ io.on('connection', (socket) => {
     const prevVotes = roomData[roomId].votesByStory[story] || {};
     roomData[roomId].votesByStory[story] = { ...prevVotes, ...votes };
 
+    // Broadcast the updated votes to the room
     io.to(roomId).emit('voteUpdate', {
       story,
-      votes: roomData[roomId].votesByStory[story]
+      votes: roomData[roomId].votesByStory[story],
     });
   });
 
+  // Handle reveal votes event
   socket.on('revealVotes', () => {
     const roomId = socket.roomId;
     const story = roomData[roomId]?.selectedStory;
@@ -85,10 +92,11 @@ io.on('connection', (socket) => {
 
     io.to(roomId).emit('revealVotes', {
       story,
-      votes: roomData[roomId].votesByStory[story] || {}
+      votes: roomData[roomId].votesByStory[story] || {},
     });
   });
 
+  // Handle reset votes event
   socket.on('resetVotes', ({ story }) => {
     const roomId = socket.roomId;
     if (!roomId || !story || !roomData[roomId]) return;
@@ -97,6 +105,16 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('voteUpdate', { story, votes: {} });
   });
 
+  // Handle file upload event (new)
+  socket.on('fileUploaded', ({ file }) => {
+    const roomId = socket.roomId;
+    if (!roomId || !file || !roomData[roomId]) return;
+
+    // Broadcast the file upload notification to the room
+    io.to(roomId).emit('fileUploaded', { file });
+  });
+
+  // Handle user disconnecting
   socket.on('disconnect', () => {
     const roomId = socket.roomId;
     const user = socket.user;
@@ -113,6 +131,8 @@ io.on('connection', (socket) => {
       delete roomData[roomId];
     }
   });
+
+  console.log('A user disconnected:', socket.id);
 });
 
 // Start the server
