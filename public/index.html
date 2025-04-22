@@ -326,7 +326,10 @@ display: flex; /* Aligning the children horizontally */
 
   // Example usage: pass roomId to server if needed
   // socket.send(JSON.stringify({ type: "join", user: userId, roomId: currentRoomId }));
-const socket = new WebSocket("ws://your-server-url");
+
+  
+  const socket = io('wss://https://planning-poker-app-2.onrender.com/');
+
 
 socket.addEventListener("open", () => {
   socket.send(JSON.stringify({ type: "join", roomId: currentRoomId, user: userName }));
