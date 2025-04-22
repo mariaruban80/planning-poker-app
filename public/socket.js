@@ -54,3 +54,30 @@ export function disconnectWebSocket() {
     currentRoomId = null;
   }
 }
+
+// --- Event Emission Functions (for server-side) ---
+
+// Emit when a user joins the room
+export function userJoin(userName, roomId) {
+  socket.emit('join', { user: userName, roomId });
+}
+
+// Emit vote updates to the server
+export function updateVote(story, votes, roomId) {
+  socket.emit('voteUpdate', { story, votes, roomId });
+}
+
+// Emit when the story changes (selected story)
+export function changeStory(story, index, roomId) {
+  socket.emit('storyChange', { story, index, roomId });
+}
+
+// Emit when votes are revealed
+export function revealVotes(roomId) {
+  socket.emit('revealVotes', { roomId });
+}
+
+// Emit file upload notification
+export function uploadFile(file, roomId) {
+  socket.emit('fileUploaded', { file, roomId });
+}
