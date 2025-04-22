@@ -11,18 +11,22 @@ const io = new Server(server, {
   }
 });
 
-// Serve static files from public folder
+// Serve static files from 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Room state
+// In-memory room state
 const roomData = {};
 
+// Handle socket connections
 io.on('connection', (socket) => {
   socket.on('join', ({ user, roomId }) => {
+    if (!user || !roomId) return;
+
     socket.join(roomId);
     socket.user = user;
     socket.roomId = roomId;
 
+    // Initialize room data if it doesn't exist
     if (!roomData[roomId]) {
       roomData[roomId] = {
         users: [],
@@ -31,33 +35,43 @@ io.on('connection', (socket) => {
       };
     }
 
-    if (!roomData[roomId].users.includes(user)) {
-      roomData[roomId].users.push(user);
+    // Add user to room if not already present
+    const users = roomData[roomId].users;
+    if (!users.includes(user)) {
+      users.push(user);
     }
 
-    io.to(roomId).emit('userList', { users: roomData[roomId].users });
+    // Notify all users in room of updated user list
+    io.to(roomId).emit('userList', { users });
 
-    // Send story state if any
-    const story = roomData[roomId].selectedStory;
-    if (story) {
-      socket.emit('storyChange', { story });
+    // If a story is already selected, sync state with the new user
+    const currentStory = roomData[roomId].selectedStory;
+    if (currentStory) {
+      socket.emit('storyChange', { story: currentStory });
       socket.emit('voteUpdate', {
-        story,
-        votes: roomData[roomId].votesByStory[story] || {}
+        story: currentStory,
+        votes: roomData[roomId].votesByStory[currentStory] || {}
       });
     }
   });
 
   socket.on('storyChange', ({ story }) => {
     const roomId = socket.roomId;
+    if (!roomId || !story || !roomData[roomId]) return;
+
     roomData[roomId].selectedStory = story;
+
+    // Broadcast story change to all users in room
     io.to(roomId).emit('storyChange', { story });
   });
 
   socket.on('voteUpdate', ({ story, votes }) => {
     const roomId = socket.roomId;
+    if (!roomId || !story || !votes || !roomData[roomId]) return;
+
     const prevVotes = roomData[roomId].votesByStory[story] || {};
     roomData[roomId].votesByStory[story] = { ...prevVotes, ...votes };
+
     io.to(roomId).emit('voteUpdate', {
       story,
       votes: roomData[roomId].votesByStory[story]
@@ -66,7 +80,9 @@ io.on('connection', (socket) => {
 
   socket.on('revealVotes', () => {
     const roomId = socket.roomId;
-    const story = roomData[roomId].selectedStory;
+    const story = roomData[roomId]?.selectedStory;
+    if (!roomId || !story) return;
+
     io.to(roomId).emit('revealVotes', {
       story,
       votes: roomData[roomId].votesByStory[story] || {}
@@ -75,6 +91,8 @@ io.on('connection', (socket) => {
 
   socket.on('resetVotes', ({ story }) => {
     const roomId = socket.roomId;
+    if (!roomId || !story || !roomData[roomId]) return;
+
     roomData[roomId].votesByStory[story] = {};
     io.to(roomId).emit('voteUpdate', { story, votes: {} });
   });
@@ -82,14 +100,23 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const roomId = socket.roomId;
     const user = socket.user;
-    if (roomId && roomData[roomId]) {
-      roomData[roomId].users = roomData[roomId].users.filter(u => u !== user);
-      io.to(roomId).emit('userList', { users: roomData[roomId].users });
+    if (!roomId || !roomData[roomId] || !user) return;
+
+    // Remove the user from the room list
+    const users = roomData[roomId].users.filter(u => u !== user);
+    roomData[roomId].users = users;
+
+    io.to(roomId).emit('userList', { users });
+
+    // Optional: cleanup if room is empty
+    if (users.length === 0) {
+      delete roomData[roomId];
     }
   });
 });
 
+// Start the server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on http://localhost:${PORT}`);
 });
