@@ -7,6 +7,9 @@ let currentStoryIndex = 0;
 let currentUser = null;
 
 const app = document.getElementById('app');
+const modal = document.getElementById('addMemberModal');
+const addMemberForm = document.getElementById('addMemberForm');
+const userNameInput = document.getElementById('userNameInput');
 
 // Ensure a valid roomId, or generate one if necessary
 function ensureRoomId() {
@@ -148,3 +151,28 @@ function handleFileUpload(event) {
       console.error(err);
     });
 }
+
+// --- Add Member Modal handling ---
+// Check if user is already set or show modal to add a user
+function showAddMemberModal() {
+  if (!getUserId()) {
+    modal.style.display = 'block';
+  }
+}
+
+// Handle "Add Member" form submission
+addMemberForm.addEventListener('submit', function (event) {
+  event.preventDefault();
+  const userName = userNameInput.value.trim();
+  if (userName) {
+    sessionStorage.setItem('userId', userName); // Store user in session
+    modal.style.display = 'none'; // Close the modal
+    sendMessage('join', { user: userName, roomId: currentRoomId }); // Notify server
+  } else {
+    alert('Please enter a valid username.');
+  }
+});
+
+// Show Add Member modal on load if no user is logged in
+showAddMemberModal();
+
