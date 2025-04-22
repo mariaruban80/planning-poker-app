@@ -2,12 +2,35 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { parse } = require('url');
+const formidable = require('formidable'); // Add this to handle file uploads
 
-// Room state: { roomId: { users: [], votesByStory: {}, selectedStory: '' } }
+// Room state
 const roomData = {};
-const rooms = {}; // { roomId: [ws1, ws2, ...] }
+const rooms = {}; // roomId: [ws1, ws2, ...]
 
 const server = http.createServer((req, res) => {
+  const parsedUrl = parse(req.url, true);
+
+  // Handle file upload
+  if (req.method === 'POST' && parsedUrl.pathname === '/upload') {
+    const form = new formidable.IncomingForm({ uploadDir: path.join(__dirname, 'uploads'), keepExtensions: true });
+
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('File upload error');
+        return;
+      }
+
+      // You can process or broadcast uploaded file info if needed
+      res.writeHead(200);
+      res.end(JSON.stringify({ fields, files }));
+    });
+    return;
+  }
+
+  // Serve static files
   let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
   const ext = path.extname(filePath);
   const mimeTypes = {
@@ -18,7 +41,6 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      // Fallback for SPA routing
       if (!ext) {
         fs.readFile(path.join(__dirname, 'public', 'index.html'), (error, indexContent) => {
           res.writeHead(error ? 500 : 200, { 'Content-Type': 'text/html' });
@@ -53,6 +75,12 @@ wss.on('connection', (ws) => {
         case 'storyChange':
           handleStoryChange(roomId, story, index);
           break;
+        case 'revealVotes':
+          handleRevealVotes(roomId);
+          break;
+        case 'resetVotes':
+          handleResetVotes(roomId, story);
+          break;
         default:
           console.warn('Unhandled message type:', type);
       }
@@ -79,7 +107,6 @@ function handleJoin(ws, user, roomId) {
     };
   }
 
-  // Add user if not already in list
   if (!roomData[roomId].users.includes(user)) {
     roomData[roomId].users.push(user);
   }
@@ -88,27 +115,17 @@ function handleJoin(ws, user, roomId) {
 
   console.log(`User ${user} joined room ${roomId}`);
 
-  // Broadcast updated user list
   broadcastToRoom(roomId, {
     type: 'userList',
     users: roomData[roomId].users,
   });
 
-  // Send current story and votes to new user
   const currentStory = roomData[roomId].selectedStory;
   if (currentStory) {
-    ws.send(JSON.stringify({
-      type: 'storyChange',
-      story: currentStory,
-      index: 0,
-    }));
+    ws.send(JSON.stringify({ type: 'storyChange', story: currentStory, index: 0 }));
 
     const currentVotes = roomData[roomId].votesByStory[currentStory] || {};
-    ws.send(JSON.stringify({
-      type: 'voteUpdate',
-      story: currentStory,
-      votes: currentVotes,
-    }));
+    ws.send(JSON.stringify({ type: 'voteUpdate', story: currentStory, votes: currentVotes }));
   }
 }
 
@@ -136,6 +153,29 @@ function handleStoryChange(roomId, story, index) {
     type: 'storyChange',
     story,
     index: index || 0,
+  });
+}
+
+function handleRevealVotes(roomId) {
+  const story = roomData[roomId].selectedStory;
+  const votes = roomData[roomId].votesByStory[story] || {};
+
+  broadcastToRoom(roomId, {
+    type: 'revealVotes',
+    story,
+    votes,
+  });
+}
+
+function handleResetVotes(roomId, story) {
+  if (roomData[roomId].votesByStory[story]) {
+    roomData[roomId].votesByStory[story] = {};
+  }
+
+  broadcastToRoom(roomId, {
+    type: 'voteUpdate',
+    story,
+    votes: {},
   });
 }
 
