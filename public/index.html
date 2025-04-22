@@ -327,39 +327,7 @@ display: flex; /* Aligning the children horizontally */
 <script>
 let socket;
 let userId;
-function initWebSocket() {
-//  const socket = new WebSocket(`wss://${window.location.host}`);
-const socket = new WebSocket('wss://your-backend-url.onrender.com');
 
-  socket.onopen = () => {
-    console.log("Connected to server");
-    userId = "User" + Math.floor(Math.random() * 10000); // Simple user ID
-    socket.send(JSON.stringify({ type: "join", user: userId }));
-  };
-
-  socket.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-
-    switch (msg.type) {
-      case "userList":
-        users = msg.users;
-        renderUsers();
-        break;
-      case "voteUpdate":
-        storyVotesByUser[msg.story] = msg.votes;
-        renderUsers();
-        break;
-      case "storyChange":
-        selectedStory = msg.story;
-        currentStoryIndex = msg.index;
-        localStorage.setItem('selectedStory', selectedStory);
-        localStorage.setItem('selectedStoryIndex', currentStoryIndex);
-        highlightSelectedStory(JSON.parse(localStorage.getItem('stories') || '[]'));
-        renderUsers();
-        break;
-    }
-  };
-}
 
 
   let users = [];
