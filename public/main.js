@@ -8,6 +8,7 @@ let currentUser = null;
 let uploadedFile = null; // Track the uploaded file
 
 const app = document.getElementById('app');
+
 // Function to submit the user's name
 window.submitName = function () {
   const userName = document.getElementById('userName').value;
@@ -36,28 +37,28 @@ function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
       users = msg.users;
-      renderUI(); // Re-render the UI when user list is updated
+      renderUsers(); // Re-render the users when the list is updated
       break;
 
     case 'voteUpdate':
       storyVotesByUser[msg.story] = msg.votes;
-      renderUI();
+      renderVotes();
       break;
 
     case 'storyChange':
       selectedStory = msg.story;
       currentStoryIndex = msg.index;
-      renderUI();
+      renderStory();
       break;
 
     case 'revealVotes':
       alert('Votes revealed!');
-      renderUI(); // already uses storyVotesByUser
+      renderVotes(); // re-render votes when they are revealed
       break;
 
     case 'fileUploaded':
       uploadedFile = msg.file;
-      renderUI();
+      renderFileUpload();
       break;
 
     default:
@@ -65,45 +66,59 @@ function handleMessage(msg) {
   }
 }
 
-function renderUI() {
-  app.innerHTML = `
-    <h2>Room: ${currentRoomId}</h2>
-    <h3>Users:</h3>
-    <ul>${users.map(user => `<li>${user}</li>`).join('')}</ul>
-    
-    <div>
-      <label>Selected Story: </label>
-      <input type="text" id="storyInput" value="${selectedStory || ''}" placeholder="Enter story..." />
-      <button onclick="window.changeStory()">Set Story</button>
-    </div>
-
-    <div>
-      ${selectedStory ? ` 
-        <p><strong>Votes for ${selectedStory}:</strong></p>
-        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
-        <label>Your Vote:</label>
-        <input type="text" id="voteInput" placeholder="Enter your vote" />
-        <button onclick="window.submitVote()">Submit Vote</button>
-      ` : '<p>No story selected.</p>'}
-    </div>
-
-    <div>
-      <button onclick="window.revealVotes()">Reveal Votes</button>
-      <button onclick="window.resetVotes()">Reset Votes</button>
-    </div>
-
-    <hr />
-    <h3>Upload File:</h3>
-    <form id="uploadForm">
-      <input type="file" name="storyFile" />
-      <button type="submit">Upload</button>
-    </form>
-    ${uploadedFile ? `<p>File uploaded: <a href="${uploadedFile.url}" target="_blank">${uploadedFile.name}</a></p>` : ''}
-  `;
-
-  document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
+// Render Users
+function renderUsers() {
+  const userList = document.getElementById("userList");
+  userList.innerHTML = ''; // Clear the current list
+  users.forEach(user => {
+    const div = document.createElement("div");
+    div.textContent = user;
+    userList.appendChild(div);
+  });
 }
 
+// Render Story
+function renderStory() {
+  const storyInput = document.getElementById('storyInput');
+  const storyArea = document.getElementById('storyArea');
+  if (storyInput) {
+    storyInput.value = selectedStory || '';
+  }
+  storyArea.innerHTML = `
+    <h3>Selected Story: ${selectedStory}</h3>
+    <div>
+      <label>Your Vote:</label>
+      <input type="text" id="voteInput" placeholder="Enter your vote" />
+      <button onclick="window.submitVote()">Submit Vote</button>
+    </div>
+    <div id="votesList">
+      ${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `
+        <div>${user}: ${vote}</div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Render Votes
+function renderVotes() {
+  const votesList = document.getElementById('votesList');
+  votesList.innerHTML = ''; // Clear previous votes
+  if (selectedStory) {
+    Object.entries(storyVotesByUser[selectedStory] || {}).forEach(([user, vote]) => {
+      const voteElement = document.createElement('div');
+      voteElement.textContent = `${user}: ${vote}`;
+      votesList.appendChild(voteElement);
+    });
+  }
+}
+
+// Render File Upload UI
+function renderFileUpload() {
+  const fileSection = document.getElementById('fileSection');
+  fileSection.innerHTML = uploadedFile ? `
+    <p>File uploaded: <a href="${uploadedFile.url}" target="_blank">${uploadedFile.name}</a></p>
+  ` : '<p>No file uploaded.</p>';
+}
 
 // --- Interaction Functions (bound to window so inline handlers work) ---
 
@@ -112,7 +127,7 @@ window.changeStory = function () {
   if (story) {
     selectedStory = story;
     storyVotesByUser[story] = storyVotesByUser[story] || {};
-    sendMessage('storyChange', { story, index: 0 });
+    sendMessage('storyChange', { story, index: currentStoryIndex });
   }
 };
 
@@ -121,7 +136,7 @@ window.submitVote = function () {
   if (selectedStory && vote) {
     storyVotesByUser[selectedStory] = {
       ...storyVotesByUser[selectedStory],
-      [getUserId()]: vote
+      [currentUser]: vote
     };
     sendMessage('voteUpdate', {
       story: selectedStory,
@@ -142,7 +157,6 @@ window.resetVotes = function () {
 };
 
 // --- File Upload Handler ---
-
 function handleFileUpload(event) {
   event.preventDefault();
   const form = event.target;
@@ -163,3 +177,5 @@ function handleFileUpload(event) {
       console.error(err);
     });
 }
+
+document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
