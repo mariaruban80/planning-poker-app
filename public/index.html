@@ -179,38 +179,22 @@
     #story-info {
       margin-top: 10px;
       font-size: 14px;
+      overflow-x: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
     }
   </style>
 </head>
 <body>
   <div class="banner">Planning Poker</div>
-<div id="app">
-  <!-- Room Details -->
-  <h2>Room: <span id="roomId"></span></h2>
-  
-  <!-- List of Users -->
-  <h3>Users:</h3>
-  <ul id="userList">
-    <!-- Users will be rendered here dynamically -->
-  </ul>
 
-  <!-- Other sections for story voting, file upload, etc. -->
-  <div id="storySection">
-    <!-- Story-related UI here -->
-  </div>
-
-  <!-- Add Member Modal (if not already in the HTML) -->
-  <div id="addMemberModal" style="display: none;">
-    <div class="modal-content">
-      <h3>Enter your name:</h3>
-      <form id="addMemberForm">
-        <input type="text" id="userNameInput" placeholder="Your Name" required />
-        <button type="submit">Join Room</button>
-      </form>
-    </div>
-  </div>
-</div>
-  
   <div class="upload-section">
     <div class="upload-right">
       <input type="file" id="csvInput" accept=".csv" />
@@ -263,9 +247,7 @@
   </div>
 
   <script>
-    const currentRoomId = ensureRoomId(); // Ensure roomId is set in URL
-
-    // Create socket connection for the specific room
+    const currentRoomId = ensureRoomId();
     const socket = io('https://planning-poker-app-2.onrender.com/', {
       query: { roomId: currentRoomId }
     });
@@ -274,11 +256,9 @@
     socket.on("votes-update", renderVotes);
     socket.on("file-upload", renderFileData);
 
-    // Ensure roomId is generated or fetched
     function ensureRoomId() {
       const url = new URL(window.location.href);
       let roomId = url.searchParams.get("roomId");
-
       if (!roomId) {
         roomId = 'room-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
         url.searchParams.set("roomId", roomId);
@@ -287,7 +267,6 @@
       return roomId;
     }
 
-    // Add member functionality
     document.getElementById("addMemberBtn").addEventListener("click", () => {
       const name = prompt("Enter member name:");
       if (name) {
@@ -295,7 +274,6 @@
       }
     });
 
-    // Voting functionality
     function vote(cardValue) {
       socket.emit("vote", { cardValue, roomId: currentRoomId });
     }
@@ -311,14 +289,31 @@
     }
 
     function renderVotes(votes) {
-      // Update the voting data in the UI
+      // Placeholder for vote display
     }
 
     function renderFileData(fileData) {
-      // Update the UI with the uploaded file data
+      const storyInfoDiv = document.getElementById("story-info");
+      if (!fileData || !fileData.content) {
+        storyInfoDiv.innerHTML = "<em>No data uploaded</em>";
+        return;
+      }
+
+      const lines = fileData.content.trim().split("\n");
+      const parsed = lines.map(line => line.split(","));
+      let html = "<table><tr>";
+      parsed[0].forEach(cell => html += `<th>${cell.trim()}</th>`);
+      html += "</tr>";
+
+      for (let i = 1; i < parsed.length; i++) {
+        html += "<tr>";
+        parsed[i].forEach(cell => html += `<td>${cell.trim()}</td>`);
+        html += "</tr>";
+      }
+      html += "</table>";
+      storyInfoDiv.innerHTML = html;
     }
 
-    // File upload functionality
     document.getElementById("csvInput").addEventListener("change", (event) => {
       const file = event.target.files[0];
       if (file) {
@@ -331,7 +326,6 @@
       }
     });
 
-    // Invite link modal functionality
     function showInviteModal() {
       document.getElementById("inviteModal").style.display = "flex";
       document.getElementById("inviteLink").value = window.location.href;
