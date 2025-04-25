@@ -7,11 +7,7 @@ let currentStoryIndex = 0;
 let currentUser = null;
 
 const app = document.getElementById('app');
-const modal = document.getElementById('addMemberModal');
-const addMemberForm = document.getElementById('addMemberForm');
-const userNameInput = document.getElementById('userNameInput');
 
-// Ensure a valid roomId, or generate one if necessary
 function ensureRoomId() {
   const url = new URL(window.location.href);
   let roomId = url.searchParams.get("roomId");
@@ -26,7 +22,6 @@ function ensureRoomId() {
 const currentRoomId = ensureRoomId();
 initializeWebSocket(currentRoomId, handleMessage);
 
-// Handle WebSocket messages
 function handleMessage(msg) {
   switch (msg.type) {
     case 'userList':
@@ -55,7 +50,6 @@ function handleMessage(msg) {
   }
 }
 
-// Render the UI dynamically based on the latest state
 function renderUI() {
   app.innerHTML = `
     <h2>Room: ${currentRoomId}</h2>
@@ -69,7 +63,7 @@ function renderUI() {
     </div>
 
     <div>
-      ${selectedStory ? ` 
+      ${selectedStory ? `
         <p><strong>Votes for ${selectedStory}:</strong></p>
         <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
         <label>Your Vote:</label>
@@ -91,11 +85,10 @@ function renderUI() {
     </form>
   `;
 
-  // Add event listener to handle file upload
   document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
 }
 
-// Interaction functions for story change, vote submission, and revealing votes
+// --- Interaction Functions (bound to window so inline handlers work) ---
 
 window.changeStory = function () {
   const story = document.getElementById('storyInput').value;
@@ -131,7 +124,8 @@ window.resetVotes = function () {
   }
 };
 
-// File Upload Handler
+// --- File Upload Handler ---
+
 function handleFileUpload(event) {
   event.preventDefault();
   const form = event.target;
@@ -151,28 +145,3 @@ function handleFileUpload(event) {
       console.error(err);
     });
 }
-
-// --- Add Member Modal handling ---
-// Check if user is already set or show modal to add a user
-function showAddMemberModal() {
-  if (!getUserId()) {
-    modal.style.display = 'block';
-  }
-}
-
-// Handle "Add Member" form submission
-addMemberForm.addEventListener('submit', function (event) {
-  event.preventDefault();
-  const userName = userNameInput.value.trim();
-  if (userName) {
-    sessionStorage.setItem('userId', userName); // Store user in session
-    modal.style.display = 'none'; // Close the modal
-    sendMessage('join', { user: userName, roomId: currentRoomId }); // Notify server
-  } else {
-    alert('Please enter a valid username.');
-  }
-});
-
-// Show Add Member modal on load if no user is logged in
-showAddMemberModal();
-
