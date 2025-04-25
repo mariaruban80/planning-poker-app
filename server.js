@@ -2,7 +2,14 @@ const WebSocket = require('ws');
 const http = require('http');
 
 const rooms = {};
-const server = http.createServer();
+
+// HTTP server to keep Render happy
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('WebSocket server is running');
+});
+
+// Attach WebSocket server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', function connection(ws) {
@@ -69,7 +76,8 @@ function broadcastToRoom(roomId, message) {
   });
 }
 
+// ✅ Required for Render deployment
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`WebSocket server running on port ${PORT}`);
 });
