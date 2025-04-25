@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Planning Poker Interactive</title>
   <script src="https://cdn.socket.io/4.1.3/socket.io.min.js"></script>
   <style>
@@ -12,10 +12,12 @@
       padding: 0;
       background: #fafafa;
     }
+
     .container {
       display: flex;
       height: 100vh;
     }
+
     .sidebar, .rightbar {
       width: 20%;
       background: #f4f4f8;
@@ -23,6 +25,7 @@
       box-sizing: border-box;
       overflow-y: auto;
     }
+
     .main {
       flex: 1;
       padding: 20px;
@@ -30,13 +33,57 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: flex-start;
     }
+
+    .user-list div {
+      background: #d3bff5;
+      color: white;
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .user-dropzone {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      margin: 40px auto;
+    }
+
+    .user-slot {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      background: white;
+      border-radius: 50%;
+      border: 2px dashed #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      text-align: center;
+      transition: background 0.3s ease;
+    }
+
+    .user-slot.dropped {
+      background: #c1e1c1;
+    }
+
+    .cards .card {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
     .cards {
       margin-top: 40px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
+
     .card {
       padding: 10px 20px;
       background: #cfc6f7;
@@ -44,6 +91,7 @@
       cursor: grab;
       font-weight: bold;
     }
+
     .button {
       margin: 10px 0;
       padding: 8px 12px;
@@ -54,9 +102,11 @@
       cursor: pointer;
       width: 100%;
     }
+
     .button:hover {
       background-color: #574fdd;
     }
+
     .banner {
       background-color: #003366;
       color: white;
@@ -65,17 +115,67 @@
       font-size: 24px;
       font-weight: bold;
     }
+
+    .invite-button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff9800;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: center;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 6px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .modal button {
+      margin-top: 10px;
+      background-color: #6c63ff;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
     .upload-section {
       display: flex;
       justify-content: flex-end;
       padding: 10px;
       background: #fff;
     }
+
     .upload-right {
       display: flex;
       align-items: center;
       gap: 10px;
     }
+
     #story-info {
       margin-top: 10px;
       font-size: 14px;
@@ -84,13 +184,24 @@
 </head>
 <body>
   <div class="banner">Planning Poker</div>
+
   <div class="upload-section">
     <div class="upload-right">
       <input type="file" id="csvInput" accept=".csv" />
-      <span id="storyCount"></span>
+      <button class="invite-button" onclick="showInviteModal()">Invite Others</button>
       <div id="story-info"></div>
     </div>
   </div>
+
+  <div class="modal-overlay" id="inviteModal">
+    <div class="modal">
+      <h3>Invite Link</h3>
+      <input type="text" id="inviteLink" readonly />
+      <button onclick="copyInviteLink()">Copy Link</button>
+      <button onclick="hideInviteModal()">Close</button>
+    </div>
+  </div>
+
   <div class="container">
     <div class="sidebar">
       <button class="button" id="addMemberBtn">Add Member</button>
@@ -100,8 +211,10 @@
       <button class="button" id="resetVotesBtn">Reset Votes</button>
       <button class="button" id="exportCsvBtn">Export All Votes</button>
     </div>
+
     <div class="main">
       <h2>Drop a card on user</h2>
+      <div class="user-dropzone" id="userArea"></div>
       <div class="cards">
         <div class="card" draggable="true">0</div>
         <div class="card" draggable="true">1</div>
@@ -112,6 +225,7 @@
         <div class="card" draggable="true">21</div>
       </div>
     </div>
+
     <div class="rightbar" id="storyListContainer">
       <div id="storyList"></div>
       <div style="margin-top: 20px;">
@@ -120,17 +234,12 @@
       </div>
     </div>
   </div>
-  <script>
-    let parsedStories = [];
-    let currentStoryIndex = 0;
 
+  <script>
     const currentRoomId = ensureRoomId();
     const socket = io('https://planning-poker-app-2.onrender.com/', {
       query: { roomId: currentRoomId }
     });
-
-    socket.on("users-update", renderUsers);
-    socket.on("file-upload", renderFileData);
 
     function ensureRoomId() {
       const url = new URL(window.location.href);
@@ -151,8 +260,8 @@
     });
 
     function renderUsers(users) {
-      const userList = document.getElementById("userList");
-      userList.innerHTML = ''; 
+      const userList = document.querySelector(".user-list");
+      userList.innerHTML = '';
       users.forEach(user => {
         const div = document.createElement("div");
         div.textContent = user.name;
@@ -161,63 +270,15 @@
     }
 
     function renderFileData(fileData) {
-      const storyList = document.getElementById("storyList");
-      storyList.innerHTML = '';
-
-      if (!fileData || !fileData.content) {
-        storyList.innerHTML = "<em>No data uploaded</em>";
-        return;
-      }
-
-      const lines = fileData.content.trim().split("\n");
-      parsedStories = lines.map(line => line.split(","));
-      currentStoryIndex = 1;
-
-      updateStoryDisplay();
-    }
-
-    function updateStoryDisplay() {
-      const storyList = document.getElementById("storyList");
-      const storyInfo = document.getElementById("story-info");
-
-      if (!parsedStories.length || currentStoryIndex < 1) return;
-
-      const headers = parsedStories[0];
-      const body = parsedStories.slice(1);
-
-      storyList.innerHTML = '';
-
-      body.forEach((row, index) => {
-        const storyDiv = document.createElement("div");
-        storyDiv.className = "story-entry";
-        storyDiv.style.padding = "6px";
-        storyDiv.style.marginBottom = "8px";
-        storyDiv.style.backgroundColor = index + 1 === currentStoryIndex ? "#d0f0c0" : "#e0e0f0";
-        storyDiv.style.border = index + 1 === currentStoryIndex ? "2px solid #4caf50" : "none";
-        storyDiv.style.borderRadius = "8px";
-
-        storyDiv.innerHTML = `
-          <strong>Story ${index + 1}</strong><br/>
-          ${headers.map((h, i) => `<b>${h.trim()}</b>: ${row[i]?.trim() ?? ''}`).join("<br/>")}
-        `;
-        storyList.appendChild(storyDiv);
+      const container = document.getElementById("storyList");
+      container.innerHTML = '';
+      const lines = fileData.trim().split("\n");
+      lines.forEach((line, index) => {
+        const div = document.createElement("div");
+        div.textContent = `${index + 1}. ${line}`;
+        div.style.marginBottom = '10px';
+        container.appendChild(div);
       });
-
-      const current = parsedStories[currentStoryIndex];
-      if (current) {
-        storyInfo.innerHTML = `
-          <strong>Current Story:</strong><br/>
-          ${headers.map((h, i) => `<b>${h.trim()}</b>: ${current[i]?.trim() ?? ''}`).join("<br/>")}
-        `;
-      }
-    }
-
-    function navigateStory(direction) {
-      if (!parsedStories.length) return;
-      const maxIndex = parsedStories.length - 1;
-      if (direction === 'prev' && currentStoryIndex > 1) currentStoryIndex--;
-      if (direction === 'next' && currentStoryIndex < maxIndex) currentStoryIndex++;
-      updateStoryDisplay();
     }
 
     document.getElementById("csvInput").addEventListener("change", (event) => {
@@ -231,6 +292,26 @@
         reader.readAsText(file);
       }
     });
+
+    function showInviteModal() {
+      document.getElementById("inviteModal").style.display = "flex";
+      document.getElementById("inviteLink").value = window.location.href;
+    }
+
+    function hideInviteModal() {
+      document.getElementById("inviteModal").style.display = "none";
+    }
+
+    function copyInviteLink() {
+      const input = document.getElementById("inviteLink");
+      input.select();
+      document.execCommand("copy");
+      alert("Invite link copied!");
+    }
+
+    // Socket listeners
+    socket.on("users-update", renderUsers);
+    socket.on("file-upload", (data) => renderFileData(data.content));
   </script>
 </body>
 </html>
