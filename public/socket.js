@@ -1,83 +1,109 @@
-import { io } from 'socket.io-client';
-
 let socket;
 let currentRoomId = null;
 let userName = null;
+let userId = null;
+const rooms = {}; // In-memory client cache
 
+// Initialize WebSocket connection
 export function initializeWebSocket(roomId, handleMessage) {
-  // Prevent re-initialization if already connected
-  if (socket && socket.connected) return;
+  socket = new WebSocket(`wss://planning-poker-app-1.onrender.com`); // FIXED URL
 
-  socket = io('https://planning-poker-app-2.onrender.com'); // ✅ Update with your backend URL
-
-  socket.on('connect', () => {
+  socket.onopen = () => {
     currentRoomId = roomId;
+    userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
 
-    // Use persistent user ID or ask user for name
-    userName = getUserId();
-    socket.emit('join', { user: userName, roomId });
-  });
+    socket.send(JSON.stringify({
+      type: 'join',
+      user: userName,
+      userId: getUserId(),
+      roomId: roomId,
+    }));
 
-  // Handle all incoming messages dynamically
-  socket.onAny((event, data) => {
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: event, ...data });
-    }
-  });
+    // Keep-alive ping
+    setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
+  };
 
-  socket.on('disconnect', () => {
-    console.warn('❌ Disconnected from server');
-  });
+  socket.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleRoomData(msg);
+    if (typeof handleMessage === 'function') handleMessage(msg);
+  };
+
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
 }
 
+// Send structured message
 export function sendMessage(type, data) {
-  if (socket && socket.connected) {
-    socket.emit(type, data);
-  } else {
-    console.warn('⚠️ Socket not connected, cannot send message');
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type, ...data }));
   }
 }
 
+// Persistent user ID
 export function getUserId() {
-  let userId = sessionStorage.getItem('userId');
   if (!userId) {
-    userId = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 10000)}`;
-    sessionStorage.setItem('userId', userId);
+    userId = sessionStorage.getItem('userId');
+    if (!userId) {
+      userId = `User-${Math.floor(Math.random() * 10000)}`;
+      sessionStorage.setItem('userId', userId);
+    }
   }
   return userId;
 }
 
-export function disconnectWebSocket() {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-    currentRoomId = null;
+// Room-specific state handling
+function handleRoomData(msg) {
+  if (!rooms[currentRoomId]) {
+    rooms[currentRoomId] = {
+      users: [],
+      storyVotesByUser: {},
+      selectedStory: null
+    };
+  }
+
+  const room = rooms[currentRoomId];
+
+  switch (msg.type) {
+    case 'userList':
+      room.users = msg.users;
+      break;
+
+    case 'voteUpdate':
+      room.storyVotesByUser[msg.story] = msg.votes;
+      break;
+
+    case 'storyChange':
+      room.selectedStory = msg.story;
+      break;
+
+    case 'userJoined':
+      if (!room.users.includes(msg.user)) {
+        room.users.push(msg.user);
+      }
+      break;
+
+    case 'revealVotes':
+      // Nothing to cache, just allow main.js to trigger UI change
+      break;
+
+    case 'resetVotes':
+      if (room.selectedStory) {
+        room.storyVotesByUser[room.selectedStory] = {};
+      }
+      break;
+
+    default:
+      console.warn('Unknown message type:', msg.type);
   }
 }
 
-// --- Event Emission Functions (for server-side) ---
-
-// Emit when a user joins the room
-export function userJoin(userName, roomId) {
-  socket.emit('join', { user: userName, roomId });
-}
-
-// Emit vote updates to the server
-export function updateVote(story, votes, roomId) {
-  socket.emit('voteUpdate', { story, votes, roomId });
-}
-
-// Emit when the story changes (selected story)
-export function changeStory(story, index, roomId) {
-  socket.emit('storyChange', { story, index, roomId });
-}
-
-// Emit when votes are revealed
-export function revealVotes(roomId) {
-  socket.emit('revealVotes', { roomId });
-}
-
-// Emit file upload notification
-export function uploadFile(file, roomId) {
-  socket.emit('fileUploaded', { file, roomId });
+// Optional helper if you want to expose room state
+export function getRoomData() {
+  return rooms[currentRoomId] || {};
 }
