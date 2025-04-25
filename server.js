@@ -1,38 +1,19 @@
 const WebSocket = require('ws');
 const http = require('http');
-const fs = require('fs');
+const express = require('express');
 const path = require('path');
 
 // Store rooms and their connected clients
 const rooms = {};
 
-// HTTP server to serve static files and handle WebSocket connections
-const server = http.createServer((req, res) => {
-  // Serve the static files (like index.html)
-  if (req.url === '/' || req.url === '/index.html') {
-    fs.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8', (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end('Error loading index.html');
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(data);
-    });
-  } else {
-    // Optionally, serve other static files like CSS, JS, images
-    const filePath = path.join(__dirname, 'public', req.url);
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(404);
-        res.end('File not found');
-        return;
-      }
-      res.writeHead(200);
-      res.end(data);
-    });
-  }
-});
+// Create an Express app
+const app = express();
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Create an HTTP server
+const server = http.createServer(app);
 
 // Attach WebSocket server
 const wss = new WebSocket.Server({ server });
