@@ -1,147 +1,103 @@
-import { initializeWebSocket, sendMessage, getUserId } from './socket.js';
+// main.js
 
-let users = [];
-let storyVotesByUser = {};
-let selectedStory = null;
-let currentStoryIndex = 0;
-let currentUser = null;
+import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
 
-const app = document.getElementById('app');
+let currentStory = null;
 
-function ensureRoomId() {
-  const url = new URL(window.location.href);
-  let roomId = url.searchParams.get("roomId");
-  if (!roomId) {
-    roomId = 'room-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
-    url.searchParams.set("roomId", roomId);
-    window.history.replaceState({}, '', url);
-  }
-  return roomId;
+// Initialize the app
+function initApp() {
+  const roomId = prompt('Enter Room ID to join:') || 'default-room';
+  initializeWebSocket(roomId, handleIncomingMessage);
+
+  document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
+  document.getElementById('reveal-btn').addEventListener('click', revealVotes);
+  document.getElementById('reset-btn').addEventListener('click', resetVotes);
 }
 
-const currentRoomId = ensureRoomId();
-initializeWebSocket(currentRoomId, handleMessage);
-
-function handleMessage(msg) {
+// Handle incoming WebSocket messages
+function handleIncomingMessage(msg) {
   switch (msg.type) {
     case 'userList':
-      users = msg.users;
-      renderUI();
+      updateUserList(msg.users);
       break;
-
-    case 'voteUpdate':
-      storyVotesByUser[msg.story] = msg.votes;
-      renderUI();
-      break;
-
     case 'storyChange':
-      selectedStory = msg.story;
-      currentStoryIndex = msg.index;
-      renderUI();
+      updateStory(msg.story);
       break;
-
+    case 'voteUpdate':
+      updateVotes(msg.story, msg.votes);
+      break;
     case 'revealVotes':
-      alert('Votes revealed!');
-      renderUI(); // already uses storyVotesByUser
+      revealAllVotes();
       break;
-
+    case 'resetVotes':
+      resetAllVotes();
+      break;
     default:
-      console.warn('Unknown message type:', msg.type);
+      console.warn('Unhandled message:', msg);
   }
 }
 
-function renderUI() {
-  app.innerHTML = `
-    <h2>Room: ${currentRoomId}</h2>
-    <h3>Users:</h3>
-    <ul>${users.map(user => `<li>${user}</li>`).join('')}</ul>
-    
-    <div>
-      <label>Selected Story: </label>
-      <input type="text" id="storyInput" value="${selectedStory || ''}" placeholder="Enter story..." />
-      <button onclick="window.changeStory()">Set Story</button>
-    </div>
-
-    <div>
-      ${selectedStory ? `
-        <p><strong>Votes for ${selectedStory}:</strong></p>
-        <ul>${Object.entries(storyVotesByUser[selectedStory] || {}).map(([user, vote]) => `<li>${user}: ${vote}</li>`).join('')}</ul>
-        <label>Your Vote:</label>
-        <input type="text" id="voteInput" placeholder="Enter your vote" />
-        <button onclick="window.submitVote()">Submit Vote</button>
-      ` : '<p>No story selected.</p>'}
-    </div>
-
-    <div>
-      <button onclick="window.revealVotes()">Reveal Votes</button>
-      <button onclick="window.resetVotes()">Reset Votes</button>
-    </div>
-
-    <hr />
-    <h3>Upload File:</h3>
-    <form id="uploadForm">
-      <input type="file" name="storyFile" />
-      <button type="submit">Upload</button>
-    </form>
-  `;
-
-  document.getElementById('uploadForm').addEventListener('submit', handleFileUpload);
+// Handle vote button clicks
+function handleVoteClick(event) {
+  if (event.target.classList.contains('vote-btn')) {
+    const voteValue = event.target.dataset.value;
+    if (currentStory) {
+      sendMessage('vote', { story: currentStory, vote: voteValue });
+    } else {
+      alert('No story selected.');
+    }
+  }
 }
 
-// --- Interaction Functions (bound to window so inline handlers work) ---
-
-window.changeStory = function () {
-  const story = document.getElementById('storyInput').value;
-  if (story) {
-    selectedStory = story;
-    storyVotesByUser[story] = storyVotesByUser[story] || {};
-    sendMessage('storyChange', { story, index: 0 });
-  }
-};
-
-window.submitVote = function () {
-  const vote = document.getElementById('voteInput').value;
-  if (selectedStory && vote) {
-    storyVotesByUser[selectedStory] = {
-      ...storyVotesByUser[selectedStory],
-      [getUserId()]: vote
-    };
-    sendMessage('voteUpdate', {
-      story: selectedStory,
-      votes: storyVotesByUser[selectedStory]
-    });
-  }
-};
-
-window.revealVotes = function () {
-  sendMessage('revealVotes', { roomId: currentRoomId });
-};
-
-window.resetVotes = function () {
-  if (selectedStory) {
-    storyVotesByUser[selectedStory] = {};
-    sendMessage('resetVotes', { story: selectedStory });
-  }
-};
-
-// --- File Upload Handler ---
-
-function handleFileUpload(event) {
-  event.preventDefault();
-  const form = event.target;
-  const formData = new FormData(form);
-
-  fetch('/upload', {
-    method: 'POST',
-    body: formData
-  })
-    .then(res => res.json())
-    .then(data => {
-      alert('File uploaded successfully!');
-      console.log('Uploaded file info:', data);
-    })
-    .catch(err => {
-      alert('Upload failed.');
-      console.error(err);
-    });
+// Change the current story
+function updateStory(story) {
+  currentStory = story;
+  document.getElementById('current-story').textContent = `Current Story: ${story}`;
 }
+
+// Update user list UI
+function updateUserList(users) {
+  const userList = document.getElementById('user-list');
+  userList.innerHTML = '';
+  users.forEach(user => {
+    const li = document.createElement('li');
+    li.textContent = user;
+    userList.appendChild(li);
+  });
+}
+
+// Update votes UI
+function updateVotes(story, votes) {
+  const voteList = document.getElementById('vote-list');
+  voteList.innerHTML = '';
+
+  for (const [user, vote] of Object.entries(votes)) {
+    const li = document.createElement('li');
+    li.textContent = `${user}: ${vote}`;
+    voteList.appendChild(li);
+  }
+}
+
+// Send reveal command
+function revealVotes() {
+  sendMessage('revealVotes', {});
+}
+
+// Send reset command
+function resetVotes() {
+  sendMessage('resetVotes', {});
+}
+
+// Handle revealing votes
+function revealAllVotes() {
+  alert('Votes are now revealed!');
+}
+
+// Handle resetting votes
+function resetAllVotes() {
+  alert('Votes have been reset.');
+  updateVotes(currentStory, {});
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', initApp);
