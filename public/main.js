@@ -5,11 +5,17 @@ let currentStory = null;
 // Initialize the app
 function initApp() {
   const urlParams = new URLSearchParams(window.location.search);
-  const roomId = urlParams.get('roomId') || 'default-room';
-  
-  // Get user name from prompt
+  const roomId = urlParams.get('roomId');
+
+  if (!roomId) {
+    alert("No Room ID found in the URL!");
+    return;
+  }
+
+  // Prompt for user name
   const userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
-  
+
+  // Initialize WebSocket connection with the roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
