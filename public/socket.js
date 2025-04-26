@@ -1,28 +1,23 @@
-// socket.js
-
 let socket;
 let currentRoomId = null;
 let userName = null;
 let userId = null;
-const rooms = {}; // In-memory client cache
+const rooms = {};
 
-// Initialize WebSocket connection
+// Initialize WebSocket
 export function initializeWebSocket(roomId, handleMessage) {
-  const backendURL = import.meta.env.VITE_SERVER_WS_URL || 'wss://planning-poker-app-1.onrender.com';
-  socket = new WebSocket(backendURL);
+  socket = new WebSocket(`wss://${window.location.host}`);
+  currentRoomId = roomId;
+  userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
 
   socket.onopen = () => {
-    currentRoomId = roomId;
-    userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
-
     socket.send(JSON.stringify({
       type: 'join',
-      user: userName,
-      userId: getUserId(),
       roomId: roomId,
+      user: userName
     }));
 
-    // Keep-alive ping
+    // Keep alive
     setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'ping' }));
@@ -41,14 +36,12 @@ export function initializeWebSocket(roomId, handleMessage) {
   };
 }
 
-// Send structured message
 export function sendMessage(type, data) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type, ...data }));
   }
 }
 
-// Persistent user ID
 export function getUserId() {
   if (!userId) {
     userId = sessionStorage.getItem('userId');
@@ -60,7 +53,6 @@ export function getUserId() {
   return userId;
 }
 
-// Room-specific state handling
 function handleRoomData(msg) {
   if (!rooms[currentRoomId]) {
     rooms[currentRoomId] = {
@@ -82,6 +74,14 @@ function handleRoomData(msg) {
     case 'storyChange':
       room.selectedStory = msg.story;
       break;
-    case 'userJoined':
-      if (!room.users.includes(msg.user)) {
-        room.users.push(msg.user);
+    case 'revealVotes':
+    case 'resetVotes':
+      break;
+    default:
+      console.warn('Unknown message type:', msg.type);
+  }
+}
+
+export function getRoomData() {
+  return rooms[currentRoomId] || {};
+}
