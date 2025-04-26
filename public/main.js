@@ -1,21 +1,29 @@
-// main.js
-
 import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
 
 let currentStory = null;
 
-// Initialize the app
+// Initialize app
 function initApp() {
-  const roomId = prompt('Enter Room ID to join:') || 'default-room';
+  let roomId = getRoomIdFromUrl();
+  if (!roomId) {
+    roomId = prompt('Enter Room ID:') || 'default-room';
+    window.location.href = `/${roomId}`;
+    return;
+  }
+
   initializeWebSocket(roomId, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
   document.getElementById('reveal-btn').addEventListener('click', revealVotes);
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
-  document.getElementById('add-member-btn').addEventListener('click', addMember); // 🆕
+  document.getElementById('add-user-btn').addEventListener('click', addUser);
 }
 
-// Handle incoming WebSocket messages
+function getRoomIdFromUrl() {
+  const path = window.location.pathname;
+  return path.split('/')[1] || null;
+}
+
 function handleIncomingMessage(msg) {
   switch (msg.type) {
     case 'userList':
@@ -38,7 +46,6 @@ function handleIncomingMessage(msg) {
   }
 }
 
-// Handle vote button clicks
 function handleVoteClick(event) {
   if (event.target.classList.contains('vote-btn')) {
     const voteValue = event.target.dataset.value;
@@ -50,21 +57,18 @@ function handleVoteClick(event) {
   }
 }
 
-// Add new member (syncs across clients)
-function addMember() {
-  const newUser = prompt('Enter new user name:');
-  if (newUser) {
-    sendMessage('addUser', { user: newUser });
+function addUser() {
+  const userName = prompt('Enter new member name:');
+  if (userName) {
+    sendMessage('addUser', { user: userName });
   }
 }
 
-// Change the current story
 function updateStory(story) {
   currentStory = story;
   document.getElementById('current-story').textContent = `Current Story: ${story}`;
 }
 
-// Update user list UI
 function updateUserList(users) {
   const userList = document.getElementById('user-list');
   userList.innerHTML = '';
@@ -75,11 +79,9 @@ function updateUserList(users) {
   });
 }
 
-// Update votes UI
 function updateVotes(story, votes) {
   const voteList = document.getElementById('vote-list');
   voteList.innerHTML = '';
-
   for (const [user, vote] of Object.entries(votes)) {
     const li = document.createElement('li');
     li.textContent = `${user}: ${vote}`;
@@ -87,26 +89,21 @@ function updateVotes(story, votes) {
   }
 }
 
-// Send reveal command
 function revealVotes() {
   sendMessage('revealVotes', {});
 }
 
-// Send reset command
 function resetVotes() {
   sendMessage('resetVotes', {});
 }
 
-// Handle revealing votes
 function revealAllVotes() {
-  alert('Votes are now revealed!');
+  alert('Votes revealed!');
 }
 
-// Handle resetting votes
 function resetAllVotes() {
-  alert('Votes have been reset.');
+  alert('Votes reset!');
   updateVotes(currentStory, {});
 }
 
-// Initialize when page loads
 document.addEventListener('DOMContentLoaded', initApp);
