@@ -1,32 +1,32 @@
 import express from 'express';
 import http from 'http';
+import https from 'https';  // Import https module
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';  // Import fs for SSL files
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 
-// Use HTTP or HTTPS based on environment
-let server;
-if (process.env.NODE_ENV === 'production') {
-  // In production, Render handles HTTPS automatically, so no need for explicit SSL configuration
-  server = http.createServer(app);  // You can replace with https if Render supports custom SSL on your domain
-} else {
-  server = http.createServer(app);  // Local development can still use HTTP
-}
+// Check if Render automatically handles SSL (likely yes) 
+// If so, use `http` here for WebSocket compatibility
+const server = process.env.NODE_ENV === 'production' 
+  ? http.createServer(app)  // Assuming Render does the SSL
+  : https.createServer({
+      key: fs.readFileSync('/path/to/private.key'),
+      cert: fs.readFileSync('/path/to/certificate.crt'),
+      ca: fs.readFileSync('/path/to/ca.crt')
+    }, app);  // Local development: configure SSL manually
 
 const io = new Server(server);
 
-// Handle Socket.IO connection
+// Handle Socket.IO connections
 const PORT = process.env.PORT || 3000;
-
-// Serve static files
 app.use(express.static(join(__dirname, 'public')));
 
-// Store rooms data
 const rooms = {};
 
 // Handle socket connections
@@ -36,7 +36,6 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUser = null;
 
-  // When user joins a room
   socket.on('join', ({ roomId, user }) => {
     currentRoom = roomId;
     currentUser = user;
@@ -51,13 +50,12 @@ io.on('connection', (socket) => {
     // Send updated users list to everyone
     io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
 
-    // If there is already a selected story, send it to the new user
+    // Send the current story if exists
     if (rooms[currentRoom].story) {
       socket.emit('storyChange', { story: rooms[currentRoom].story });
     }
   });
 
-  // When user selects a story
   socket.on('storyChange', ({ story }) => {
     if (currentRoom) {
       rooms[currentRoom].story = story;
@@ -68,12 +66,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // When user votes
   socket.on('vote', ({ story, vote }) => {
     if (currentRoom) {
-      if (!rooms[currentRoom].votes) {
-        rooms[currentRoom].votes = {};
-      }
       rooms[currentRoom].votes[currentUser] = vote;
 
       io.to(currentRoom).emit('voteUpdate', {
@@ -83,7 +77,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Reveal votes
   socket.on('revealVotes', () => {
     if (currentRoom) {
       rooms[currentRoom].revealed = true;
@@ -91,7 +84,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Reset votes
   socket.on('resetVotes', () => {
     if (currentRoom) {
       rooms[currentRoom].votes = {};
@@ -100,17 +92,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  // When a user disconnects
   socket.on('disconnect', () => {
     if (currentRoom && currentUser) {
       const room = rooms[currentRoom];
       if (room) {
         room.users = room.users.filter(user => user !== currentUser);
 
-        // Broadcast updated users list
         io.to(currentRoom).emit('userList', { users: room.users });
 
-        // Optionally: Delete empty room
         if (room.users.length === 0) {
           delete rooms[currentRoom];
         }
