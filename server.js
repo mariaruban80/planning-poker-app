@@ -1,99 +1,60 @@
 import express from 'express';
-import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
+import http from 'http';
+import { Server } from 'socket.io';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-// Setup __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Setup Express
 const app = express();
-const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const server = http.createServer(app);
+const io = new Server(server);
 
-const rooms = new Map();
+// Store rooms data
+const rooms = {};
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve index.html for all unknown routes (important for /room/:id)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// WebSocket connection
+io.on('connection', (socket) => {
+  let currentRoomId = null;
 
-// WebSocket connection handling
-wss.on('connection', (ws) => {
-  let roomId = null;
+  // Join room event
+  socket.on('joinRoom', (roomId, user) => {
+    currentRoomId = roomId;
 
-  ws.on('message', (message) => {
-    const parsed = JSON.parse(message);
-
-    switch (parsed.type) {
-      case 'join':
-        roomId = parsed.roomId;
-        if (!rooms.has(roomId)) {
-          rooms.set(roomId, { clients: [], users: [] });
-        }
-        const room = rooms.get(roomId);
-        room.clients.push(ws);
-
-        // Send current users list to the new client
-        ws.send(JSON.stringify({ type: 'userList', users: room.users }));
-
-        break;
-
-      case 'addUser':
-        if (roomId && rooms.has(roomId)) {
-          const room = rooms.get(roomId);
-          if (!room.users.includes(parsed.user)) {
-            room.users.push(parsed.user);
-          }
-          // Broadcast updated user list
-          broadcast(roomId, { type: 'userList', users: room.users });
-        }
-        break;
-
-      case 'vote':
-      case 'revealVotes':
-      case 'resetVotes':
-      case 'storyChange':
-        if (roomId) {
-          broadcast(roomId, parsed);
-        }
-        break;
-
-      case 'ping':
-        ws.send(JSON.stringify({ type: 'pong' }));
-        break;
+    // Initialize room if not exists
+    if (!rooms[roomId]) {
+      rooms[roomId] = { users: [] };
     }
+
+    // Add user to room
+    rooms[roomId].users.push(user);
+
+    // Broadcast updated user list
+    io.to(roomId).emit('userList', rooms[roomId].users);
+
+    // Join the room in socket.io
+    socket.join(roomId);
+
+    console.log(`${user} joined room ${roomId}`);
   });
 
-  ws.on('close', () => {
-    if (roomId && rooms.has(roomId)) {
-      const room = rooms.get(roomId);
-      room.clients = room.clients.filter(client => client !== ws);
-      if (room.clients.length === 0) {
-        rooms.delete(roomId);
+  // Handle disconnect event
+  socket.on('disconnect', () => {
+    if (currentRoomId) {
+      const room = rooms[currentRoomId];
+      if (room) {
+        room.users = room.users.filter(user => user !== socket.user);
+        // Broadcast updated user list
+        io.to(currentRoomId).emit('userList', room.users);
       }
     }
   });
-});
 
-function broadcast(roomId, data) {
-  if (rooms.has(roomId)) {
-    const room = rooms.get(roomId);
-    room.clients.forEach(client => {
-      if (client.readyState === 1) {
-        client.send(JSON.stringify(data));
-      }
-    });
-  }
-}
+  // Handle other events here (e.g., votes, story changes)
+});
 
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
