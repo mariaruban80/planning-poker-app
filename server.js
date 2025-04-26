@@ -1,19 +1,35 @@
-// server.js
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const WebSocket = require('ws');
 
 // Create an HTTP server
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Planning Poker Server');
+  const filePath = req.url === '/' ? '/index.html' : req.url;
+  const extname = path.extname(filePath);
+  
+  let contentType = 'text/html';
+  if (extname === '.js') contentType = 'application/javascript';
+  if (extname === '.css') contentType = 'text/css';
+  
+  const fullPath = path.join(__dirname, 'public', filePath); // Files in the 'public' folder
+  
+  fs.readFile(fullPath, (err, content) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('File not found');
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content);
+    }
+  });
 });
 
-// Create WebSocket server using the HTTP server
+// WebSocket server setup
 const wss = new WebSocket.Server({ server });
 
 const rooms = {}; // In-memory room data storage
 
-// Handle WebSocket connections
 wss.on('connection', (ws) => {
   let currentRoomId = null;
   let userName = null;
@@ -83,7 +99,7 @@ function broadcastRoomData(roomId) {
   }
 }
 
-// Listen on port 8080
+// Start the server
 server.listen(8080, () => {
   console.log('Server listening on http://localhost:8080');
 });
