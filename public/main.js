@@ -12,8 +12,14 @@ function initApp() {
     return;
   }
 
-  // Prompt for user name
-  const userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
+  // Check if userName already exists in sessionStorage
+  let userName = sessionStorage.getItem('userName');
+  
+  // If not, prompt for the userName
+  if (!userName) {
+    userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
+    sessionStorage.setItem('userName', userName);
+  }
 
   // Initialize WebSocket connection with the roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
