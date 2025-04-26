@@ -4,23 +4,16 @@ import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
 
 let currentStory = null;
 
-// Get Room ID either from URL or prompt
-function getRoomId() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomIdFromUrl = urlParams.get('roomId');
-  return roomIdFromUrl || prompt('Enter Room ID to join:') || 'default-room';
-}
-
 // Initialize the app
 function initApp() {
-  const roomId = getRoomId();
+  const roomId = prompt('Enter Room ID to join:') || 'default-room';
   initializeWebSocket(roomId, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
   document.getElementById('reveal-btn').addEventListener('click', revealVotes);
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
+  document.getElementById('add-member-btn').addEventListener('click', addMember); // 🆕
 }
-
 
 // Handle incoming WebSocket messages
 function handleIncomingMessage(msg) {
@@ -57,6 +50,14 @@ function handleVoteClick(event) {
   }
 }
 
+// Add new member (syncs across clients)
+function addMember() {
+  const newUser = prompt('Enter new user name:');
+  if (newUser) {
+    sendMessage('addUser', { user: newUser });
+  }
+}
+
 // Change the current story
 function updateStory(story) {
   currentStory = story;
@@ -85,16 +86,6 @@ function updateVotes(story, votes) {
     voteList.appendChild(li);
   }
 }
-
-function addMember() {
-  const newUser = prompt('Enter new user name:');
-  if (newUser) {
-    sendMessage('addUser', { user: newUser });
-  }
-}
-
-document.getElementById('add-member-btn').addEventListener('click', addMember);
-
 
 // Send reveal command
 function revealVotes() {
