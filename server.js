@@ -3,29 +3,19 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import fs from 'fs';
-import https from 'https';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 
-// Check if the app is running on HTTPS
-const isProduction = process.env.NODE_ENV === 'production';
-
-// Use HTTPS if in production environment, otherwise HTTP
+// Use HTTP or HTTPS based on environment
 let server;
-if (isProduction) {
-  // Use SSL certificates for secure connection
-  const sslOptions = {
-    key: fs.readFileSync('/path/to/private.key'),
-    cert: fs.readFileSync('/path/to/certificate.crt'),
-    ca: fs.readFileSync('/path/to/ca.crt'),  // Optional: If you're using an intermediate certificate
-  };
-  server = https.createServer(sslOptions, app);
+if (process.env.NODE_ENV === 'production') {
+  // In production, Render handles HTTPS automatically, so no need for explicit SSL configuration
+  server = http.createServer(app);  // You can replace with https if Render supports custom SSL on your domain
 } else {
-  server = http.createServer(app); // Use HTTP if not in production
+  server = http.createServer(app);  // Local development can still use HTTP
 }
 
 const io = new Server(server);
