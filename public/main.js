@@ -24,10 +24,26 @@ function initApp() {
   // Initialize WebSocket connection with the roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
+  const revealVotesBtn = document.getElementById('revealVotesBtn');
+if (revealVotesBtn) {
+  revealVotesBtn.addEventListener('click', revealVotes);
+}
+
+const resetVotesBtn = document.getElementById('resetVotesBtn');
+if (resetVotesBtn) {
+  resetVotesBtn.addEventListener('click', resetVotes);
+}
+
+const addMemberBtnr = document.getElementById('addMemberBtnr');
+if (addMemberBtnr) {
+  addMemberBtnr.addEventListener('click', addMember);
+}
+
+
 //  document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
-  document.getElementById('revealVotesBtn').addEventListener('click', revealVotes);
-  document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
-  document.getElementById('addMemberBtnr').addEventListener('click', addMember);
+//  document.getElementById('revealVotesBtn').addEventListener('click', revealVotes);
+  // document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
+  // document.getElementById('addMemberBtnr').addEventListener('click', addMember);
 
   // Update user list
   updateUserList(getRoomData().users);
