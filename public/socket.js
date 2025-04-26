@@ -5,10 +5,10 @@ let userId = null;
 const rooms = {};
 
 // Initialize WebSocket connection
-export function initializeWebSocket(roomId, handleMessage) {
-  socket = new WebSocket(`wss://${window.location.host}`);
+export function initializeWebSocket(roomId,userName,handleMessage) {
+  socket = new WebSocket(`wss://planning-poker-app-2.onrender.com/`);
   currentRoomId = roomId;
-  userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
+ 
 
   socket.onopen = () => {
     socket.send(JSON.stringify({
