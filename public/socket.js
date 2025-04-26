@@ -1,3 +1,5 @@
+// socket.js
+
 let socket;
 let currentRoomId = null;
 let userName = null;
@@ -6,7 +8,8 @@ const rooms = {}; // In-memory client cache
 
 // Initialize WebSocket connection
 export function initializeWebSocket(roomId, handleMessage) {
-  socket = new WebSocket(`wss://planning-poker-app-1.onrender.com`); // FIXED URL
+  const backendURL = import.meta.env.VITE_SERVER_WS_URL || 'wss://planning-poker-app-1.onrender.com';
+  socket = new WebSocket(backendURL);
 
   socket.onopen = () => {
     currentRoomId = roomId;
@@ -73,37 +76,12 @@ function handleRoomData(msg) {
     case 'userList':
       room.users = msg.users;
       break;
-
     case 'voteUpdate':
       room.storyVotesByUser[msg.story] = msg.votes;
       break;
-
     case 'storyChange':
       room.selectedStory = msg.story;
       break;
-
     case 'userJoined':
       if (!room.users.includes(msg.user)) {
         room.users.push(msg.user);
-      }
-      break;
-
-    case 'revealVotes':
-      // Nothing to cache, just allow main.js to trigger UI change
-      break;
-
-    case 'resetVotes':
-      if (room.selectedStory) {
-        room.storyVotesByUser[room.selectedStory] = {};
-      }
-      break;
-
-    default:
-      console.warn('Unknown message type:', msg.type);
-  }
-}
-
-// Optional helper if you want to expose room state
-export function getRoomData() {
-  return rooms[currentRoomId] || {};
-}
