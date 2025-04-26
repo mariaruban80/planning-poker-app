@@ -4,9 +4,16 @@ import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
 
 let currentStory = null;
 
+// Get Room ID either from URL or prompt
+function getRoomId() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomIdFromUrl = urlParams.get('roomId');
+  return roomIdFromUrl || prompt('Enter Room ID to join:') || 'default-room';
+}
+
 // Initialize the app
 function initApp() {
-  const roomId = prompt('Enter Room ID to join:') || 'default-room';
+  const roomId = getRoomId();
   initializeWebSocket(roomId, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
