@@ -144,6 +144,23 @@ wss.on('connection', (socket) => {
         break;
       }
 
+        case 'addUser':
+  {
+    const { user } = parsedMessage;
+    const room = rooms.get(roomId);
+    if (room && !room.users.includes(user)) {
+      room.users.push(user);
+
+      // Broadcast updated user list
+      broadcast(roomId, {
+        type: 'userList',
+        users: room.users,
+      });
+    }
+  }
+  break;
+
+
       case 'ping':
         // Optional: Keep-alive ping
         break;
