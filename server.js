@@ -5,21 +5,28 @@ const WebSocket = require('ws');
 
 // Create an HTTP server
 const server = http.createServer((req, res) => {
-  const filePath = req.url === '/' ? '/index.html' : req.url;
+  // Serve index.html for room-based paths
+  const roomIdMatch = req.url.match(/^\/room\/([a-zA-Z0-9-]+)$/);  // /room/{roomId}
+  const filePath = roomIdMatch ? '/index.html' : req.url;
   const extname = path.extname(filePath);
   
   let contentType = 'text/html';
   if (extname === '.js') contentType = 'application/javascript';
   if (extname === '.css') contentType = 'text/css';
   
-  const fullPath = path.join(__dirname, 'public', filePath); // Files in the 'public' folder
+  const fullPath = path.join(__dirname, 'public', filePath); // Assuming static files are in 'public' folder
   
   fs.readFile(fullPath, (err, content) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('File not found');
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 
+        'Content-Type': contentType, 
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache', 
+        'Expires': '0' 
+      });
       res.end(content);
     }
   });
