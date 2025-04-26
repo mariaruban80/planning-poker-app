@@ -4,7 +4,7 @@ let userName = null;
 let userId = null;
 const rooms = {};
 
-// Initialize WebSocket
+// Initialize WebSocket connection
 export function initializeWebSocket(roomId, handleMessage) {
   socket = new WebSocket(`wss://${window.location.host}`);
   currentRoomId = roomId;
@@ -17,7 +17,7 @@ export function initializeWebSocket(roomId, handleMessage) {
       user: userName
     }));
 
-    // Keep alive
+    // Keep-alive ping
     setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'ping' }));
@@ -68,15 +68,25 @@ function handleRoomData(msg) {
     case 'userList':
       room.users = msg.users;
       break;
+
+    case 'userJoined':
+      if (!room.users.includes(msg.user)) {
+        room.users.push(msg.user);
+      }
+      break;
+
     case 'voteUpdate':
       room.storyVotesByUser[msg.story] = msg.votes;
       break;
+
     case 'storyChange':
       room.selectedStory = msg.story;
       break;
+
     case 'revealVotes':
     case 'resetVotes':
       break;
+
     default:
       console.warn('Unknown message type:', msg.type);
   }
