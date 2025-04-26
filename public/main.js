@@ -28,6 +28,9 @@ function initApp() {
   document.getElementById('reveal-btn').addEventListener('click', revealVotes);
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
   document.getElementById('add-member').addEventListener('click', addMember);
+
+  // Update user list
+  updateUserList(getRoomData().users);
 }
 
 // Handle incoming WebSocket messages
