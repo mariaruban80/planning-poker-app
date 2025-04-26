@@ -24,7 +24,7 @@ function initApp() {
   // Initialize WebSocket connection with the roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
-  document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
+//  document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
   document.getElementById('revealVotesBtn').addEventListener('click', revealVotes);
   document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
   document.getElementById('addMemberBtnr').addEventListener('click', addMember);
