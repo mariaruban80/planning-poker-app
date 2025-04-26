@@ -1,12 +1,10 @@
-import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
+import { initializeWebSocket, sendMessage } from './socket.js';
 
 let currentStory = null;
-let socket;
 
 // Initialize the app
 function initApp() {
-  const roomId = getRoomIdFromUrl();
-  joinRoom(roomId); // Join the room when the page loads
+  const roomId = window.location.pathname.slice(1) || prompt('Enter Room ID to join:') || 'default-room';
   initializeWebSocket(roomId, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
@@ -14,23 +12,11 @@ function initApp() {
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
 }
 
-// Get roomId from URL
-function getRoomIdFromUrl() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('roomId') || 'default-room';
-}
-
-// Join the room and emit 'joinRoom' event
-function joinRoom(roomId) {
-  const userName = prompt('Enter your name:') || 'Guest';
-  socket.emit('joinRoom', roomId, userName);
-}
-
 // Handle incoming WebSocket messages
 function handleIncomingMessage(msg) {
   switch (msg.type) {
     case 'userList':
-      updateUserList(msg.users); // Update user list UI
+      updateUserList(msg.users);
       break;
     case 'storyChange':
       updateStory(msg.story);
@@ -47,17 +33,6 @@ function handleIncomingMessage(msg) {
     default:
       console.warn('Unhandled message:', msg);
   }
-}
-
-// Update user list UI
-function updateUserList(users) {
-  const userList = document.getElementById('user-list');
-  userList.innerHTML = ''; // Clear current list
-  users.forEach(user => {
-    const li = document.createElement('li');
-    li.textContent = user;
-    userList.appendChild(li);
-  });
 }
 
 // Handle vote button clicks
@@ -78,14 +53,25 @@ function updateStory(story) {
   document.getElementById('current-story').textContent = `Current Story: ${story}`;
 }
 
+// Update user list UI
+function updateUserList(users) {
+  const userList = document.getElementById('user-list');
+  userList.innerHTML = '';
+  users.forEach(user => {
+    const li = document.createElement('li');
+    li.textContent = user;
+    userList.appendChild(li);
+  });
+}
+
 // Update votes UI
 function updateVotes(story, votes) {
   const voteList = document.getElementById('vote-list');
   voteList.innerHTML = '';
 
-  for (const [user, vote] of Object.entries(votes)) {
+  for (const [userId, vote] of Object.entries(votes)) {
     const li = document.createElement('li');
-    li.textContent = `${user}: ${vote}`;
+    li.textContent = `${userId}: ${vote}`;
     voteList.appendChild(li);
   }
 }
