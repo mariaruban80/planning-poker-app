@@ -1,42 +1,29 @@
-// server.js
-
 import express from 'express';
+import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Setup
-const app = express();
+// Setup __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Setup Express
+const app = express();
+const server = createServer(app);
+const wss = new WebSocketServer({ server });
+
+const rooms = new Map();
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// For any unknown route, serve index.html
+// Serve index.html for all unknown routes (important for /room/:id)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start HTTP server
-const server = app.listen(process.env.PORT || 3000, () => {
-  console.log(`Server listening`);
-});
-
-// Setup WebSocket
-const wss = new WebSocketServer({ server });
-const rooms = new Map();
-
-function broadcast(roomId, data) {
-  if (!rooms.has(roomId)) return;
-  const room = rooms.get(roomId);
-  room.clients.forEach(client => {
-    if (client.readyState === 1) {
-      client.send(JSON.stringify(data));
-    }
-  });
-}
-
+// WebSocket connection handling
 wss.on('connection', (ws) => {
   let roomId = null;
 
@@ -51,10 +38,10 @@ wss.on('connection', (ws) => {
         }
         const room = rooms.get(roomId);
         room.clients.push(ws);
-        if (!room.users.includes(parsed.user)) {
-          room.users.push(parsed.user);
-        }
-        broadcast(roomId, { type: 'userList', users: room.users });
+
+        // Send current users list to the new client
+        ws.send(JSON.stringify({ type: 'userList', users: room.users }));
+
         break;
 
       case 'addUser':
@@ -62,25 +49,24 @@ wss.on('connection', (ws) => {
           const room = rooms.get(roomId);
           if (!room.users.includes(parsed.user)) {
             room.users.push(parsed.user);
-            broadcast(roomId, { type: 'userList', users: room.users });
           }
+          // Broadcast updated user list
+          broadcast(roomId, { type: 'userList', users: room.users });
         }
         break;
 
       case 'vote':
-        broadcast(roomId, { type: 'voteUpdate', story: parsed.story, votes: { [parsed.user]: parsed.vote } });
-        break;
-
       case 'revealVotes':
-        broadcast(roomId, { type: 'revealVotes' });
-        break;
-
       case 'resetVotes':
-        broadcast(roomId, { type: 'resetVotes' });
+      case 'storyChange':
+        if (roomId) {
+          broadcast(roomId, parsed);
+        }
         break;
 
-      default:
-        console.warn('Unknown message type:', parsed.type);
+      case 'ping':
+        ws.send(JSON.stringify({ type: 'pong' }));
+        break;
     }
   });
 
@@ -93,4 +79,21 @@ wss.on('connection', (ws) => {
       }
     }
   });
+});
+
+function broadcast(roomId, data) {
+  if (rooms.has(roomId)) {
+    const room = rooms.get(roomId);
+    room.clients.forEach(client => {
+      if (client.readyState === 1) {
+        client.send(JSON.stringify(data));
+      }
+    });
+  }
+}
+
+// Start server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
