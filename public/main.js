@@ -24,29 +24,29 @@ function initApp() {
   // Initialize WebSocket connection with the roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
-  const revealVotesBtn = document.getElementById('revealVotesBtn');
-if (revealVotesBtn) {
-  revealVotesBtn.addEventListener('click', revealVotes);
-}
+  // Initialize buttons and event listeners
+  setupButtonListeners();
 
-const resetVotesBtn = document.getElementById('resetVotesBtn');
-if (resetVotesBtn) {
-  resetVotesBtn.addEventListener('click', resetVotes);
-}
-
-const addMemberBtnr = document.getElementById('addMemberBtnr');
-if (addMemberBtnr) {
-  addMemberBtnr.addEventListener('click', addMember);
-}
-
-
-//  document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
-//  document.getElementById('revealVotesBtn').addEventListener('click', revealVotes);
-  // document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
-  // document.getElementById('addMemberBtnr').addEventListener('click', addMember);
-
-  // Update user list
+  // Update user list when data is available
   updateUserList(getRoomData().users);
+}
+
+// Setup button event listeners
+function setupButtonListeners() {
+  const revealVotesBtn = document.getElementById('revealVotesBtn');
+  if (revealVotesBtn) {
+    revealVotesBtn.addEventListener('click', revealVotes);
+  }
+
+  const resetVotesBtn = document.getElementById('resetVotesBtn');
+  if (resetVotesBtn) {
+    resetVotesBtn.addEventListener('click', resetVotes);
+  }
+
+  const addMemberBtnr = document.getElementById('addMemberBtnr');
+  if (addMemberBtnr) {
+    addMemberBtnr.addEventListener('click', addMember);
+  }
 }
 
 // Handle incoming WebSocket messages
@@ -87,29 +87,35 @@ function handleVoteClick(event) {
 // Change the current story
 function updateStory(story) {
   currentStory = story;
-  document.getElementById('current-story').textContent = `Current Story: ${story}`;
+  const currentStoryElement = document.getElementById('current-story');
+  if (currentStoryElement) {
+    currentStoryElement.textContent = `Current Story: ${story}`;
+  }
 }
 
 // Update user list UI
 function updateUserList(users) {
   const userList = document.getElementById('user-list');
-  userList.innerHTML = '';
-  users.forEach(user => {
-    const li = document.createElement('li');
-    li.textContent = user;
-    userList.appendChild(li);
-  });
+  if (userList) {
+    userList.innerHTML = '';
+    users.forEach(user => {
+      const li = document.createElement('li');
+      li.textContent = user;
+      userList.appendChild(li);
+    });
+  }
 }
 
 // Update votes UI
 function updateVotes(story, votes) {
   const voteList = document.getElementById('vote-list');
-  voteList.innerHTML = '';
-
-  for (const [user, vote] of Object.entries(votes)) {
-    const li = document.createElement('li');
-    li.textContent = `${user}: ${vote}`;
-    voteList.appendChild(li);
+  if (voteList) {
+    voteList.innerHTML = '';
+    for (const [user, vote] of Object.entries(votes)) {
+      const li = document.createElement('li');
+      li.textContent = `${user}: ${vote}`;
+      voteList.appendChild(li);
+    }
   }
 }
 
