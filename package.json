@@ -1,20 +1,16 @@
+
+
 {
-  "name": "planning-poker-ws-server",
-  "version": "1.1.0",
-  "description": "WebSocket server for Planning Poker tool with multi-user interactive sessions",
+  "name": "planning-poker-app",
+  "version": "1.0.0",
+  "description": "",
   "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
-  },
-  "engines": {
-    "node": "18.x"
+    "start": "node server.js"
   },
   "dependencies": {
-     "express": "^4.18.2",
+    "express": "^4.18.2",
     "ws": "^8.13.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
   }
 }
