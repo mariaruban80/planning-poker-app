@@ -1,90 +1,74 @@
-const WebSocket = require('ws');
-const http = require('http');
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
 
-// Store rooms and their connected clients
-const rooms = {};
-
-// Create an Express app
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// Serve static files from the 'public' directory
+const PORT = process.env.PORT || 3000;
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Create an HTTP server
-const server = http.createServer(app);
+// Store votes per room
+const roomVotes = {};
 
-// Attach WebSocket server
-const wss = new WebSocket.Server({ server });
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
 
-wss.on('connection', function connection(ws) {
-  ws.on('message', function incoming(message) {
-    try {
-      const msg = JSON.parse(message);
-      const { type, user, roomId, ...rest } = msg;
+  // Join room
+  socket.on('joinRoom', (roomId, username) => {
+    socket.join(roomId);
+    socket.roomId = roomId;
+    socket.username = username;
 
-      if (type === 'join') {
-        ws.user = user;
-        ws.roomId = roomId;
+    if (!roomVotes[roomId]) {
+      roomVotes[roomId] = {};
+    }
 
-        if (!rooms[roomId]) rooms[roomId] = [];
-        rooms[roomId] = rooms[roomId].filter(client => client.user !== user);
-        rooms[roomId].push(ws);
+    console.log(`${username} joined room ${roomId}`);
+    io.to(roomId).emit('userJoined', `${username} has joined the room.`);
+  });
 
-        broadcastToRoom(roomId, {
-          type: 'userList',
-          users: rooms[roomId].map(client => client.user),
-        });
+  // Handle user vote
+  socket.on('vote', (vote) => {
+    const roomId = socket.roomId;
+    const username = socket.username;
 
-        broadcastToRoom(roomId, {
-          type: 'userJoined',
-          user
-        });
-      }
+    if (roomId && username) {
+      roomVotes[roomId][username] = vote;
 
-      if (['voteUpdate', 'storyChange'].includes(type)) {
-        broadcastToRoom(roomId, { type, user, ...rest });
-      }
-
-      if (type === 'revealVotes') {
-        broadcastToRoom(roomId, { type });
-      }
-
-      if (type === 'resetVotes') {
-        broadcastToRoom(roomId, { type, story: rest.story });
-      }
-
-    } catch (e) {
-      console.error('Invalid message:', message);
+      // Broadcast updated votes to the room
+      io.to(roomId).emit('updateVotes', roomVotes[roomId]);
     }
   });
 
-  ws.on('close', () => {
-    const roomId = ws.roomId;
-    if (roomId && rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(client => client !== ws);
-      broadcastToRoom(roomId, {
-        type: 'userList',
-        users: rooms[roomId].map(client => client.user),
-      });
+  // Reset votes for a room
+  socket.on('resetVotes', () => {
+    const roomId = socket.roomId;
+
+    if (roomId && roomVotes[roomId]) {
+      roomVotes[roomId] = {};
+      io.to(roomId).emit('updateVotes', {});
     }
+  });
+
+  // Handle user disconnect
+  socket.on('disconnect', () => {
+    const roomId = socket.roomId;
+    const username = socket.username;
+
+    if (roomId && username && roomVotes[roomId]) {
+      delete roomVotes[roomId][username];
+      io.to(roomId).emit('userLeft', `${username} has left the room.`);
+      io.to(roomId).emit('updateVotes', roomVotes[roomId]);
+    }
+
+    console.log(`User disconnected: ${socket.id}`);
   });
 });
 
-// Function to broadcast to all clients in a room
-function broadcastToRoom(roomId, message) {
-  if (!rooms[roomId]) return;
-  const data = JSON.stringify(message);
-  rooms[roomId].forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
-    }
-  });
-}
-
-// ✅ Required for Render deployment
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`WebSocket server running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
