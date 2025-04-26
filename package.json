@@ -1,16 +1,14 @@
-
-
 {
   "name": "planning-poker-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Planning Poker app with WebSocket and room-based sync",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.13.0"
+    "express": "^4.18.4",
+    "ws": "^8.15.0"
   }
 }
