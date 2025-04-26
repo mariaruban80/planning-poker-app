@@ -1,94 +1,116 @@
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
-const server = createServer(app);
+const server = http.createServer(app);
 const io = new Server(server);
 
-const rooms = {}; // { roomId: { users: [], votes: {}, story: "" } }
+const PORT = process.env.PORT || 3000;
 
 // Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public')));
 
-// Serve index.html for any GET request
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Store rooms data
+const rooms = {};
 
-// WebSocket handling
+// Handle socket connections
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  console.log('New client connected');
 
+  let currentRoom = null;
+  let currentUser = null;
+
+  // When user joins a room
   socket.on('join', ({ roomId, user }) => {
-    socket.join(roomId);
-    if (!rooms[roomId]) {
-      rooms[roomId] = { users: [], votes: {}, story: '' };
+    currentRoom = roomId;
+    currentUser = user;
+
+    if (!rooms[currentRoom]) {
+      rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false };
     }
-    rooms[roomId].users.push(user);
 
-    io.to(roomId).emit('userList', { users: rooms[roomId].users });
-    console.log(`User ${user} joined room ${roomId}`);
-  });
+    rooms[currentRoom].users.push(currentUser);
+    socket.join(currentRoom);
 
-  socket.on('vote', ({ story, vote }) => {
-    const roomId = getUserRoom(socket);
-    if (roomId && rooms[roomId]) {
-      if (!rooms[roomId].votes[story]) {
-        rooms[roomId].votes[story] = {};
-      }
-      rooms[roomId].votes[story][socket.id] = vote;
-      io.to(roomId).emit('voteUpdate', { story, votes: rooms[roomId].votes[story] });
+    // Send updated users list to everyone
+    io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
+
+    // If there is already a selected story, send it to the new user
+    if (rooms[currentRoom].story) {
+      socket.emit('storyChange', { story: rooms[currentRoom].story });
     }
   });
 
+  // When user selects a story
   socket.on('storyChange', ({ story }) => {
-    const roomId = getUserRoom(socket);
-    if (roomId && rooms[roomId]) {
-      rooms[roomId].story = story;
-      io.to(roomId).emit('storyChange', { story });
+    if (currentRoom) {
+      rooms[currentRoom].story = story;
+      rooms[currentRoom].votes = {}; // reset previous votes
+      rooms[currentRoom].revealed = false;
+
+      io.to(currentRoom).emit('storyChange', { story });
     }
   });
 
+  // When user votes
+  socket.on('vote', ({ story, vote }) => {
+    if (currentRoom) {
+      if (!rooms[currentRoom].votes) {
+        rooms[currentRoom].votes = {};
+      }
+      rooms[currentRoom].votes[currentUser] = vote;
+
+      io.to(currentRoom).emit('voteUpdate', {
+        story,
+        votes: rooms[currentRoom].votes
+      });
+    }
+  });
+
+  // Reveal votes
   socket.on('revealVotes', () => {
-    const roomId = getUserRoom(socket);
-    if (roomId) {
-      io.to(roomId).emit('revealVotes');
+    if (currentRoom) {
+      rooms[currentRoom].revealed = true;
+      io.to(currentRoom).emit('revealVotes', {});
     }
   });
 
+  // Reset votes
   socket.on('resetVotes', () => {
-    const roomId = getUserRoom(socket);
-    if (roomId && rooms[roomId]) {
-      rooms[roomId].votes = {};
-      io.to(roomId).emit('resetVotes');
+    if (currentRoom) {
+      rooms[currentRoom].votes = {};
+      rooms[currentRoom].revealed = false;
+      io.to(currentRoom).emit('resetVotes', {});
     }
   });
 
+  // When a user disconnects
   socket.on('disconnect', () => {
-    const roomId = getUserRoom(socket);
-    if (roomId && rooms[roomId]) {
-      // Remove user from room
-      rooms[roomId].users = rooms[roomId].users.filter(u => u !== socket.userName);
-      io.to(roomId).emit('userList', { users: rooms[roomId].users });
-    }
-    console.log('Client disconnected:', socket.id);
-  });
+    if (currentRoom && currentUser) {
+      const room = rooms[currentRoom];
+      if (room) {
+        room.users = room.users.filter(user => user !== currentUser);
 
-  socket.on('ping', () => {
-    socket.emit('pong');
+        // Broadcast updated users list
+        io.to(currentRoom).emit('userList', { users: room.users });
+
+        // Optionally: Delete empty room
+        if (room.users.length === 0) {
+          delete rooms[currentRoom];
+        }
+      }
+    }
+    console.log('Client disconnected');
   });
 });
-
-// Helper function
-function getUserRoom(socket) {
-  const roomsJoined = Array.from(socket.rooms).filter(r => r !== socket.id);
-  return roomsJoined[0];
-}
 
 // Start server
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
