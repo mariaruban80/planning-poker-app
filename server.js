@@ -1,74 +1,49 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
-
+const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Allow CORS (important for Render hosting)
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Or set your frontend URL instead of '*'
+    methods: ['GET', 'POST']
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve your static frontend (if needed)
+app.use(express.static('public'));
 
-// Store votes per room
-const roomVotes = {};
-
+// Socket.IO connection
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  console.log('A user connected:', socket.id);
 
-  // Join room
-  socket.on('joinRoom', (roomId, username) => {
-    socket.join(roomId);
-    socket.roomId = roomId;
-    socket.username = username;
-
-    if (!roomVotes[roomId]) {
-      roomVotes[roomId] = {};
-    }
-
-    console.log(`${username} joined room ${roomId}`);
-    io.to(roomId).emit('userJoined', `${username} has joined the room.`);
+  socket.on('joinRoom', (room) => {
+    socket.join(room);
+    console.log(`User ${socket.id} joined room: ${room}`);
   });
 
-  // Handle user vote
-  socket.on('vote', (vote) => {
-    const roomId = socket.roomId;
-    const username = socket.username;
-
-    if (roomId && username) {
-      roomVotes[roomId][username] = vote;
-
-      // Broadcast updated votes to the room
-      io.to(roomId).emit('updateVotes', roomVotes[roomId]);
-    }
+  socket.on('vote', (data) => {
+    io.to(data.room).emit('vote', data); // only to users in the same room
   });
 
-  // Reset votes for a room
-  socket.on('resetVotes', () => {
-    const roomId = socket.roomId;
-
-    if (roomId && roomVotes[roomId]) {
-      roomVotes[roomId] = {};
-      io.to(roomId).emit('updateVotes', {});
-    }
+  socket.on('revealCards', (room) => {
+    io.to(room).emit('revealCards');
   });
 
-  // Handle user disconnect
+  socket.on('resetVotes', (room) => {
+    io.to(room).emit('resetVotes');
+  });
+
   socket.on('disconnect', () => {
-    const roomId = socket.roomId;
-    const username = socket.username;
-
-    if (roomId && username && roomVotes[roomId]) {
-      delete roomVotes[roomId][username];
-      io.to(roomId).emit('userLeft', `${username} has left the room.`);
-      io.to(roomId).emit('updateVotes', roomVotes[roomId]);
-    }
-
-    console.log(`User disconnected: ${socket.id}`);
+    console.log('User disconnected:', socket.id);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
