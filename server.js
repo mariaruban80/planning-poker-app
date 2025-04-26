@@ -3,14 +3,34 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
+import https from 'https';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const server = http.createServer(app);
+
+// Check if the app is running on HTTPS
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Use HTTPS if in production environment, otherwise HTTP
+let server;
+if (isProduction) {
+  // Use SSL certificates for secure connection
+  const sslOptions = {
+    key: fs.readFileSync('/path/to/private.key'),
+    cert: fs.readFileSync('/path/to/certificate.crt'),
+    ca: fs.readFileSync('/path/to/ca.crt'),  // Optional: If you're using an intermediate certificate
+  };
+  server = https.createServer(sslOptions, app);
+} else {
+  server = http.createServer(app); // Use HTTP if not in production
+}
+
 const io = new Server(server);
 
+// Handle Socket.IO connection
 const PORT = process.env.PORT || 3000;
 
 // Serve static files
