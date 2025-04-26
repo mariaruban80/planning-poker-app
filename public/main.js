@@ -1,10 +1,13 @@
-import { initializeWebSocket, sendMessage } from './socket.js';
+import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
 
 let currentStory = null;
 
 // Initialize the app
 function initApp() {
-  const roomId = window.location.pathname.slice(1) || prompt('Enter Room ID to join:') || 'default-room';
+  // Get roomId from URL parameters or use 'default-room' if not present
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('roomId') || 'default-room';
+  
   initializeWebSocket(roomId, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
@@ -69,9 +72,9 @@ function updateVotes(story, votes) {
   const voteList = document.getElementById('vote-list');
   voteList.innerHTML = '';
 
-  for (const [userId, vote] of Object.entries(votes)) {
+  for (const [user, vote] of Object.entries(votes)) {
     const li = document.createElement('li');
-    li.textContent = `${userId}: ${vote}`;
+    li.textContent = `${user}: ${vote}`;
     voteList.appendChild(li);
   }
 }
