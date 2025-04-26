@@ -25,9 +25,9 @@ function initApp() {
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
-  document.getElementById('reveal-btn').addEventListener('click', revealVotes);
-  document.getElementById('reset-btn').addEventListener('click', resetVotes);
-  document.getElementById('add-member').addEventListener('click', addMember);
+  document.getElementById('revealVotesBtn').addEventListener('click', revealVotes);
+  document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
+  document.getElementById('addMemberBtnr').addEventListener('click', addMember);
 
   // Update user list
   updateUserList(getRoomData().users);
