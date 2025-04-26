@@ -21,6 +21,7 @@ function initApp() {
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
 }
 
+
 // Handle incoming WebSocket messages
 function handleIncomingMessage(msg) {
   switch (msg.type) {
@@ -84,6 +85,16 @@ function updateVotes(story, votes) {
     voteList.appendChild(li);
   }
 }
+
+function addMember() {
+  const newUser = prompt('Enter new user name:');
+  if (newUser) {
+    sendMessage('addUser', { user: newUser });
+  }
+}
+
+document.getElementById('add-member-btn').addEventListener('click', addMember);
+
 
 // Send reveal command
 function revealVotes() {
