@@ -1,7 +1,15 @@
 // server.js
-const WebSocket = require('ws'); // Import WebSocket package
+const http = require('http');
+const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({ port: 8080 }); // Create a WebSocket server on port 8080
+// Create an HTTP server
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Planning Poker Server');
+});
+
+// Create WebSocket server using the HTTP server
+const wss = new WebSocket.Server({ server });
 
 const rooms = {}; // In-memory room data storage
 
@@ -10,10 +18,6 @@ wss.on('connection', (ws) => {
   let currentRoomId = null;
   let userName = null;
 
-  // Send a message to the client when connected
-  ws.send(JSON.stringify({ message: 'Welcome to the planning poker app!' }));
-
-  // Handle incoming messages from clients
   ws.on('message', (message) => {
     const msg = JSON.parse(message);
 
@@ -29,7 +33,6 @@ wss.on('connection', (ws) => {
         break;
 
       case 'vote':
-        // Update vote in the current room
         if (currentRoomId) {
           rooms[currentRoomId].votes[msg.user] = msg.vote;
           broadcastRoomData(currentRoomId);
@@ -37,13 +40,12 @@ wss.on('connection', (ws) => {
         break;
 
       case 'ping':
-        // Respond to ping to keep connection alive
         ws.send(JSON.stringify({ type: 'ping' }));
         break;
 
       case 'resetVotes':
         if (currentRoomId) {
-          rooms[currentRoomId].votes = {}; // Reset all votes
+          rooms[currentRoomId].votes = {};
           broadcastRoomData(currentRoomId);
         }
         break;
@@ -53,7 +55,6 @@ wss.on('connection', (ws) => {
     }
   });
 
-  // Handle WebSocket close event
   ws.on('close', () => {
     if (currentRoomId && userName) {
       const room = rooms[currentRoomId];
@@ -74,7 +75,6 @@ function broadcastRoomData(roomId) {
       users: room.users,
       votes: room.votes,
     };
-    // Send room data to all users in the room
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(roomData));
@@ -83,4 +83,7 @@ function broadcastRoomData(roomId) {
   }
 }
 
-console.log('WebSocket server started on ws://localhost:8080');
+// Listen on port 8080
+server.listen(8080, () => {
+  console.log('Server listening on http://localhost:8080');
+});
