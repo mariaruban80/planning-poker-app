@@ -4,15 +4,18 @@ let currentStory = null;
 
 // Initialize the app
 function initApp() {
-  // Get roomId from URL parameters or use 'default-room' if not present
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId') || 'default-room';
   
-  initializeWebSocket(roomId, handleIncomingMessage);
+  // Get user name from prompt
+  const userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
+  
+  initializeWebSocket(roomId, userName, handleIncomingMessage);
 
   document.getElementById('vote-buttons').addEventListener('click', handleVoteClick);
   document.getElementById('reveal-btn').addEventListener('click', revealVotes);
   document.getElementById('reset-btn').addEventListener('click', resetVotes);
+  document.getElementById('add-member').addEventListener('click', addMember);
 }
 
 // Handle incoming WebSocket messages
@@ -98,6 +101,14 @@ function revealAllVotes() {
 function resetAllVotes() {
   alert('Votes have been reset.');
   updateVotes(currentStory, {});
+}
+
+// Add a new member to the room
+function addMember() {
+  const memberName = prompt('Enter the name of the new member:');
+  if (memberName) {
+    sendMessage('addMember', { memberName });
+  }
 }
 
 // Initialize when page loads
