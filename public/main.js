@@ -44,9 +44,9 @@ function setupButtonListeners() {
     resetVotesBtn.addEventListener('click', resetVotes);
   }
 
-  const addMemberBtnr = document.getElementById('addMemberBtnr');
-  if (addMemberBtnr) {
-    addMemberBtnr.addEventListener('click', addMember);
+  const addMemberBtn = document.getElementById('addMemberBtn');
+  if (addMemberBtn) {
+    addMemberBtn.addEventListener('click', addMember);
   }
 
   // Attach vote buttons
