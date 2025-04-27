@@ -73,8 +73,24 @@ function parseCSV(data) {
 
 // Display CSV content
 function displayCSVData(data) {
-  csvData = data;
-  renderCurrentStory(); // Initially render the first story
+  csvData = data;  // Store the parsed CSV data
+
+  // Ensure the story list container exists
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer) return;
+
+  // Clear the container before appending new data
+  storyListContainer.innerHTML = '';
+
+  // Iterate over all the rows in the CSV and render them
+  data.forEach((row, index) => {
+    const storyItem = document.createElement('div');
+    storyItem.classList.add('story-card');
+    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+    storyListContainer.appendChild(storyItem);
+  });
+
+  renderCurrentStory();  // Make sure the current story is rendered after the data is displayed
 }
 
 // Update user list
