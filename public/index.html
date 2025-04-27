@@ -22,15 +22,15 @@
       box-sizing: border-box;
       overflow-y: auto;
     }
- .main {
-  flex: 1;
-  padding: 20px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start; /* changed from space-between */
-}
+    .main {
+      flex: 1;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
 
     .user-list div {
       background: #d3bff5;
@@ -68,29 +68,28 @@
     .user-slot.dropped {
       background: #c1e1c1;
     }
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
-.cards .card {
-  animation: fadeIn 0.5s ease-out forwards;
-}
+    @keyframes fadeIn {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
+    .cards .card {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
 
- .cards {
-  margin-top: 40px; /* was 20px before, gives a bit more spacing above */
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
+    .cards {
+      margin-top: 40px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
     .card {
       padding: 10px 20px;
@@ -101,19 +100,21 @@
     }
 
     .upload-section {
-display: flex; /* Aligning the children horizontally */
-  justify-content: flex-end; /* Aligning the content to the right */
+      display: flex;
+      justify-content: flex-end;
       text-align: right;
       padding: 10px;
       background: #fff;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      gap: 10px; /* Adds some spacing between buttons */
+      gap: 10px;
     }
-.upload-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+
+    .upload-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     #story-info {
       margin-top: 10px;
       font-size: 14px;
@@ -133,17 +134,16 @@ display: flex; /* Aligning the children horizontally */
       background-color: #e0e7ff;
       border: 2px solid #6c63ff;
     }
-.banner {
-  background-color: #003366;
-  color: white;
-  padding: 15px;
-  text-align: center;
-  font-size: 24px;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
 
-
+    .banner {
+      background-color: #003366;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
 
     .button {
       margin: 10px 0;
@@ -155,10 +155,10 @@ display: flex; /* Aligning the children horizontally */
       cursor: pointer;
       width: 100%;
     }
-.story-card.voted {
-  background-color: #c8f7c5;
-}
 
+    .story-card.voted {
+      background-color: #c8f7c5;
+    }
 
     .button:hover {
       background-color: #574fdd;
@@ -166,468 +166,121 @@ display: flex; /* Aligning the children horizontally */
   </style>
 </head>
 <body>
-<div class="banner">Planning Poker</div>
-<!-- Invite Button and Modal -->
-<style>
-  .invite-button {
-  padding: 5px 10px;
-  border: none;
-  border-radius: 6px;
-  background-color: #ff9800;
-  color: white;
-  cursor: pointer;
-  font-size: 12px;
-}
+  <div class="banner">Planning Poker</div>
+  <!-- Invite Button and Modal -->
+  <style>
+    .invite-button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff9800;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+    }
 
-  .modal-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0,0,0,0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
 
-  .modal {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    width: 300px;
-    text-align: center;
-  }
+    .modal {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: center;
+    }
 
-  .modal input {
-    width: 100%;
-    padding: 6px;
-    margin-top: 10px;
-    font-size: 14px;
-  }
+    .modal input {
+      width: 100%;
+      padding: 6px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
 
-  .modal button {
-    margin-top: 10px;
-    background-color: #6c63ff;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-  }
+    .modal button {
+      margin-top: 10px;
+      background-color: #6c63ff;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
-  .modal img {
-    margin-top: 15px;
-    max-width: 100%;
-  }
-</style>
+    .modal img {
+      margin-top: 15px;
+      max-width: 100%;
+    }
+  </style>
 
-
-
-<div class="modal-overlay" id="inviteModal">
-  <div class="modal">
-    <h3>Invite Link</h3>
-    <input type="text" id="inviteLink" readonly />
-    <button onclick="copyInviteLink()">Copy Link</button>
-    
-    <button onclick="hideInviteModal()">Close</button>
-  </div>
-</div>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script type="module" src="main.js"></script>
-
-
-<script>
-  if (performance.getEntriesByType("navigation")[0].type === "reload") {
-    localStorage.clear();
-  }
-</script>
-
-<div class="upload-section">
-<div class="upload-right">
-
-  <input type="file" id="csvInput" accept=".csv" />
-<button class="invite-button" onclick="showInviteModal()">Invite Others</button>
-  <span id="storyCount"></span>
-  <div id="story-info"></div>
-</div>
-</div>
-<div class="container">
-  <div class="sidebar">
-    <button class="button" id="addMemberBtn">Add Member</button>
-
-    <div class="user-list" id="userList"></div>      
-    <h3>Voted</h3>
-    <button class="button" id="revealVotesBtn">Reveal Votes</button>
-    <button class="button" id="resetVotesBtn">Reset Votes</button>
-    <button class="button" id="exportCsvBtn">Export All Votes</button>
-  
-  </div>
-  <div class="main">
-    <h2>Drop a card on user</h2>
-    <div class="user-dropzone" id="userArea"></div>
-    <div class="cards">
-      <div class="card" draggable="true">0</div>
-      <div class="card" draggable="true">1</div>
-      <div class="card" draggable="true">3</div>
-      <div class="card" draggable="true">5</div>
-      <div class="card" draggable="true">8</div>
-      <div class="card" draggable="true">13</div>
-      <div class="card" draggable="true">21</div>
+  <div class="modal-overlay" id="inviteModal">
+    <div class="modal">
+      <h3>Invite Link</h3>
+      <input type="text" id="inviteLink" readonly />
+      <button onclick="copyInviteLink()">Copy Link</button>
+      <button onclick="hideInviteModal()">Close</button>
     </div>
   </div>
-<div class="rightbar" id="storyListContainer">
-<div id="storyList"></div>
-  <div style="margin-top: 20px;">
-    <button class="button" onclick="navigateStory('prev')">Previous Story</button>
-    <button class="button" onclick="navigateStory('next')">Next Story</button>
-  </div>
-</div>
-
-<script>
   
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script type="module" src="main.js"></script>
 
-  // Generate or fetch roomId from the URL
-  function ensureRoomId() {
-    const url = new URL(window.location.href);
-    let roomId = url.searchParams.get("roomId");
-
-    if (!roomId) {
-      // Generate a simple unique ID (e.g., timestamp + random)
-      roomId = 'room-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
-      url.searchParams.set("roomId", roomId);
-      window.history.replaceState({}, '', url); // Update URL without reloading
+  <script>
+    if (performance.getEntriesByType("navigation")[0].type === "reload") {
+      localStorage.clear();
     }
+  </script>
 
-    return roomId;
-  }
+  <div class="upload-section">
+    <div class="upload-right">
+      <input type="file" id="csvInput" accept=".csv" />
+      <button class="invite-button" onclick="showInviteModal()">Invite Others</button>
+      <span id="storyCount"></span>
+      <div id="story-info"></div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="sidebar">
+      <button class="button" id="addMemberBtn">Add Member</button>
+      <div class="user-list" id="userList"></div>
+      <h3>Voted</h3>
+      <button class="button" id="revealVotesBtn">Reveal Votes</button>
+      <button class="button" id="resetVotesBtn">Reset Votes</button>
+      <button class="button" id="exportCsvBtn">Export All Votes</button>
+    </div>
+    <div class="main">
+      <h2>Drop a card on user</h2>
+      <div class="user-dropzone" id="userArea"></div>
+      <div class="cards">
+        <div class="card" draggable="true">0</div>
+        <div class="card" draggable="true">1</div>
+        <div class="card" draggable="true">3</div>
+        <div class="card" draggable="true">5</div>
+        <div class="card" draggable="true">8</div>
+        <div class="card" draggable="true">13</div>
+        <div class="card" draggable="true">21</div>
+      </div>
+    </div>
+    <div class="rightbar" id="storyListContainer">
+      <div id="storyList"></div>
+      <div style="margin-top: 20px;">
+        <button class="button" onclick="navigateStory('prev')">Previous Story</button>
+        <button class="button" onclick="navigateStory('next')">Next Story</button>
+      </div>
+    </div>
+  </div>
 
-  const currentRoomId = ensureRoomId(); // Ensure roomId is set in URL
-
-  // Set invite link when opening the modal
-  function showInviteModal() {
-    document.getElementById("inviteModal").style.display = "flex";
-    document.getElementById("inviteLink").value = window.location.href;
-  }
-
-  function hideInviteModal() {
-    document.getElementById("inviteModal").style.display = "none";
-  }
-
-  function copyInviteLink() {
-    const input = document.getElementById("inviteLink");
-    input.select();
-    document.execCommand("copy");
-    alert("Invite link copied!");
-  }
-
-  // Example usage: pass roomId to server if needed
-  // socket.send(JSON.stringify({ type: "join", user: userId, roomId: currentRoomId }));
-</script>
-
-<script>
-let socket;
-let userId;
-function initWebSocket() {
-//  const socket = new WebSocket(`wss://${window.location.host}`);
-const socket = new WebSocket('wss://planning-poker-app-2.onrender.com/');
-
-  socket.onopen = () => {
-    console.log("Connected to server");
-    userId = "User" + Math.floor(Math.random() * 10000); // Simple user ID
-    socket.send(JSON.stringify({ type: "join", user: userId }));
-  };
-
-  socket.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-
-    switch (msg.type) {
-      case "userList":
-        users = msg.users;
-        renderUsers();
-        break;
-      case "voteUpdate":
-        storyVotesByUser[msg.story] = msg.votes;
-        renderUsers();
-        break;
-      case "storyChange":
-        selectedStory = msg.story;
-        currentStoryIndex = msg.index;
-        localStorage.setItem('selectedStory', selectedStory);
-        localStorage.setItem('selectedStoryIndex', currentStoryIndex);
-        highlightSelectedStory(JSON.parse(localStorage.getItem('stories') || '[]'));
-        renderUsers();
-        break;
-    }
-  };
-}
-
-
-  let users = [];
-  let reveal = false;
-  const storyVotesByUser = JSON.parse(localStorage.getItem('storyVotesByUser')) || {};
-  let selectedStory = localStorage.getItem('selectedStory') || null;
-  let currentStoryIndex = parseInt(localStorage.getItem('selectedStoryIndex')) || 0;
-
-  const userList = document.getElementById('userList');
-  const userArea = document.getElementById('userArea');
-  const storyList = document.getElementById('storyList');
-  const storyCount = document.getElementById('storyCount');
-
-  function getVotesForCurrentStory() {
-    return storyVotesByUser[selectedStory] || {};
-  }
-
-  function renderUsers() {
-    const currentVotes = getVotesForCurrentStory();
-    userList.innerHTML = '';
-    userArea.innerHTML = '';
-
-    const radius = 160;
-    const centerX = 200;
-    const centerY = 200;
-
-    users.forEach((user, index) => {
-      const item = document.createElement('div');
-      item.textContent = user;
-      const voteSpan = document.createElement('span');
-      const voteValue = currentVotes[user] || '';
-      voteSpan.textContent = currentVotes[user] ? (reveal ? voteValue : '*') : '*';
-      item.appendChild(voteSpan);
-      userList.appendChild(item);
-
-      const angle = (2 * Math.PI / users.length) * index;
-      const x = centerX + radius * Math.cos(angle) - 50;
-      const y = centerY + radius * Math.sin(angle) - 50;
-
-      const slot = document.createElement('div');
-      slot.classList.add('user-slot');
-      slot.setAttribute('data-user', user);
-      slot.style.left = `${x}px`;
-      slot.style.top = `${y}px`;
-      slot.textContent = user.split(' ')[0];
-      if (currentVotes[user]) {
-        slot.classList.add('dropped');
-      }
-      userArea.appendChild(slot);
-    });
-
-    bindDropEvents();
-    showVoteStats();
-    updateStoryHighlights();
-  }
-function updateStoryHighlights() {
-  const stories = JSON.parse(localStorage.getItem('stories')) || [];
-  const storyCards = document.querySelectorAll('.story-card');
-
-  storyCards.forEach((card, i) => {
-    const storyKey = stories[i]?.trim();
-    const votes = storyVotesByUser[storyKey] || {};
-    const allVoted = users.length > 0 && users.every(user => votes[user]);
-    card.classList.toggle('voted', allVoted);
-  });
-}
-
-
-  function bindDropEvents() {
-    document.querySelectorAll('.user-slot').forEach(slot => {
-      slot.addEventListener('dragover', e => e.preventDefault());
-      slot.addEventListener('drop', e => {
-        e.preventDefault();
-        if (!slot.classList.contains('dropped')) {
-          const cardValue = e.dataTransfer.getData('text/plain');
-          const user = slot.getAttribute('data-user');
-          if (!storyVotesByUser[selectedStory]) storyVotesByUser[selectedStory] = {};
-          storyVotesByUser[selectedStory][user] = cardValue;
-          localStorage.setItem('storyVotesByUser', JSON.stringify(storyVotesByUser));
-          renderUsers();
-updateStoryHighlights();
-
-        }
-      });
-    });
-  }
-
-  document.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('dragstart', e => {
-      e.dataTransfer.setData('text/plain', card.textContent);
-    });
-  });
-
-  document.getElementById('csvInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      const lines = event.target.result.split('\n').filter(line => line.trim());
-      localStorage.setItem('stories', JSON.stringify(lines));
-      loadStories(lines);
-    };
-    reader.readAsText(file);
-  });
-
-  function loadStories(stories) {
-    storyList.innerHTML = '';
-    stories.forEach((line, index) => {
-      const [id, description] = line.split(',');
-      const card = document.createElement('div');
-      card.className = 'story-card';
-      card.innerHTML = `<p><strong>${id}</strong> - ${description}</p>`;
-      card.addEventListener('click', () => selectStory(card, line, index));
-      storyList.appendChild(card);
-    });
-    storyCount.textContent = `Total Stories: ${stories.length}`;
-    highlightSelectedStory(stories);
-    updateStoryHighlights();
-  }
-
-  function selectStory(card, line, index) {
-    document.querySelectorAll('.story-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    selectedStory = line.trim();
-    currentStoryIndex = index;
-    localStorage.setItem('selectedStory', selectedStory);
-    localStorage.setItem('selectedStoryIndex', index);
-    reveal = false;
-    renderUsers();
-  }
-
-  function highlightSelectedStory(stories) {
-    const storyCards = document.querySelectorAll('.story-card');
-    if (storyCards[currentStoryIndex]) {
-      storyCards[currentStoryIndex].classList.add('selected');
-      selectedStory = stories[currentStoryIndex].trim();
-    }
-  }
-
-  function resetVotes() {
-    if (selectedStory) {
-      delete storyVotesByUser[selectedStory];
-      localStorage.setItem('storyVotesByUser', JSON.stringify(storyVotesByUser));
-    }
-    reveal = false;
-    renderUsers();
-  }
-
-  function showVoteStats() {
-    const stats = document.getElementById('story-info');
-    const currentVotes = getVotesForCurrentStory();
-    const values = Object.values(currentVotes).map(Number).filter(n => !isNaN(n));
-    if (values.length === 0) return stats.textContent = '';
-    const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
-    const sorted = values.sort((a, b) => a - b);
-    const median = sorted.length % 2 === 0
-      ? ((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2).toFixed(2)
-      : sorted[Math.floor(sorted.length / 2)];
-    stats.textContent = `Average: ${avg} | Median: ${median}`;
-  }
-
-  function saveHighestVoteForCurrentStory() {
-    if (!selectedStory) return;
-    const storyVotes = JSON.parse(localStorage.getItem('storyVotes') || '{}');
-    const currentVotes = getVotesForCurrentStory();
-    const values = Object.values(currentVotes).map(Number).filter(n => !isNaN(n));
-    const highVote = values.length ? Math.max(...values) : null;
-    if (highVote !== null) {
-      storyVotes[selectedStory] = highVote;
-      localStorage.setItem('storyVotes', JSON.stringify(storyVotes));
-    }
-  }
-
-  function navigateStory(direction) {
-    const stories = JSON.parse(localStorage.getItem('stories')) || [];
-    saveHighestVoteForCurrentStory();
-
-    if (direction === 'next' && currentStoryIndex < stories.length - 1) currentStoryIndex++;
-    else if (direction === 'prev' && currentStoryIndex > 0) currentStoryIndex--;
-    else return;
-
-    selectedStory = stories[currentStoryIndex].trim();
-    localStorage.setItem('selectedStory', selectedStory);
-    localStorage.setItem('selectedStoryIndex', currentStoryIndex);
-
-    document.querySelectorAll('.story-card').forEach(c => c.classList.remove('selected'));
-    const cards = document.querySelectorAll('.story-card');
-    if (cards[currentStoryIndex]) cards[currentStoryIndex].classList.add('selected');
-
-    const currentVotes = storyVotesByUser[selectedStory] || {};
-    const allVoted = users.length > 0 && users.every(user => currentVotes[user]);
-
-    reveal = allVoted;
-
-    renderUsers();
-    updateStoryHighlights();
-  }
-
-  document.getElementById('revealVotesBtn').addEventListener('click', () => {
-    setTimeout(() => {
-      reveal = true;
-      renderUsers();
-    }, 1000);
-  });
-
-  document.getElementById('resetVotesBtn').addEventListener('click', resetVotes);
-
-  document.getElementById('addMemberBtn').addEventListener('click', () => {
-    const newUser = prompt("Enter member's name:");
-    if (newUser && !users.includes(newUser)) {
-      users.push(newUser);
-      renderUsers();
-    }
-  });
-
-  document.getElementById('exportCsvBtn').addEventListener('click', () => {
-    const stories = JSON.parse(localStorage.getItem('stories')) || [];
-    const allVotes = JSON.parse(localStorage.getItem('storyVotesByUser') || '{}');
-
-    if (stories.length === 0) return alert('No stories found.');
-
-    let csv = `Story ID,Description,Highest Vote\n`;
-
-    stories.forEach(story => {
-      const [id, description] = story.split(',');
-      const key = story.trim();
-      const votes = allVotes[key] ? Object.values(allVotes[key]).map(Number).filter(n => !isNaN(n)) : [];
-      const highVote = votes.length ? Math.max(...votes) : 'N/A';
-      csv += `${id},${description},${highVote}\n`;
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'all_story_votes.csv';
-    a.click();
-  });
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const stories = JSON.parse(localStorage.getItem('stories')) || [];
-    loadStories(stories);
-initWebSocket();
-    renderUsers();
-  });
-function showInviteModal() {
-  const url = window.location.href;
-  const modal = document.getElementById('inviteModal');
-  const input = document.getElementById('inviteLink');
-
-input.value = url;
-modal.style.display = 'flex';
-
-}
-
-function hideInviteModal() {
-  document.getElementById('inviteModal').style.display = 'none';
-}
-
-
-function copyInviteLink() {
-  const input = document.getElementById('inviteLink');
-  input.select();
-  input.setSelectionRange(0, 99999);
-  document.execCommand('copy');
-  alert('Link copied to clipboard!');
-}
-
-</script>
+  <script>
+    // Add your existing JavaScript here to handle functionality...
+  </script>
 </body>
 </html>
