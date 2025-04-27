@@ -10,19 +10,26 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   currentRoomId = roomId;
   userName = userNameParam;
 
-  // Use socket.io client
+  // Ensure roomId and userName are properly passed in
+  if (!roomId || !userName) {
+    console.error('Room ID or User Name is missing.');
+    return;
+  }
+
+  // Use socket.io client to connect to the server, passing roomId and userName in query
   socket = io("https://planning-poker-app-2.onrender.com", {
     transports: ["websocket"], // Force websocket if possible
+    query: { roomId, userName } // Pass roomId and userName as part of the connection
   });
 
   socket.on('connect', () => {
     console.log('Socket.IO connection established.');
 
+    // Emit join event to the server after the connection is established
     socket.emit('join', { roomId, user: userName });
-
-    // Keep-alive is not needed with socket.io, it handles pings
   });
 
+  // Handle different socket events and pass the data to the provided callback
   socket.on('userList', (data) => {
     handleRoomData({ type: 'userList', users: data.users });
     if (typeof handleMessage === 'function') handleMessage({ type: 'userList', users: data.users });
