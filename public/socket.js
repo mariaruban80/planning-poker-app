@@ -24,7 +24,7 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
 
   socket.on('connect', () => {
     console.log('Socket.IO connection established.');
-    socket.emit('join', { roomId, user: userName });
+    socket.emit('join'); // No need to send { roomId, user } again because it's already in query
   });
 
   socket.on('userList', (data) => {
@@ -36,6 +36,16 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   socket.on('storyChange', (data) => {
     console.log('Received storyChange:', data);
     if (typeof handleMessage === 'function') handleMessage({ type: 'storyChange', story: data.story });
+  });
+
+  socket.on('initialCSVData', (data) => {
+    console.log('Received initial CSV data:', data);
+    if (typeof handleMessage === 'function') handleMessage({ type: 'initialCSVData', csvData: data });
+  });
+
+  socket.on('syncCSVData', (data) => {
+    console.log('Received synced CSV data:', data);
+    if (typeof handleMessage === 'function') handleMessage({ type: 'syncCSVData', csvData: data });
   });
 }
 
@@ -58,6 +68,16 @@ export function sendMessage(message) {
   socket.emit('message', message);
 }
 
+// Function to emit CSV data to server
+export function emitCSVData(csvData) {
+  if (!socket) {
+    console.error('Socket is not initialized!');
+    return;
+  }
+  console.log('Emitting CSV data to server:', csvData);
+  socket.emit('syncCSVData', csvData);
+}
+
 // Handle room data (update the UI)
 function handleRoomData(data) {
   const userListContainer = document.getElementById('userList'); // Assuming you have a container with id "userList"
@@ -66,17 +86,19 @@ function handleRoomData(data) {
     console.log('User list:', data.users);
     
     // Clear existing list
-    userListContainer.innerHTML = '';
+    if (userListContainer) {
+      userListContainer.innerHTML = '';
 
-    // Add users to the list
-    data.users.forEach(user => {
-      const userElement = document.createElement('li');
-      userElement.textContent = user;
-      userListContainer.appendChild(userElement);
-    });
+      // Add users to the list
+      data.users.forEach(user => {
+        const userElement = document.createElement('li');
+        userElement.textContent = user;
+        userListContainer.appendChild(userElement);
+      });
+    }
   }
   if (data.type === 'storyChange') {
     console.log('Story changed:', data.story);
-    // Handle story change (e.g., update the current story on the UI)
+    // You can update the current story on the UI here
   }
 }
