@@ -4,9 +4,14 @@ let currentStory = null;
 
 // Initialize the app
 function initApp() {
+  // Extract roomId from the URL
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
 
+  // Debugging log to verify roomId extraction
+  console.log("Room ID from URL:", roomId);
+
+  // If no roomId is found, alert the user and exit
   if (!roomId) {
     alert("No Room ID found in the URL!");
     return;
@@ -20,7 +25,7 @@ function initApp() {
     sessionStorage.setItem('userName', userName);
   }
 
-  // Initialize WebSocket (actually now socket.io) connection
+  // Initialize WebSocket (Socket.IO) connection with roomId and userName
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
   // Initialize buttons and event listeners
