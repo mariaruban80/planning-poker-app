@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
 
     // Initialize room if not already existing
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false };
+      rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [] }; // Adding csvData to the room object
     }
 
     // Add the user to the room
@@ -68,6 +68,20 @@ io.on('connection', (socket) => {
     // If a story is already selected, send it to the new user
     if (rooms[currentRoom].story) {
       socket.emit('storyChange', { story: rooms[currentRoom].story });
+    }
+
+    // Send the current CSV data to the new user
+    socket.emit('initialCSVData', rooms[currentRoom].csvData);
+  });
+
+  // Handle CSV data synchronization
+  socket.on('syncCSVData', (data) => {
+    if (currentRoom) {
+      // Save the CSV data in the room
+      rooms[currentRoom].csvData = data;
+      
+      // Broadcast the CSV data to all users in the room
+      io.to(currentRoom).emit('syncCSVData', data);
     }
   });
 
