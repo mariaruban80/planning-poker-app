@@ -6,6 +6,7 @@ let userName = null;
 let userId = null;
 const rooms = {};
 
+// Initialize WebSocket connection
 export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   currentRoomId = roomId;
   userName = userNameParam;
@@ -56,6 +57,16 @@ export function getRoomData() {
   };
 }
 
+// Exporting sendMessage function
+export function sendMessage(message) {
+  if (!socket) {
+    console.error('Socket is not initialized!');
+    return;
+  }
+
+  console.log('Sending message:', message);
+  socket.emit('message', message); // Emit message to the server
+}
 
 // Handle room data (optional: customize based on your needs)
 function handleRoomData(data) {
