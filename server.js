@@ -43,36 +43,31 @@ io.on('connection', (socket) => {
     return;
   }
 
-  // When a client joins a room
-  socket.on('join', () => {
-    console.log(`User ${userName} joined room ${roomId}`);
+  // Immediately join the room after connection
+  currentRoom = roomId;
+  currentUser = userName;
 
-    currentRoom = roomId;
-    currentUser = userName;
+  if (!rooms[currentRoom]) {
+    rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [] };
+  }
 
-    // Initialize room if not already existing
-    if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [] }; // Adding csvData to the room object
-    }
+  // Add the user to the room if not already present
+  if (!rooms[currentRoom].users.includes(currentUser)) {
+    rooms[currentRoom].users.push(currentUser);
+  }
 
-    // Add the user to the room
-    if (!rooms[currentRoom].users.includes(currentUser)) {
-      rooms[currentRoom].users.push(currentUser);
-    }
+  socket.join(currentRoom);
 
-    socket.join(currentRoom);
+  // Send updated users list to everyone in the room
+  io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
 
-    // Send updated users list to everyone in the room
-    io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
+  // If a story is already selected, send it to the new user
+  if (rooms[currentRoom].story) {
+    socket.emit('storyChange', { story: rooms[currentRoom].story });
+  }
 
-    // If a story is already selected, send it to the new user
-    if (rooms[currentRoom].story) {
-      socket.emit('storyChange', { story: rooms[currentRoom].story });
-    }
-
-    // Send the current CSV data to the new user
-    socket.emit('initialCSVData', rooms[currentRoom].csvData);
-  });
+  // Always send the current CSV data to the newly connected user
+  socket.emit('initialCSVData', rooms[currentRoom].csvData);
 
   // Handle CSV data synchronization
   socket.on('syncCSVData', (data) => {
@@ -80,7 +75,7 @@ io.on('connection', (socket) => {
       // Save the CSV data in the room
       rooms[currentRoom].csvData = data;
 
-      // Broadcast the CSV data to all users in the room
+      // Broadcast the updated CSV data to all users in the room
       io.to(currentRoom).emit('syncCSVData', data);
     }
   });
