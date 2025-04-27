@@ -15,20 +15,16 @@ function initApp() {
   // Check if userName already exists in sessionStorage
   let userName = sessionStorage.getItem('userName');
   
-  // If not, prompt for the userName
   if (!userName) {
     userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
     sessionStorage.setItem('userName', userName);
   }
 
-  // Initialize WebSocket connection with the roomId and userName
+  // Initialize WebSocket (actually now socket.io) connection
   initializeWebSocket(roomId, userName, handleIncomingMessage);
 
   // Initialize buttons and event listeners
   setupButtonListeners();
-
-  // Update user list when data is available
-  updateUserList(getRoomData().users);
 }
 
 // Setup button event listeners
@@ -47,10 +43,20 @@ function setupButtonListeners() {
   if (addMemberBtnr) {
     addMemberBtnr.addEventListener('click', addMember);
   }
+
+  // Attach vote buttons
+  document.querySelectorAll('.vote-btn').forEach(button => {
+    button.addEventListener('click', handleVoteClick);
+  });
 }
 
 // Handle incoming WebSocket messages
 function handleIncomingMessage(msg) {
+  if (!msg || !msg.type) {
+    console.warn('Invalid message format:', msg);
+    return;
+  }
+
   switch (msg.type) {
     case 'userList':
       updateUserList(msg.users);
@@ -68,7 +74,7 @@ function handleIncomingMessage(msg) {
       resetAllVotes();
       break;
     default:
-      console.warn('Unhandled message:', msg);
+      console.warn('Unhandled message type:', msg.type);
   }
 }
 
@@ -84,7 +90,7 @@ function handleVoteClick(event) {
   }
 }
 
-// Change the current story
+// Update the current story
 function updateStory(story) {
   currentStory = story;
   const currentStoryElement = document.getElementById('current-story');
@@ -94,7 +100,7 @@ function updateStory(story) {
 }
 
 // Update user list UI
-function updateUserList(users) {
+function updateUserList(users = []) {
   const userList = document.getElementById('user-list');
   if (userList) {
     userList.innerHTML = '';
@@ -107,7 +113,7 @@ function updateUserList(users) {
 }
 
 // Update votes UI
-function updateVotes(story, votes) {
+function updateVotes(story, votes = {}) {
   const voteList = document.getElementById('vote-list');
   if (voteList) {
     voteList.innerHTML = '';
@@ -119,12 +125,12 @@ function updateVotes(story, votes) {
   }
 }
 
-// Send reveal command
+// Reveal votes
 function revealVotes() {
   sendMessage('revealVotes', {});
 }
 
-// Send reset command
+// Reset votes
 function resetVotes() {
   sendMessage('resetVotes', {});
 }
@@ -140,7 +146,7 @@ function resetAllVotes() {
   updateVotes(currentStory, {});
 }
 
-// Add a new member to the room
+// Add a new member manually
 function addMember() {
   const memberName = prompt('Enter the name of the new member:');
   if (memberName) {
