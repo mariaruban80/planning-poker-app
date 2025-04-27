@@ -12,14 +12,24 @@ function getRoomIdFromURL() {
   return roomId;
 }
 
-// Get the roomId from URL
-const roomId = getRoomIdFromURL();
+// Function to append roomId to the URL if not already present
+function appendRoomIdToURL(roomId) {
+  if (!roomId) {
+    console.error("Room ID is required!");
+    return;
+  }
 
-// Check if roomId is valid before initializing WebSocket
-if (roomId) {
-  // Example initialization for WebSocket
+  // Update the URL with the roomId query parameter
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.set('roomId', roomId); // Set the roomId in the URL
+  window.history.pushState(null, '', currentUrl.toString()); // Update the browser URL without reloading the page
+}
+
+// Function to initialize WebSocket connection
+function initializeApp(roomId) {
   const userName = prompt("Enter your username:");
   if (userName) {
+    // Now initialize WebSocket connection with roomId
     initializeWebSocket(roomId, userName, (message) => {
       console.log("Received message:", message);
       // Handle the incoming message (e.g., update UI)
@@ -28,6 +38,18 @@ if (roomId) {
     alert("Username is required!");
   }
 }
+
+// Check if the roomId is in the URL, if not, generate one and append it to the URL
+let roomId = getRoomIdFromURL();
+
+if (!roomId) {
+  // If there's no roomId in the URL, generate a new one
+  roomId = 'room-' + Math.floor(Math.random() * 10000); // Generate a random room ID
+  appendRoomIdToURL(roomId); // Append the generated roomId to the URL
+}
+
+console.log("Room ID after update:", roomId);
+initializeApp(roomId); // Initialize app with the roomId
 
 // Function to show the invite modal
 function showInviteModal() {
