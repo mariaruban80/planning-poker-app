@@ -35,25 +35,24 @@ function initApp() {
 }
 
 // Show the invite modal
-function showInviteModal() {
+export function showInviteModal() {
   const modal = document.getElementById('inviteModal');
   modal.style.display = 'flex';  // Show the modal
 }
 
 // Hide the invite modal
-function hideInviteModal() {
+export function hideInviteModal() {
   const modal = document.getElementById('inviteModal');
   modal.style.display = 'none';  // Hide the modal
 }
 
 // Copy the invite link to clipboard
-function copyInviteLink() {
+export function copyInviteLink() {
   const inviteLink = document.getElementById('inviteLink');
   inviteLink.select();
   document.execCommand('copy');
   alert('Invite link copied to clipboard!');
 }
-
 
 // Setup button event listeners
 function setupButtonListeners() {
@@ -81,4 +80,77 @@ function setupButtonListeners() {
 // Handle incoming WebSocket messages
 function handleIncomingMessage(msg) {
   if (!msg || !msg.type) {
-    console.warn('Invalid
+    console.warn('Invalid message received:', msg);
+    return;
+  }
+
+  switch (msg.type) {
+    case 'userList':
+      updateUserList(msg.users);
+      break;
+    case 'voteUpdate':
+      updateVote(msg);
+      break;
+    case 'storyChange':
+      currentStory = msg.story;
+      updateStoryDisplay();
+      break;
+    case 'revealVotes':
+      revealVotes();
+      break;
+    case 'resetVotes':
+      resetVotes();
+      break;
+    default:
+      console.warn('Unhandled message type:', msg.type);
+  }
+}
+
+// Update user list
+function updateUserList(users) {
+  const userListElement = document.getElementById('userList');
+  userListElement.innerHTML = '';  // Clear current list
+
+  users.forEach(user => {
+    const userDiv = document.createElement('div');
+    userDiv.textContent = user;
+    userListElement.appendChild(userDiv);
+  });
+}
+
+// Update the story display
+function updateStoryDisplay() {
+  const storyInfo = document.getElementById('story-info');
+  if (currentStory) {
+    storyInfo.textContent = `Current story: ${currentStory}`;
+  } else {
+    storyInfo.textContent = 'No story selected.';
+  }
+}
+
+// Handle vote click
+function handleVoteClick(event) {
+  const vote = event.target.textContent;
+  sendMessage('vote', { story: currentStory, vote });
+}
+
+// Reveal votes
+function revealVotes() {
+  sendMessage('revealVotes', {});
+}
+
+// Reset votes
+function resetVotes() {
+  sendMessage('resetVotes', {});
+}
+
+// Add a new member
+function addMember() {
+  const userName = prompt('Enter new member name:');
+  if (userName) {
+    sendMessage('addMember', { userName });
+  }
+}
+
+// Initialize app when the page loads
+window.addEventListener('load', initApp);
