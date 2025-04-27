@@ -275,5 +275,48 @@
       </div>
     </div>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const csvInput = document.getElementById('csvInput');  // The input field to select a file
+      const storyListContainer = document.getElementById('storyList');  // Where to display the CSV data
+
+      // Event listener for file input
+      csvInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];  // Get the selected file
+        if (!file) return;  // If no file is selected, exit
+
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const fileContent = e.target.result;
+          const parsedData = parseCSV(fileContent);  // Parse the CSV data
+          displayCSVData(parsedData);  // Display the parsed data in the portal
+        };
+
+        reader.readAsText(file);  // Read the file content as text
+      });
+
+      // Function to parse CSV data into an array
+      function parseCSV(data) {
+        const rows = data.split('\n');  // Split into rows by newline
+        const result = rows.map(row => row.split(','));  // Split each row by comma
+        return result;
+      }
+
+      // Function to display the CSV data in the portal
+      function displayCSVData(data) {
+        storyListContainer.innerHTML = '';  // Clear the existing content
+
+        // Loop through the parsed data and create HTML elements
+        data.forEach((row, index) => {
+          const storyItem = document.createElement('div');
+          storyItem.classList.add('story-card');
+          storyItem.textContent = row.join(' | ');  // Display data with pipe as separator
+          storyListContainer.appendChild(storyItem);
+        });
+      }
+    });
+  </script>
 </body>
 </html>
