@@ -1,15 +1,10 @@
 // Function to get roomId from URL
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
-  let roomId = urlParams.get('roomId'); // This should retrieve the roomId query parameter
-  console.log("Room ID from URL:", roomId);
+  const roomId = urlParams.get('roomId'); // Retrieve the roomId from the query string
+  console.log("Room ID from URL:", roomId); // Log the roomId for debugging
 
-  if (!roomId) {
-    alert('No room ID in the URL!');
-    return null;
-  }
-
-  return roomId;
+  return roomId; // Return the roomId, or null if it's not in the URL
 }
 
 // Function to append roomId to the URL if not already present
@@ -19,10 +14,10 @@ function appendRoomIdToURL(roomId) {
     return;
   }
 
-  // Update the URL with the roomId query parameter
-  const currentUrl = new URL(window.location.href);
-  currentUrl.searchParams.set('roomId', roomId); // Set the roomId in the URL
-  window.history.pushState(null, '', currentUrl.toString()); // Update the browser URL without reloading the page
+  const currentUrl = new URL(window.location.href); // Get current URL
+  currentUrl.searchParams.set('roomId', roomId); // Append roomId to the query parameters
+  window.history.pushState(null, '', currentUrl.toString()); // Update the URL in the browser without reloading the page
+  console.log("Updated URL:", currentUrl.toString()); // Log the updated URL for debugging
 }
 
 // Function to initialize WebSocket connection
@@ -39,16 +34,18 @@ function initializeApp(roomId) {
   }
 }
 
-// Check if the roomId is in the URL, if not, generate one and append it to the URL
+// Get the roomId from the URL
 let roomId = getRoomIdFromURL();
 
 if (!roomId) {
-  // If there's no roomId in the URL, generate a new one
+  // If no roomId is present, generate one and append it to the URL
   roomId = 'room-' + Math.floor(Math.random() * 10000); // Generate a random room ID
   appendRoomIdToURL(roomId); // Append the generated roomId to the URL
+} else {
+  console.log("Using existing room ID from URL:", roomId); // Log the roomId
 }
 
-console.log("Room ID after update:", roomId);
+console.log("Room ID after update:", roomId); // Log the final roomId being used
 initializeApp(roomId); // Initialize app with the roomId
 
 // Function to show the invite modal
