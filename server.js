@@ -56,7 +56,10 @@ io.on('connection', (socket) => {
     }
 
     // Add the user to the room
-    rooms[currentRoom].users.push(currentUser);
+    if (!rooms[currentRoom].users.includes(currentUser)) {
+      rooms[currentRoom].users.push(currentUser);
+    }
+
     socket.join(currentRoom);
 
     // Send updated users list to everyone in the room
