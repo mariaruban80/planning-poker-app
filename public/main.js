@@ -34,6 +34,27 @@ function initApp() {
   setupButtonListeners();
 }
 
+// Show the invite modal
+function showInviteModal() {
+  const modal = document.getElementById('inviteModal');
+  modal.style.display = 'flex';  // Show the modal
+}
+
+// Hide the invite modal
+function hideInviteModal() {
+  const modal = document.getElementById('inviteModal');
+  modal.style.display = 'none';  // Hide the modal
+}
+
+// Copy the invite link to clipboard
+function copyInviteLink() {
+  const inviteLink = document.getElementById('inviteLink');
+  inviteLink.select();
+  document.execCommand('copy');
+  alert('Invite link copied to clipboard!');
+}
+
+
 // Setup button event listeners
 function setupButtonListeners() {
   const revealVotesBtn = document.getElementById('revealVotesBtn');
