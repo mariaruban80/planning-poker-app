@@ -73,24 +73,27 @@ function parseCSV(data) {
 
 // Display CSV content
 function displayCSVData(data) {
-  csvData = data;  // Store the parsed CSV data
+  // Only update the csvData if new data is provided
+  if (JSON.stringify(data) !== JSON.stringify(csvData)) {
+    csvData = data;  // Update the global CSV data
 
-  // Ensure the story list container exists
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer) return;
+    // Ensure the story list container exists
+    const storyListContainer = document.getElementById('storyList');
+    if (!storyListContainer) return;
 
-  // Clear the container before appending new data
-  storyListContainer.innerHTML = '';
+    // Clear the container before appending new data
+    storyListContainer.innerHTML = '';
 
-  // Iterate over all the rows in the CSV and render them
-  data.forEach((row, index) => {
-    const storyItem = document.createElement('div');
-    storyItem.classList.add('story-card');
-    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-    storyListContainer.appendChild(storyItem);
-  });
+    // Iterate over all the rows in the CSV and render them
+    data.forEach((row, index) => {
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card');
+      storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+      storyListContainer.appendChild(storyItem);
+    });
 
-  renderCurrentStory();  // Make sure the current story is rendered after the data is displayed
+    renderCurrentStory();  // Make sure the current story is rendered after the data is displayed
+  }
 }
 
 // Update user list
@@ -120,6 +123,7 @@ function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer || csvData.length === 0) return;
 
+  // Clear the container
   storyListContainer.innerHTML = '';
 
   const currentStory = csvData[currentStoryIndex];
