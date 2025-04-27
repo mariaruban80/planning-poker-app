@@ -1,3 +1,5 @@
+import { initializeWebSocket } from './socket.js'; // Importing the WebSocket initialization function
+
 // Function to get roomId from URL
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
