@@ -148,7 +148,7 @@ function setupStoryNavigation() {
   if (nextButton) {
     nextButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
+      currentStoryIndex = (currentStoryIndex + 1) % csvData.length; // Loop through stories
       renderCurrentStory();
       emitStoryChange();
       emitStoryNavigation();
@@ -158,7 +158,7 @@ function setupStoryNavigation() {
   if (prevButton) {
     prevButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length; // Loop through stories
       renderCurrentStory();
       emitStoryChange();
       emitStoryNavigation();
