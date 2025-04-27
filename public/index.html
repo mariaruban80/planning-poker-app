@@ -182,6 +182,7 @@
 
     .modal {
       background: white;
+     
       padding: 20px;
       border-radius: 10px;
       width: 300px;
@@ -232,7 +233,7 @@
   <div class="upload-section">
     <div class="upload-right">
       <input type="file" id="csvInput" accept=".csv" />
-      <button class="invite-button" onclick="showInviteModal()">Invite Others</button>
+      <button class="invite-button" id="inviteButton" onclick="showInviteModal()">Invite Others</button>
       <span id="storyCount"></span>
       <div id="story-info"></div>
     </div>
