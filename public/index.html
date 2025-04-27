@@ -156,6 +156,7 @@
 </head>
 <body>
   <div class="banner">Planning Poker</div>
+
   <!-- Invite Button and Modal -->
   <style>
     .invite-button {
@@ -182,7 +183,6 @@
 
     .modal {
       background: white;
-     
       padding: 20px;
       border-radius: 10px;
       width: 300px;
@@ -238,15 +238,21 @@
       <div id="story-info"></div>
     </div>
   </div>
+  
   <div class="container">
     <div class="sidebar">
       <button class="button" id="addMemberBtn">Add Member</button>
-      <div class="user-list" id="userList"></div>
+      <!-- User List Section -->
+      <div class="user-list">
+        <h3>Current Members:</h3>
+        <ul id="userList"></ul> <!-- User List will be dynamically added here -->
+      </div>
       <h3>Voted</h3>
       <button class="button" id="revealVotesBtn">Reveal Votes</button>
       <button class="button" id="resetVotesBtn">Reset Votes</button>
       <button class="button" id="exportCsvBtn">Export All Votes</button>
     </div>
+    
     <div class="main">
       <h2>Drop a card on user</h2>
       <div class="user-dropzone" id="userArea"></div>
@@ -260,6 +266,7 @@
         <div class="card" draggable="true">21</div>
       </div>
     </div>
+    
     <div class="rightbar" id="storyListContainer">
       <div id="storyList"></div>
       <div style="margin-top: 20px;">
