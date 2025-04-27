@@ -1,6 +1,8 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; // Import both initialize and emit functions
 
 let socket; // Declare globally so we can use it everywhere
+let csvData = []; // Store parsed CSV data
+let currentStoryIndex = 0; // Index to keep track of the current story
 
 // Get roomId from URL or generate one
 function getRoomIdFromURL() {
@@ -34,7 +36,14 @@ function initializeApp(roomId) {
     if (message.type === 'storyChange') {
       updateStory(message.story);
     }
+    if (message.type === 'storyNavigation') {
+      currentStoryIndex = message.index;
+      renderCurrentStory();
+    }
   });
+
+  // Handle Next/Previous story buttons
+  setupStoryNavigation();
 }
 
 // CSV Uploading
@@ -64,17 +73,8 @@ function parseCSV(data) {
 
 // Display CSV content
 function displayCSVData(data) {
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer) return;
-
-  storyListContainer.innerHTML = '';
-
-  data.forEach((row) => {
-    const storyItem = document.createElement('div');
-    storyItem.classList.add('story-card');
-    storyItem.textContent = row.join(' | ');
-    storyListContainer.appendChild(storyItem);
-  });
+  csvData = data;
+  renderCurrentStory(); // Initially render the first story
 }
 
 // Update user list
@@ -91,11 +91,65 @@ function updateUserList(users) {
   });
 }
 
-// Update current story (optional - depends if you show it)
+// Update current story
 function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) {
     storyTitle.textContent = story;
+  }
+}
+
+// Render the current story
+function renderCurrentStory() {
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer || csvData.length === 0) return;
+
+  storyListContainer.innerHTML = '';
+
+  const currentStory = csvData[currentStoryIndex];
+  const storyItem = document.createElement('div');
+  storyItem.classList.add('story-card');
+  storyItem.textContent = currentStory.join(' | ');
+  storyListContainer.appendChild(storyItem);
+}
+
+// Emit a story change to the server
+function emitStoryChange() {
+  if (socket) {
+    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+  }
+}
+
+// Handle Next/Previous story buttons
+function setupStoryNavigation() {
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+
+  if (nextButton) {
+    nextButton.addEventListener('click', () => {
+      if (csvData.length === 0) return;
+      currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
+      renderCurrentStory();
+      emitStoryChange();
+      emitStoryNavigation();
+    });
+  }
+
+  if (prevButton) {
+    prevButton.addEventListener('click', () => {
+      if (csvData.length === 0) return;
+      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+      renderCurrentStory();
+      emitStoryChange();
+      emitStoryNavigation();
+    });
+  }
+}
+
+// Emit the current story index to sync navigation across all users
+function emitStoryNavigation() {
+  if (socket && typeof currentStoryIndex === 'number') {
+    socket.emit('storyNavigation', { index: currentStoryIndex });
   }
 }
 
