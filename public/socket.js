@@ -8,16 +8,6 @@ const rooms = {};
 
 // Initialize WebSocket connection
 export function initializeWebSocket(roomId, userNameParam, handleMessage) {
-  // If no roomId, get it from the URL
-  if (!roomId) {
-    const urlParams = new URLSearchParams(window.location.search);
-    roomId = urlParams.get('roomId'); // Retrieve roomId from URL
-    if (!roomId) {
-      alert('No room ID in the URL!');
-      return; // Exit early if no room ID found
-    }
-  }
-
   currentRoomId = roomId;
   userName = userNameParam;
 
@@ -25,11 +15,6 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   if (!roomId || !userName) {
     console.error('Room ID or User Name is missing.');
     return;
-  }
-
-  // Append roomId to the URL (for persistence on page reloads)
-  if (window.location.search !== `?roomId=${roomId}`) {
-    window.history.pushState(null, null, `?roomId=${roomId}`);
   }
 
   console.log(`Initializing WebSocket connection for room: ${roomId}, user: ${userName}`);
