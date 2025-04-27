@@ -1,156 +1,60 @@
-import { initializeWebSocket, sendMessage, getRoomData } from './socket.js';
-
-let currentStory = null;
-
-// Initialize the app
-function initApp() {
-  // Extract roomId from the URL
+// Function to get roomId from URL
+function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
-  const roomId = urlParams.get('roomId');
-
-  // Debugging log to verify roomId extraction
+  let roomId = urlParams.get('roomId'); // This should retrieve the roomId query parameter
   console.log("Room ID from URL:", roomId);
 
-  // If no roomId is found, alert the user and exit
   if (!roomId) {
-    alert("No Room ID found in the URL!");
-    return;
+    alert('No room ID in the URL!');
+    return null;
   }
 
-  // Check if userName already exists in sessionStorage
-  let userName = sessionStorage.getItem('userName');
-  
-  if (!userName) {
-    userName = prompt('Enter your name:') || `User-${Math.floor(Math.random() * 1000)}`;
-    sessionStorage.setItem('userName', userName);
-  }
-
-  console.log("User Name:", userName);  // Debugging log to verify user name
-  
-  // Initialize WebSocket (Socket.IO) connection with roomId and userName
-  initializeWebSocket(roomId, userName, handleIncomingMessage);
-
-  // Initialize buttons and event listeners
-  setupButtonListeners();
+  return roomId;
 }
 
-// Show the invite modal
-export function showInviteModal() {
-  const modal = document.getElementById('inviteModal');
-  modal.style.display = 'flex';  // Show the modal
-}
+// Get the roomId from URL
+const roomId = getRoomIdFromURL();
 
-// Hide the invite modal
-export function hideInviteModal() {
-  const modal = document.getElementById('inviteModal');
-  modal.style.display = 'none';  // Hide the modal
-}
-
-// Copy the invite link to clipboard
-export function copyInviteLink() {
-  const inviteLink = document.getElementById('inviteLink');
-  inviteLink.select();
-  document.execCommand('copy');
-  alert('Invite link copied to clipboard!');
-}
-
-// Setup button event listeners
-function setupButtonListeners() {
-  const revealVotesBtn = document.getElementById('revealVotesBtn');
-  if (revealVotesBtn) {
-    revealVotesBtn.addEventListener('click', revealVotes);
-  }
-
-  const resetVotesBtn = document.getElementById('resetVotesBtn');
-  if (resetVotesBtn) {
-    resetVotesBtn.addEventListener('click', resetVotes);
-  }
-
-  const addMemberBtn = document.getElementById('addMemberBtn');
-  if (addMemberBtn) {
-    addMemberBtn.addEventListener('click', addMember);
-  }
-
-  // Attach vote buttons
-  document.querySelectorAll('.vote-btn').forEach(button => {
-    button.addEventListener('click', handleVoteClick);
-  });
-}
-
-// Handle incoming WebSocket messages
-function handleIncomingMessage(msg) {
-  if (!msg || !msg.type) {
-    console.warn('Invalid message received:', msg);
-    return;
-  }
-
-  switch (msg.type) {
-    case 'userList':
-      updateUserList(msg.users);
-      break;
-    case 'voteUpdate':
-      updateVote(msg);
-      break;
-    case 'storyChange':
-      currentStory = msg.story;
-      updateStoryDisplay();
-      break;
-    case 'revealVotes':
-      revealVotes();
-      break;
-    case 'resetVotes':
-      resetVotes();
-      break;
-    default:
-      console.warn('Unhandled message type:', msg.type);
-  }
-}
-
-// Update user list
-function updateUserList(users) {
-  const userListElement = document.getElementById('userList');
-  userListElement.innerHTML = '';  // Clear current list
-
-  users.forEach(user => {
-    const userDiv = document.createElement('div');
-    userDiv.textContent = user;
-    userListElement.appendChild(userDiv);
-  });
-}
-
-// Update the story display
-function updateStoryDisplay() {
-  const storyInfo = document.getElementById('story-info');
-  if (currentStory) {
-    storyInfo.textContent = `Current story: ${currentStory}`;
-  } else {
-    storyInfo.textContent = 'No story selected.';
-  }
-}
-
-// Handle vote click
-function handleVoteClick(event) {
-  const vote = event.target.textContent;
-  sendMessage('vote', { story: currentStory, vote });
-}
-
-// Reveal votes
-function revealVotes() {
-  sendMessage('revealVotes', {});
-}
-
-// Reset votes
-function resetVotes() {
-  sendMessage('resetVotes', {});
-}
-
-// Add a new member
-function addMember() {
-  const userName = prompt('Enter new member name:');
+// Check if roomId is valid before initializing WebSocket
+if (roomId) {
+  // Example initialization for WebSocket
+  const userName = prompt("Enter your username:");
   if (userName) {
-    sendMessage('addMember', { userName });
+    initializeWebSocket(roomId, userName, (message) => {
+      console.log("Received message:", message);
+      // Handle the incoming message (e.g., update UI)
+    });
+  } else {
+    alert("Username is required!");
   }
 }
 
-// Initialize app when the page loads
-window.addEventListener('load', initApp);
+// Function to show the invite modal
+function showInviteModal() {
+  const modal = document.createElement('div');
+  modal.style.position = 'fixed';
+  modal.style.top = '50%';
+  modal.style.left = '50%';
+  modal.style.transform = 'translate(-50%, -50%)';
+  modal.style.padding = '20px';
+  modal.style.backgroundColor = 'white';
+  modal.style.border = '1px solid #000';
+  modal.innerHTML = `
+    <h3>Invite URL</h3>
+    <p>Share this link: <a href="${window.location.href}">${window.location.href}</a></p>
+    <button onclick="closeInviteModal()">Close</button>
+  `;
+  document.body.appendChild(modal);
+}
+
+// Function to close the invite modal
+function closeInviteModal() {
+  const modal = document.querySelector('div');
+  if (modal) modal.remove();
+}
+
+// Example button in HTML to trigger the invite modal
+const inviteButton = document.querySelector('#inviteButton'); // Make sure this button exists in the HTML
+if (inviteButton) {
+  inviteButton.onclick = showInviteModal;
+}
