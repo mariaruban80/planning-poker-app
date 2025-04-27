@@ -152,13 +152,7 @@
     .button:hover {
       background-color: #574fdd;
     }
-  </style>
-</head>
-<body>
-  <div class="banner">Planning Poker</div>
 
-  <!-- Invite Button and Modal -->
-  <style>
     .invite-button {
       padding: 5px 10px;
       border: none;
@@ -211,6 +205,9 @@
       max-width: 100%;
     }
   </style>
+</head>
+<body>
+  <div class="banner">Planning Poker</div>
 
   <div class="modal-overlay" id="inviteModal">
     <div class="modal">
@@ -228,6 +225,21 @@
     if (performance.getEntriesByType("navigation")[0].type === "reload") {
       localStorage.clear();
     }
+
+    // Add event listener for the Add Member button
+    document.getElementById('addMemberBtn').addEventListener('click', function() {
+      const username = prompt('Enter your name:');
+      if (username) {
+        // Send username to server for adding the user
+        socket.emit('addUser', { username });
+        
+        // Update the user list in the frontend
+        const userList = document.getElementById('userList');
+        const li = document.createElement('li');
+        li.textContent = username;
+        userList.appendChild(li);
+      }
+    });
   </script>
 
   <div class="upload-section">
