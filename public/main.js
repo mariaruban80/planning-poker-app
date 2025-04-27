@@ -125,22 +125,18 @@ function renderCurrentStory() {
   if (!storyListContainer || csvData.length === 0) return;
 
   // Clear the container (if needed)
-  storyListContainer.innerHTML = '';
-
-  // Iterate over all rows and render them
-  csvData.forEach((row, index) => {
-    const storyItem = document.createElement('div');
-    storyItem.classList.add('story-card');
-    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-    storyItem.dataset.index = index; // Store index in the data attribute
-
-    // If the current story matches this index, add the "active" class
-    if (index === currentStoryIndex) {
-      storyItem.classList.add('active'); // Mark as active
-    }
-
-    storyListContainer.appendChild(storyItem);
+  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
+  
+  // Remove the 'active' class from all story items
+  allStoryItems.forEach(storyItem => {
+    storyItem.classList.remove('active');
   });
+
+  // Add the 'active' class to the current story
+  const currentStoryItem = allStoryItems[currentStoryIndex];
+  if (currentStoryItem) {
+    currentStoryItem.classList.add('active'); // Mark as active
+  }
 }
 
 // Emit a story change to the server
