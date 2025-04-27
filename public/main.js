@@ -1,4 +1,4 @@
-import { initializeWebSocket } from './socket.js'; // Assuming socket.js exports both initializeWebSocket and socket
+import { initializeWebSocket, emitCSVData } from './socket.js'; // Import both initialize and emit functions
 
 let socket; // Declare globally so we can use it everywhere
 
@@ -24,15 +24,16 @@ function initializeApp(roomId) {
 
   socket = initializeWebSocket(roomId, userName, (message) => {
     console.log("Received message:", message);
-  });
 
-  // CSV event listeners
-  socket.on('syncCSVData', (data) => {
-    displayCSVData(data);
-  });
-
-  socket.on('initialCSVData', (data) => {
-    displayCSVData(data);
+    if (message.type === 'initialCSVData' || message.type === 'syncCSVData') {
+      displayCSVData(message.csvData);
+    }
+    if (message.type === 'userList') {
+      updateUserList(message.users);
+    }
+    if (message.type === 'storyChange') {
+      updateStory(message.story);
+    }
   });
 }
 
@@ -48,8 +49,8 @@ function setupCSVUploader() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const parsedData = parseCSV(e.target.result);
-      socket.emit('syncCSVData', parsedData);
-      displayCSVData(parsedData);
+      emitCSVData(parsedData); // Emit to server
+      displayCSVData(parsedData); // Show locally
     };
     reader.readAsText(file);
   });
@@ -76,6 +77,28 @@ function displayCSVData(data) {
   });
 }
 
+// Update user list
+function updateUserList(users) {
+  const userListContainer = document.getElementById('userList');
+  if (!userListContainer) return;
+
+  userListContainer.innerHTML = '';
+
+  users.forEach(user => {
+    const userElement = document.createElement('li');
+    userElement.textContent = user;
+    userListContainer.appendChild(userElement);
+  });
+}
+
+// Update current story (optional - depends if you show it)
+function updateStory(story) {
+  const storyTitle = document.getElementById('currentStory');
+  if (storyTitle) {
+    storyTitle.textContent = story;
+  }
+}
+
 // Invite Modal
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
@@ -92,7 +115,7 @@ function setupInviteButton() {
     modal.style.border = '1px solid #000';
     modal.innerHTML = `
       <h3>Invite URL</h3>
-      <p>Share this link: <a href="${window.location.href}">${window.location.href}</a></p>
+      <p>Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
       <button onclick="document.body.removeChild(this.parentNode)">Close</button>
     `;
     document.body.appendChild(modal);
