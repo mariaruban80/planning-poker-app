@@ -40,3 +40,20 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
 
   socket.on('storyChange', (data) => {
     console.log('Received storyChange:', data);
+    if (typeof handleMessage === 'function') handleMessage({ type: 'storyChange', story: data.story });
+  });
+
+  // Add other socket event listeners below (e.g., for votes, reset, etc.)
+}
+
+// Handle room data (optional: customize based on your needs)
+function handleRoomData(data) {
+  if (data.type === 'userList') {
+    console.log('User list:', data.users);
+    // Handle user list (e.g., display users in the UI)
+  }
+  if (data.type === 'storyChange') {
+    console.log('Story changed:', data.story);
+    // Handle story change (e.g., update the current story on the UI)
+  }
+}
