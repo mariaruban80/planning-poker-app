@@ -33,21 +33,33 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUser = null;
 
+  // Retrieve roomId and userName from the query parameters
+  const { roomId, userName } = socket.handshake.query;
+
+  // Validate roomId and userName
+  if (!roomId || !userName) {
+    console.error('Room ID or User Name missing in the connection request.');
+    socket.disconnect();
+    return;
+  }
+
   // When a client joins a room
-  socket.on('join', ({ roomId, user }) => {
-    console.log(`User ${user} joined room ${roomId}`);
+  socket.on('join', () => {
+    console.log(`User ${userName} joined room ${roomId}`);
 
     currentRoom = roomId;
-    currentUser = user;
+    currentUser = userName;
 
+    // Initialize room if not already existing
     if (!rooms[currentRoom]) {
       rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false };
     }
 
+    // Add the user to the room
     rooms[currentRoom].users.push(currentUser);
     socket.join(currentRoom);
 
-    // Send updated users list to everyone
+    // Send updated users list to everyone in the room
     io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
 
     // If a story is already selected, send it to the new user
