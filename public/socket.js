@@ -1,4 +1,4 @@
-import { io } from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js'; // Import Socket.IO client
+import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js"; // Use CDN or local install
 
 let socket;
 let currentRoomId = null;
@@ -6,58 +6,59 @@ let userName = null;
 let userId = null;
 const rooms = {};
 
-// Initialize Socket.IO connection
-export function initializeWebSocket(roomId, name, handleMessage) {
+export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   currentRoomId = roomId;
-  userName = name;
+  userName = userNameParam;
 
-  // Connect to server (no need to specify full URL if served from same origin)
-  socket = io('https://planning-poker-app-2.onrender.com', {
-    transports: ['websocket'], // Force pure WebSocket transport
+  // Use socket.io client
+  socket = io("https://planning-poker-app-2.onrender.com", {
+    transports: ["websocket"], // Force websocket if possible
   });
 
   socket.on('connect', () => {
     console.log('Socket.IO connection established.');
 
-    // Send join message
-    socket.emit('join', {
-      roomId: roomId,
-      user: userName,
-      userId: getUserId(),
-    });
+    socket.emit('join', { roomId, user: userName });
+
+    // Keep-alive is not needed with socket.io, it handles pings
+  });
+
+  socket.on('userList', (data) => {
+    handleRoomData({ type: 'userList', users: data.users });
+    if (typeof handleMessage === 'function') handleMessage({ type: 'userList', users: data.users });
+  });
+
+  socket.on('storyChange', (data) => {
+    handleRoomData({ type: 'storyChange', story: data.story });
+    if (typeof handleMessage === 'function') handleMessage({ type: 'storyChange', story: data.story });
+  });
+
+  socket.on('voteUpdate', (data) => {
+    handleRoomData({ type: 'voteUpdate', story: data.story, votes: data.votes });
+    if (typeof handleMessage === 'function') handleMessage({ type: 'voteUpdate', story: data.story, votes: data.votes });
+  });
+
+  socket.on('revealVotes', () => {
+    if (typeof handleMessage === 'function') handleMessage({ type: 'revealVotes' });
+  });
+
+  socket.on('resetVotes', () => {
+    if (typeof handleMessage === 'function') handleMessage({ type: 'resetVotes' });
   });
 
   socket.on('disconnect', () => {
     console.log('Socket.IO connection closed.');
   });
-
-  socket.on('connect_error', (error) => {
-    console.error('Connection error:', error);
-  });
-
-  // Handle incoming messages
-  socket.onAny((event, data) => {
-    console.log(`Received event: ${event}`, data);
-
-    const msg = { type: event, ...data }; // Normalize into { type, ...data }
-    handleRoomData(msg);
-
-    if (typeof handleMessage === 'function') {
-      handleMessage(msg);
-    }
-  });
 }
 
-// Send a message using Socket.IO
 export function sendMessage(type, data) {
   if (socket && socket.connected) {
     socket.emit(type, data);
   } else {
-    console.error('Socket.IO not connected. Cannot send message.');
+    console.error('Socket.IO is not connected. Unable to send message.');
   }
 }
 
-// Generate or retrieve a userId from sessionStorage
 export function getUserId() {
   if (!userId) {
     userId = sessionStorage.getItem('userId');
@@ -69,13 +70,12 @@ export function getUserId() {
   return userId;
 }
 
-// Handle incoming room data and update local state
 function handleRoomData(msg) {
   if (!rooms[currentRoomId]) {
     rooms[currentRoomId] = {
       users: [],
       storyVotesByUser: {},
-      selectedStory: null,
+      selectedStory: null
     };
   }
 
@@ -83,36 +83,19 @@ function handleRoomData(msg) {
 
   switch (msg.type) {
     case 'userList':
-      room.users = msg.users || [];
+      room.users = msg.users;
       break;
-
-    case 'userJoined':
-      if (msg.user && !room.users.includes(msg.user)) {
-        room.users.push(msg.user);
-      }
-      break;
-
     case 'voteUpdate':
-      if (msg.story && msg.votes) {
-        room.storyVotesByUser[msg.story] = msg.votes;
-      }
+      room.storyVotesByUser[msg.story] = msg.votes;
       break;
-
     case 'storyChange':
       room.selectedStory = msg.story;
       break;
-
-    case 'revealVotes':
-    case 'resetVotes':
-      // Optional: handle vote reveal/reset behavior if needed
-      break;
-
     default:
       console.warn('Unknown message type:', msg.type);
   }
 }
 
-// Retrieve room data (users, story, votes)
 export function getRoomData() {
   return rooms[currentRoomId] || {};
 }
