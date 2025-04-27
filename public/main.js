@@ -89,6 +89,7 @@ function displayCSVData(data) {
       const storyItem = document.createElement('div');
       storyItem.classList.add('story-card');
       storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+      storyItem.dataset.index = index; // Store index in the data attribute
       storyListContainer.appendChild(storyItem);
     });
 
@@ -118,19 +119,28 @@ function updateStory(story) {
   }
 }
 
-// Render the current story
+// Render the current story with highlight
 function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer || csvData.length === 0) return;
 
-  // Clear the container
+  // Clear the container (if needed)
   storyListContainer.innerHTML = '';
 
-  const currentStory = csvData[currentStoryIndex];
-  const storyItem = document.createElement('div');
-  storyItem.classList.add('story-card');
-  storyItem.textContent = currentStory.join(' | ');
-  storyListContainer.appendChild(storyItem);
+  // Iterate over all rows and render them
+  csvData.forEach((row, index) => {
+    const storyItem = document.createElement('div');
+    storyItem.classList.add('story-card');
+    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+    storyItem.dataset.index = index; // Store index in the data attribute
+
+    // If the current story matches this index, add the "active" class
+    if (index === currentStoryIndex) {
+      storyItem.classList.add('active'); // Mark as active
+    }
+
+    storyListContainer.appendChild(storyItem);
+  });
 }
 
 // Emit a story change to the server
