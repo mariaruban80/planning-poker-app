@@ -79,7 +79,7 @@ io.on('connection', (socket) => {
     if (currentRoom) {
       // Save the CSV data in the room
       rooms[currentRoom].csvData = data;
-      
+
       // Broadcast the CSV data to all users in the room
       io.to(currentRoom).emit('syncCSVData', data);
     }
