@@ -46,6 +46,17 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   // Add other socket event listeners below (e.g., for votes, reset, etc.)
 }
 
+// Exporting the getRoomData function
+export function getRoomData() {
+  // Implement your logic to retrieve room data
+  return {
+    roomId: currentRoomId,
+    userName: userName,
+    users: Object.keys(rooms),
+  };
+}
+
+
 // Handle room data (optional: customize based on your needs)
 function handleRoomData(data) {
   if (data.type === 'userList') {
