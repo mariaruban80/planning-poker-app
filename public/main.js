@@ -27,15 +27,23 @@ function initializeApp(roomId) {
 
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
-  if (socket && socket.connected) {
-    socket.emit('requestCSVData');  // Request CSV data on initial load
-    socket.on('storySelected', handleStorySelected);
-    socket.on('voteUpdate', handleVoteUpdate);  // Handle incoming votes
-    socket.on('revealVotes', revealVotes); // Handle reveal
-    socket.on('userList', updateUserList);  // Sync user list across clients
-    socket.on('syncCSVData', displayCSVData);  // Sync CSV data
+  if (socket) {
+    socket.on('connect', () => {
+      console.log('Connected to socket server!');
+
+      socket.emit('requestCSVData');  // Request CSV data on initial load
+      socket.on('storySelected', handleStorySelected);
+      socket.on('voteUpdate', handleVoteUpdate);
+      socket.on('revealVotes', revealVotes);
+      socket.on('userList', updateUserList);
+      socket.on('syncCSVData', displayCSVData);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+    });
   } else {
-    console.error("Socket connection failed or not established.");
+    console.error("Socket object not created.");
   }
 
   setupStoryNavigation();
@@ -270,7 +278,6 @@ function setupInviteButton() {
     modal.style.backgroundColor = 'white';
     modal.style.border = '1px solid #000';
     modal.innerHTML = `
-
       <h3>Invite URL</h3>
       <p>Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
       <button onclick="document.body.removeChild(this.parentNode)">Close</button>
