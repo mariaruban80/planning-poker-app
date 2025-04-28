@@ -10,90 +10,69 @@
     .container { display: flex; height: 100vh; }
     .sidebar, .rightbar { width: 20%; background: #f4f4f8; padding: 20px; overflow-y: auto; }
     .main { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .user-list-container { list-style: none; padding: 0; margin-top: 10px; display: flex; flex-direction: column; gap: 15px; }
-    
-    .user-card { 
-      display: flex; 
-      align-items: center; 
-      background: #ffffff; 
-      border: 1px solid #d0d0d0; 
-      border-radius: 10px; 
-      padding: 12px 15px; 
-      gap: 10px; 
-      box-shadow: 0px 2px 4px rgba(0,0,0,0.1); 
-      transition: background-color 0.3s;
-    }
-
-    .user-card:hover { 
-      background-color: #f1f1f1; 
-    }
-
-    .user-avatar { 
-      width: 40px; 
-      height: 40px; 
-      background: #6c63ff; 
-      border-radius: 50%; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      color: white; 
-      font-size: 16px; 
-    }
-
-    .user-name { 
-      font-size: 16px; 
-      font-weight: 600; 
-      color: #333; 
-      flex-grow: 1; 
-    }
-
-    .user-vote { 
-      background: #6c63ff; 
-      color: white; 
-      border-radius: 12px; 
-      padding: 5px 10px; 
-      font-size: 14px; 
-      display: inline-block;
-    }
-
-    .user-list-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 10px;
-    }
-
-    .button { 
-      margin: 10px 0; 
-      padding: 8px 12px; 
-      background-color: #6c63ff; 
-      color: white; 
-      border: none; 
-      border-radius: 8px; 
-      cursor: pointer; 
-      width: 100%; 
-    }
-    .button:hover { 
-      background-color: #574fdd; 
-    }
+    .user-list div { background: #d3bff5; color: white; border-radius: 10px; padding: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .user-dropzone { position: relative; width: 400px; height: 400px; border-radius: 50%; margin: 40px auto; }
+    .user-slot { position: absolute; width: 100px; height: 100px; background: white; border-radius: 50%; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; }
+    .user-slot.dropped { background: #c1e1c1; }
+    .cards { margin-top: 40px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .card { padding: 10px 20px; background: #cfc6f7; border-radius: 8px; cursor: grab; }
+    .upload-section { display: flex; justify-content: flex-end; padding: 10px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); gap: 10px; }
+    .upload-right { display: flex; align-items: center; gap: 10px; }
+    .banner { background-color: #003366; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; }
+    .story-card { margin-bottom: 10px; padding: 10px; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: background-color 0.3s; }
+    .story-card.selected { background-color: #e0e7ff; border: 2px solid #6c63ff; }
+    .story-card.active { background-color: #f0f0f0; border: 2px solid #4CAF50; }
+    .story-card.voted { background-color: #c8f7c5; }
+    .button { margin: 10px 0; padding: 8px 12px; background-color: #6c63ff; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
+    .button:hover { background-color: #574fdd; }
+    .invite-button { padding: 5px 10px; background-color: #ff9800; border-radius: 6px; color: white; font-size: 12px; border: none; cursor: pointer; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    .modal { background: white; padding: 20px; border-radius: 10px; width: 300px; text-align: center; }
+    .modal input { width: 100%; padding: 6px; margin-top: 10px; font-size: 14px; }
+    .modal button { margin-top: 10px; background-color: #6c63ff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
   </style>
 </head>
 
 <body>
   <div class="banner">Planning Poker</div>
 
+  <!-- Invite Modal -->
+  <div class="modal-overlay" id="inviteModal">
+    <div class="modal">
+      <h3>Invite Link</h3>
+      <input type="text" id="inviteLink" readonly />
+      <button onclick="copyInviteLink()">Copy Link</button>
+      <button onclick="hideInviteModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Upload Section -->
+  <div class="upload-section">
+    <div class="upload-right">
+      <input type="file" id="csvInput" accept=".csv" />
+      <button class="invite-button" id="inviteButton" onclick="showInviteModal()">Invite Others</button>
+      <span id="storyCount"></span>
+      <div id="story-info"></div>
+    </div>
+  </div>
+
   <div class="container">
     <div class="sidebar">
-      <h3 class="user-list-title">Current Members:</h3>
-      <ul id="userList" class="user-list-container"></ul>
+      <button class="button" id="addMemberBtn">Add Member</button>
+      <div class="user-list">
+        <h3>Current Members:</h3>
+        <ul id="userList"></ul>
+      </div>
+      <h3>Voted</h3>
       <button class="button" id="revealVotesBtn">Reveal Votes</button>
       <button class="button" id="resetVotesBtn">Reset Votes</button>
+      <button class="button" id="exportCsvBtn">Export All Votes</button>
     </div>
 
     <div class="main">
       <h2>Drop a card on user</h2>
       <div class="user-dropzone" id="userArea"></div>
-      <div id="currentStory" class="story-card"></div>
+      <div id="currentStory" class="story-card"></div> <!-- Add this line for the current story display -->
       <div class="cards">
         <div class="card" draggable="true">0</div>
         <div class="card" draggable="true">1</div>
@@ -114,77 +93,90 @@
     </div>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Scripts -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script type="module" src="main.js"></script> 
+
   <script>
+    // Clear localStorage on page reload
+    if (performance.getEntriesByType("navigation")[0].type === "reload") {
+      localStorage.clear();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
-      // Add a cache-busting query parameter to the URL to force reload
-      const cacheBuster = new Date().getTime();
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomId = urlParams.get('room') || generateRoomId();
-      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId + "&_=" + cacheBuster;
-      window.history.pushState({ path: newUrl }, '', newUrl);
+      const csvInput = document.getElementById('csvInput');
+      const storyListContainer = document.getElementById('storyList');
 
-      // Ensure the 'namePromptModal' exists before trying to access it
-      let userName = localStorage.getItem('userName');
-      const namePromptModal = document.getElementById('namePromptModal');
-      if (!userName) {
-        // Only show the modal if it exists
-        if (namePromptModal) {
-          namePromptModal.style.display = 'flex';
-        }
-      } else {
-        connectToRoom(userName, roomId);
-      }
+      // Handle CSV upload
+      csvInput.addEventListener('change', function (event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-      function connectToRoom(userName, roomId) {
-        const socket = io({ query: { roomId: roomId, userName: userName } });
-        socket.on('userListUpdate', (users) => {
-          updateUserList(users);
-        });
-
-        // Handle name submission from the modal
-        window.submitName = function() {
-          userName = document.getElementById('userNameInput').value.trim();
-          if (userName.length > 0) {
-            localStorage.setItem('userName', userName);
-            if (namePromptModal) {
-              namePromptModal.style.display = 'none';
-            }
-            connectToRoom(userName, roomId);
-          }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const fileContent = e.target.result;
+          const parsedData = parseCSV(fileContent);
+          displayCSVData(parsedData);
         };
+        reader.readAsText(file);
+      });
+
+      function parseCSV(data) {
+        const rows = data.split('\n').filter(row => row.trim() !== '');
+        return rows.map(row => row.split(','));
       }
 
-      function updateUserList(users) {
-        const userListContainer = document.getElementById('userList');
-        userListContainer.innerHTML = ''; // Clear current list
-        users.forEach(user => {
-          const userItem = document.createElement('li');
-          userItem.className = 'user-card';
-          
-          const avatar = document.createElement('div');
-          avatar.className = 'user-avatar';
-          avatar.textContent = user.name.charAt(0); // Avatar shows first letter of name
+      function displayCSVData(data) {
+        storyListContainer.innerHTML = '';
 
-          const userName = document.createElement('div');
-          userName.className = 'user-name';
-          userName.textContent = user.name;
+        data.forEach((row, index) => {
+          const storyItem = document.createElement('div');
+          storyItem.classList.add('story-card');
+          storyItem.textContent = row.join(' | ');
+          storyItem.dataset.index = index;
 
-          const vote = document.createElement('div');
-          vote.className = 'user-vote';
-          vote.textContent = user.vote ? user.vote : 'No Vote';
+          storyItem.addEventListener('click', function() {
+            document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+            storyItem.classList.add('selected');
+            // You can trigger your story load/activation logic here
+          });
 
-          userItem.appendChild(avatar);
-          userItem.appendChild(userName);
-          userItem.appendChild(vote);
-          userListContainer.appendChild(userItem);
+          storyListContainer.appendChild(storyItem);
         });
-      }
-
-      function generateRoomId() {
-        return Math.random().toString(36).substring(2, 10);
       }
     });
+
+    function showInviteModal() {
+      document.getElementById('inviteModal').style.display = 'flex';
+      document.getElementById('inviteLink').value = window.location.href;
+    }
+
+    function hideInviteModal() {
+      document.getElementById('inviteModal').style.display = 'none';
+    }
+
+    function copyInviteLink() {
+      const inviteInput = document.getElementById('inviteLink');
+      inviteInput.select();
+      document.execCommand('copy');
+      alert('Invite link copied!');
+    }
+
+    function navigateStory(direction) {
+      const selected = document.querySelector('.story-card.selected');
+      const stories = [...document.querySelectorAll('.story-card')];
+
+      if (stories.length === 0) return;
+      let idx = selected ? stories.indexOf(selected) : -1;
+
+      if (direction === 'next') idx = (idx + 1) % stories.length;
+      if (direction === 'prev') idx = (idx - 1 + stories.length) % stories.length;
+
+      if (idx >= 0) {
+        stories.forEach(card => card.classList.remove('selected'));
+        stories[idx].classList.add('selected');
+      }
+    }
   </script>
 </body>
 </html>
