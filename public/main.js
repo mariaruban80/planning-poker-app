@@ -28,10 +28,12 @@ function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
   if (socket && socket.connected) {
-    socket.emit('requestCSVData');
+    socket.emit('requestCSVData');  // Request CSV data on initial load
     socket.on('storySelected', handleStorySelected);
-    socket.on('voteUpdate', handleVoteUpdate); // Handle incoming votes
+    socket.on('voteUpdate', handleVoteUpdate);  // Handle incoming votes
     socket.on('revealVotes', revealVotes); // Handle reveal
+    socket.on('userList', updateUserList);  // Sync user list across clients
+    socket.on('syncCSVData', displayCSVData);  // Sync CSV data
   } else {
     console.error("Socket connection failed or not established.");
   }
@@ -268,6 +270,7 @@ function setupInviteButton() {
     modal.style.backgroundColor = 'white';
     modal.style.border = '1px solid #000';
     modal.innerHTML = `
+
       <h3>Invite URL</h3>
       <p>Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
       <button onclick="document.body.removeChild(this.parentNode)">Close</button>
@@ -280,3 +283,8 @@ function setupInviteButton() {
 let roomId = getRoomIdFromURL();
 if (!roomId) {
   roomId = 'room-' + Math.floor(Math.random() * 10000);
+}
+appendRoomIdToURL(roomId);
+initializeApp(roomId);
+setupCSVUploader();
+setupInviteButton();
