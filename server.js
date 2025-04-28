@@ -34,7 +34,6 @@ io.on('connection', (socket) => {
   // Get roomId and userName from handshake
   const { roomId, userName } = socket.handshake.query;
 
-  // Validate roomId and userName
   if (!roomId || !userName) {
     console.error('Missing roomId or userName');
     socket.disconnect();
@@ -47,28 +46,31 @@ io.on('connection', (socket) => {
   // Initialize room if it doesn't exist
   if (!rooms[currentRoom]) {
     rooms[currentRoom] = {
-      users: {},
-      votes: {},
+      users: {},      // { socket.id: { id, name, vote } }
       story: '',
-      revealed: false,
       csvData: [],
-      selectedStoryIndex: null
+      selectedStoryIndex: null,
+      revealed: false
     };
   }
 
   const room = rooms[currentRoom];
 
-  // Add user to room if not already present
+  // Add user if not already present
   if (!room.users[socket.id]) {
-    room.users[socket.id] = currentUser;
+    room.users[socket.id] = {
+      id: socket.id,
+      name: currentUser,
+      vote: null
+    };
   }
 
   socket.join(currentRoom);
 
-  // Emit updated user list to room
+  // Emit updated user list to everyone in room
   emitUserList(currentRoom);
 
-  // Emit current story, initial CSV data, and selected story index to new user
+  // Emit current story, CSV, and selected story index to the new user
   if (room.story) {
     socket.emit('storyChange', { story: room.story });
   }
@@ -79,27 +81,48 @@ io.on('connection', (socket) => {
     socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
   }
 
-  // Emit user list when a new user joins
+  // User manually asks to join (can be optional)
   socket.on('joinRoom', ({ roomId, userName }) => {
-    rooms[roomId].users[socket.id] = userName;
+    if (!rooms[roomId]) {
+      rooms[roomId] = { users: {}, story: '', csvData: [], selectedStoryIndex: null, revealed: false };
+    }
+    rooms[roomId].users[socket.id] = {
+      id: socket.id,
+      name: userName,
+      vote: null
+    };
+    socket.join(roomId);
     emitUserList(roomId);
   });
 
-  // Emit updated user list
-  socket.on('getUserList', ({ roomId }) => {
-    emitUserList(roomId);
+  // Handle voting
+  socket.on('userVoted', (vote) => {
+    const room = rooms[currentRoom];
+    if (room && room.users[socket.id]) {
+      room.users[socket.id].vote = vote;
+      emitUserList(currentRoom); // Update everyone with new votes
+    }
   });
 
-  // Emit user list to room
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+    const room = rooms[currentRoom];
+    if (room) {
+      delete room.users[socket.id];
+      emitUserList(currentRoom);
+    }
+  });
+
+  // Helper to emit users
   function emitUserList(roomId) {
     const room = rooms[roomId];
     if (room) {
-      const userNames = Object.values(room.users);
-      io.to(roomId).emit('userList', { users: userNames });
+      const userArray = Object.values(room.users); // [{ id, name, vote }]
+      io.to(roomId).emit('userListUpdate', userArray); // 🔥 Important: emit user array directly
     }
   }
 
-  // Handle other events...
 });
 
 server.listen(PORT, () => {
