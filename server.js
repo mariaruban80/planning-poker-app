@@ -13,8 +13,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+  },
 });
 
 const PORT = process.env.PORT || 3000;
@@ -22,37 +22,26 @@ const PORT = process.env.PORT || 3000;
 // Serve static files
 app.use(express.static(join(__dirname, 'public')));
 
-// Store rooms data
+// In-memory store for rooms
 const rooms = {};
 
+// Handle socket.io connections
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
-  let currentRoom = null;
-  let currentUser = null;
-
-  // Get roomId and userName from handshake
   const { roomId, userName } = socket.handshake.query;
-
   if (!roomId || !userName) {
     console.error('Missing roomId or userName');
     socket.disconnect();
     return;
   }
 
-  currentRoom = roomId;
-  currentUser = userName;
+  let currentRoom = roomId;
+  let currentUser = userName;
 
-  // Initialize room if it doesn't exist
+  // Ensure room exists
   if (!rooms[currentRoom]) {
-    rooms[currentRoom] = {
-      users: [],
-      votes: {},
-      story: '',
-      revealed: false,
-      csvData: [],
-      selectedStoryIndex: null
-    };
+    rooms[currentRoom] = createNewRoom();
   }
 
   const room = rooms[currentRoom];
@@ -64,99 +53,106 @@ io.on('connection', (socket) => {
 
   socket.join(currentRoom);
 
-  // Emit updated user list to room
+  // Emit initial data to the user
+  emitInitialData(socket, room);
+
+  // Emit updated user list to everyone in the room
   io.to(currentRoom).emit('userList', { users: room.users });
 
-  // Emit current story, initial CSV data, and selected story index to new user
+  // Handle all socket events
+  setupSocketHandlers(socket, room, currentRoom, currentUser);
+});
+
+// Create a new room structure
+function createNewRoom() {
+  return {
+    users: [],
+    votes: {},
+    story: '',
+    revealed: false,
+    csvData: [],
+    selectedStoryIndex: null,
+  };
+}
+
+// Emit initial room data to newly connected user
+function emitInitialData(socket, room) {
   if (room.story) {
     socket.emit('storyChange', { story: room.story });
   }
-
   socket.emit('initialCSVData', room.csvData);
-
   if (room.selectedStoryIndex !== null) {
-    socket.emit('storySelected', { storyIndex: room.selectedStoryIndex }); // Ensuring selected story index is sent
+    socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
   }
+}
 
-  // Handle CSV sync
+// Setup all event handlers for a socket
+function setupSocketHandlers(socket, room, currentRoom, currentUser) {
   socket.on('syncCSVData', (data) => {
-    if (currentRoom) {
-      room.csvData = data;
-      io.to(currentRoom).emit('syncCSVData', data);
-    }
+    if (!currentRoom) return;
+    room.csvData = data;
+    io.to(currentRoom).emit('syncCSVData', data);
   });
 
-  // Handle vote submission
   socket.on('vote', ({ story, vote }) => {
-    if (currentRoom && currentUser) {
-      if (!room.votes[story]) {
-        room.votes[story] = {};
-      }
-      room.votes[story][currentUser] = vote;
-      io.to(currentRoom).emit('voteUpdate', { story, votes: room.votes[story] });
-    }
+    if (!currentRoom || !currentUser) return;
+    if (!room.votes[story]) room.votes[story] = {};
+    room.votes[story][currentUser] = vote;
+    io.to(currentRoom).emit('voteUpdate', { story, votes: room.votes[story] });
   });
 
-  // Handle story text change
   socket.on('storyChange', ({ story }) => {
-    if (currentRoom) {
-      room.story = story;
-      io.to(currentRoom).emit('storyChange', { story });
-    }
+    if (!currentRoom) return;
+    room.story = story;
+    io.to(currentRoom).emit('storyChange', { story });
   });
 
-  // Handle selecting a story (index-based)
   socket.on('storySelected', ({ storyIndex }) => {
-    if (currentRoom) {
-      room.selectedStoryIndex = storyIndex;
-      io.to(currentRoom).emit('storySelected', { storyIndex });
-    }
+    if (!currentRoom) return;
+    room.selectedStoryIndex = storyIndex;
+    io.to(currentRoom).emit('storySelected', { storyIndex });
   });
 
-  // Handle story navigation (next/previous story)
   socket.on('storyNavigation', ({ index }) => {
-    if (currentRoom) {
-      io.to(currentRoom).emit('storyNavigation', { index });
-    }
+    if (!currentRoom) return;
+    io.to(currentRoom).emit('storyNavigation', { index });
   });
 
-  // Reveal votes
   socket.on('revealVotes', () => {
-    if (currentRoom) {
-      room.revealed = true;
-      io.to(currentRoom).emit('revealVotes', {});
-    }
+    if (!currentRoom) return;
+    room.revealed = true;
+    io.to(currentRoom).emit('revealVotes', {});
   });
 
-  // Reset votes
   socket.on('resetVotes', () => {
-    if (currentRoom) {
-      room.votes = {};
-      room.revealed = false;
-      io.to(currentRoom).emit('resetVotes', {});
-    }
+    if (!currentRoom) return;
+    room.votes = {};
+    room.revealed = false;
+    io.to(currentRoom).emit('resetVotes', {});
   });
 
-  // Handle disconnect
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
-
-    if (currentRoom && currentUser) {
-      const room = rooms[currentRoom];
-      if (room) {
-        room.users = room.users.filter(u => u !== currentUser);
-
-        io.to(currentRoom).emit('userList', { users: room.users });
-
-        // Clean up room if no users are left
-        if (room.users.length === 0) {
-          delete rooms[currentRoom];
-        }
-      }
-    }
+    handleDisconnect(currentRoom, currentUser);
   });
-});
+}
 
+// Handle client disconnection
+function handleDisconnect(currentRoom, currentUser) {
+  const room = rooms[currentRoom];
+  if (!room) return;
+
+  room.users = room.users.filter((u) => u !== currentUser);
+
+  io.to(currentRoom).emit('userList', { users: room.users });
+
+  // Remove room if empty
+  if (room.users.length === 0) {
+    delete rooms[currentRoom];
+  }
+}
+
+// Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
