@@ -105,7 +105,7 @@ function displayCSVData(data) {
       storyItem.dataset.index = index;
       storyListContainer.appendChild(storyItem);
 
-      storyItem.addEventListener('click', function() {
+      storyItem.addEventListener('click', function () {
         document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
         storyItem.classList.add('selected');
         if (socket) {
