@@ -1,8 +1,9 @@
-import { initializeWebSocket, emitCSVData } from './socket.js'; // Import both initialize and emit functions
+import { initializeWebSocket, emitCSVData } from './socket.js';
 
-let socket; // Declare globally
-let csvData = []; // Store parsed CSV data
-let currentStoryIndex = 0; // Index to keep track of the current story
+let socket;
+let csvData = [];
+let currentStoryIndex = 0;
+let userVotes = {}; // NEW: Keep track of votes
 
 // Get roomId from URL or generate one
 function getRoomIdFromURL() {
@@ -16,7 +17,7 @@ function appendRoomIdToURL(roomId) {
   window.history.pushState(null, '', currentUrl.toString());
 }
 
-// Initialize the WebSocket and listeners
+// Initialize app
 function initializeApp(roomId) {
   const userName = prompt("Enter your username:");
   if (!userName) {
@@ -24,43 +25,48 @@ function initializeApp(roomId) {
     return;
   }
 
-  // Initialize the WebSocket connection
-  socket = initializeWebSocket(roomId, userName, (message) => {
-    console.log("Received message:", message);
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
-    if (message.type === 'initialCSVData' || message.type === 'syncCSVData') {
-      displayCSVData(message.csvData);
-    }
-    if (message.type === 'userList') {
-      updateUserList(message.users);
-    }
-    if (message.type === 'storyChange') {
-      updateStory(message.story);
-    }
-    if (message.type === 'storyNavigation') {
-      currentStoryIndex = message.index;
-      renderCurrentStory();
-    }
-  });
-
-  // Ensure the socket is connected before emitting or listening
   if (socket && socket.connected) {
-    socket.emit('requestCSVData');  // Request CSV data
-    socket.on('storySelected', (data) => {
-      const storyCards = document.querySelectorAll('.story-card');
-      storyCards.forEach(card => card.classList.remove('selected'));
-
-      const selectedStory = storyCards[data.storyIndex];
-      if (selectedStory) {
-        selectedStory.classList.add('selected');
-      }
-    });
+    socket.emit('requestCSVData');
+    socket.on('storySelected', handleStorySelected);
+    socket.on('voteUpdate', handleVoteUpdate); // NEW: Handle incoming votes
+    socket.on('revealVotes', revealVotes); // NEW: Handle reveal
   } else {
     console.error("Socket connection failed or not established.");
   }
 
-  // Setup story navigation buttons
   setupStoryNavigation();
+}
+
+// Socket message handler
+function handleSocketMessage(message) {
+  console.log("Received message:", message);
+
+  if (message.type === 'initialCSVData' || message.type === 'syncCSVData') {
+    displayCSVData(message.csvData);
+  }
+  if (message.type === 'userList') {
+    updateUserList(message.users);
+  }
+  if (message.type === 'storyChange') {
+    updateStory(message.story);
+  }
+  if (message.type === 'storyNavigation') {
+    currentStoryIndex = message.index;
+    renderCurrentStory();
+  }
+}
+
+// Handle story selection from server
+function handleStorySelected(data) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected'));
+
+  const selectedStory = storyCards[data.storyIndex];
+  if (selectedStory) {
+    selectedStory.classList.add('selected');
+  }
 }
 
 // CSV Uploading
@@ -75,8 +81,8 @@ function setupCSVUploader() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const parsedData = parseCSV(e.target.result);
-      emitCSVData(parsedData); // Emit to server
-      displayCSVData(parsedData); // Show locally
+      emitCSVData(parsedData);
+      displayCSVData(parsedData);
     };
     reader.readAsText(file);
   });
@@ -91,7 +97,7 @@ function parseCSV(data) {
 // Display CSV content
 function displayCSVData(data) {
   if (JSON.stringify(data) !== JSON.stringify(csvData)) {
-    csvData = data;  // Update global CSV data
+    csvData = data;
 
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) return;
@@ -118,7 +124,7 @@ function displayCSVData(data) {
   }
 }
 
-// Update user list
+// Update user list with avatar + badge
 function updateUserList(users) {
   const userListContainer = document.getElementById('userList');
   if (!userListContainer) return;
@@ -126,8 +132,24 @@ function updateUserList(users) {
   userListContainer.innerHTML = '';
 
   users.forEach(user => {
-    const userElement = document.createElement('li');
-    userElement.textContent = user;
+    const userElement = document.createElement('div');
+    userElement.classList.add('user-entry');
+    userElement.id = `user-${user.id}`;
+
+    const avatar = document.createElement('img');
+    avatar.src = generateAvatarUrl(user.name);
+    avatar.alt = user.name;
+    avatar.classList.add('avatar');
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = user.name;
+    nameSpan.classList.add('username');
+
+    const voteBadge = document.createElement('span');
+    voteBadge.classList.add('vote-badge');
+    voteBadge.textContent = '?'; // Hidden initially
+
+    userElement.append(avatar, nameSpan, voteBadge);
     userListContainer.appendChild(userElement);
   });
 }
@@ -140,7 +162,7 @@ function updateStory(story) {
   }
 }
 
-// Render the current story with highlight
+// Render current story
 function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer || csvData.length === 0) return;
@@ -154,21 +176,21 @@ function renderCurrentStory() {
   }
 }
 
-// Emit a story change to the server
+// Emit story change
 function emitStoryChange() {
   if (socket) {
     socket.emit('storyChange', { story: csvData[currentStoryIndex] });
   }
 }
 
-// Emit the current story index to sync navigation across all users
+// Emit story navigation
 function emitStoryNavigation() {
   if (socket && typeof currentStoryIndex === 'number') {
     socket.emit('storyNavigation', { index: currentStoryIndex });
   }
 }
 
-// Handle Next/Previous story buttons
+// Setup navigation
 function setupStoryNavigation() {
   const nextButton = document.getElementById('nextStory');
   const prevButton = document.getElementById('prevStory');
@@ -194,6 +216,43 @@ function setupStoryNavigation() {
   }
 }
 
+// Handle user voting
+function sendVote(vote) {
+  if (socket) {
+    socket.emit('castVote', { vote });
+  }
+}
+
+// Handle receiving votes
+function handleVoteUpdate({ userId, vote }) {
+  userVotes[userId] = vote;
+  const userElement = document.getElementById(`user-${userId}`);
+  if (userElement) {
+    const badge = userElement.querySelector('.vote-badge');
+    if (badge) {
+      badge.textContent = '✔️'; // Voted indicator (don't show value yet)
+    }
+  }
+}
+
+// Reveal all votes
+function revealVotes(votes) {
+  for (const userId in votes) {
+    const userElement = document.getElementById(`user-${userId}`);
+    if (userElement) {
+      const badge = userElement.querySelector('.vote-badge');
+      if (badge) {
+        badge.textContent = votes[userId];
+      }
+    }
+  }
+}
+
+// Generate avatar URL (can be replaced with real API later)
+function generateAvatarUrl(name) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
+}
+
 // Invite Modal
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
@@ -217,7 +276,7 @@ function setupInviteButton() {
   };
 }
 
-// ---- App Start ----
+// --- App Start ---
 let roomId = getRoomIdFromURL();
 if (!roomId) {
   roomId = 'room-' + Math.floor(Math.random() * 10000);
