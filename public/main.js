@@ -1,6 +1,6 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; // Import both initialize and emit functions
 
-let socket; // Declare globally so we can use it everywhere
+let socket; // Declare globally
 let csvData = []; // Store parsed CSV data
 let currentStoryIndex = 0; // Index to keep track of the current story
 
@@ -42,9 +42,13 @@ function initializeApp(roomId) {
     }
   });
 
-  // Handle Next/Previous story buttons
+  // ✨ Immediately request the current CSV stories
+  socket.emit('requestCSVData');
+
+  // Setup story navigation buttons
   setupStoryNavigation();
-   // ✅ Now socket is ready — Add the listener for story selection
+
+  // Handle story selection synchronization
   socket.on('storySelected', (data) => {
     const storyCards = document.querySelectorAll('.story-card');
     storyCards.forEach(card => card.classList.remove('selected'));
@@ -83,33 +87,29 @@ function parseCSV(data) {
 
 // Display CSV content
 function displayCSVData(data) {
-  // Only update the csvData if new data is provided
   if (JSON.stringify(data) !== JSON.stringify(csvData)) {
-    csvData = data;  // Update the global CSV data
+    csvData = data;  // Update global CSV data
 
-    // Ensure the story list container exists
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) return;
 
-    // Clear the container before appending new data
     storyListContainer.innerHTML = '';
 
-    // Iterate over all the rows in the CSV and render them
     data.forEach((row, index) => {
       const storyItem = document.createElement('div');
       storyItem.classList.add('story-card');
       storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-      storyItem.dataset.index = index; // Store index in the data attribute
+      storyItem.dataset.index = index;
       storyListContainer.appendChild(storyItem);
-       // Add this click event here
-      storyItem.addEventListener('click', function() {
-      document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
-      storyItem.classList.add('selected');
-      socket.emit('storySelected', { storyIndex: index }); // ✨ Send selected story index to server
-    });
-});  
 
-    renderCurrentStory();  // Make sure the current story is rendered after the data is displayed
+      storyItem.addEventListener('click', function() {
+        document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+        storyItem.classList.add('selected');
+        socket.emit('storySelected', { storyIndex: index });
+      });
+    });
+
+    renderCurrentStory();
   }
 }
 
@@ -140,18 +140,12 @@ function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer || csvData.length === 0) return;
 
-  // Clear the container (if needed)
   const allStoryItems = storyListContainer.querySelectorAll('.story-card');
-  
-  // Remove the 'active' class from all story items
-  allStoryItems.forEach(storyItem => {
-    storyItem.classList.remove('active');
-  });
+  allStoryItems.forEach(storyItem => storyItem.classList.remove('active'));
 
-  // Add the 'active' class to the current story
   const currentStoryItem = allStoryItems[currentStoryIndex];
   if (currentStoryItem) {
-    currentStoryItem.classList.add('active'); // Mark as active
+    currentStoryItem.classList.add('active');
   }
 }
 
@@ -159,6 +153,13 @@ function renderCurrentStory() {
 function emitStoryChange() {
   if (socket) {
     socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+  }
+}
+
+// Emit the current story index to sync navigation across all users
+function emitStoryNavigation() {
+  if (socket && typeof currentStoryIndex === 'number') {
+    socket.emit('storyNavigation', { index: currentStoryIndex });
   }
 }
 
@@ -170,7 +171,7 @@ function setupStoryNavigation() {
   if (nextButton) {
     nextButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex + 1) % csvData.length; // Loop through stories
+      currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
       renderCurrentStory();
       emitStoryChange();
       emitStoryNavigation();
@@ -180,18 +181,11 @@ function setupStoryNavigation() {
   if (prevButton) {
     prevButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length; // Loop through stories
+      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
       renderCurrentStory();
       emitStoryChange();
       emitStoryNavigation();
     });
-  }
-}
-
-// Emit the current story index to sync navigation across all users
-function emitStoryNavigation() {
-  if (socket && typeof currentStoryIndex === 'number') {
-    socket.emit('storyNavigation', { index: currentStoryIndex });
   }
 }
 
@@ -217,23 +211,8 @@ function setupInviteButton() {
     document.body.appendChild(modal);
   };
 }
-// --- Handle story selection across clients ---
-if (!socket) {
-  console.error('Socket not initialized yet.');
-} else {
-  socket.on('storySelected', (data) => {
-    const storyCards = document.querySelectorAll('.story-card');
-    storyCards.forEach(card => card.classList.remove('selected'));
-
-    const selectedStory = storyCards[data.storyIndex];
-    if (selectedStory) {
-      selectedStory.classList.add('selected');
-    }
-  });
-}
 
 // ---- App Start ----
-
 let roomId = getRoomIdFromURL();
 if (!roomId) {
   roomId = 'room-' + Math.floor(Math.random() * 10000);
