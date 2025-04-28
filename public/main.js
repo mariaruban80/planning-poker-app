@@ -136,12 +136,12 @@ function updateUserList(users) {
   const userListContainer = document.getElementById('userList');
   if (!userListContainer) return;
 
-  userListContainer.innerHTML = '';
+  userListContainer.innerHTML = ''; // Clear current list
 
   users.forEach(user => {
     const userElement = document.createElement('div');
     userElement.classList.add('user-entry');
-    userElement.id = `user-${user.id}`;
+    userElement.id = `user-${user.id}`; // Ensure user ID matches the server-side ID
 
     const avatar = document.createElement('img');
     avatar.src = generateAvatarUrl(user.name);
@@ -154,10 +154,10 @@ function updateUserList(users) {
 
     const voteBadge = document.createElement('span');
     voteBadge.classList.add('vote-badge');
-    voteBadge.textContent = '?'; // Hidden initially
+    voteBadge.textContent = '?'; // Vote is hidden initially
 
-    userElement.append(avatar, nameSpan, voteBadge);
-    userListContainer.appendChild(userElement);
+    userElement.append(avatar, nameSpan, voteBadge); // Append the elements
+    userListContainer.appendChild(userElement); // Add to the container
   });
 }
 
