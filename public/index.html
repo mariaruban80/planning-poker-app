@@ -100,9 +100,10 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // Wait for the DOM to load fully before executing code
     document.addEventListener("DOMContentLoaded", function () {
-      const roomId = generateRoomId();
+      // Retrieve roomId from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomId = urlParams.get('room') || generateRoomId();
 
       // Update the URL with the Room ID (without refreshing the page)
       const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
