@@ -173,7 +173,7 @@
       width: 100vw;
       height: 100vh;
       background-color: rgba(0,0,0,0.5);
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
       z-index: 9999;
@@ -216,13 +216,12 @@
     </div>
   </div>
 
-  <!-- Upload Section -->
-  <div class="upload-section">
-    <div class="upload-right">
-      <input type="file" id="csvInput" accept=".csv" />
-      <button class="invite-button" id="inviteButton" onclick="showInviteModal()">Invite Others</button>
-      <span id="storyCount"></span>
-      <div id="story-info"></div>
+  <!-- User Prompt Modal -->
+  <div class="modal-overlay" id="namePromptModal">
+    <div class="modal">
+      <h3>Enter Your Name</h3>
+      <input type="text" id="userNameInput" placeholder="Enter your name..." />
+      <button onclick="submitName()">Submit</button>
     </div>
   </div>
 
@@ -262,43 +261,58 @@
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script type="module" src="main.js"></script>
-
   <script>
+    // Wait for the DOM to load fully before executing code
     document.addEventListener("DOMContentLoaded", function () {
+      // Generate a Room ID when the page loads
       const roomId = generateRoomId();
-      const roomIdDisplay = document.getElementById('roomIdDisplay');
+      const roomIdDisplay = document.createElement('div');
       roomIdDisplay.innerHTML = `Room ID: ${roomId}`;
+      document.body.appendChild(roomIdDisplay);
 
-      const userName = prompt("Please enter your name");
-      if (!userName) {
-        alert("Name is required to join the room.");
-        return;
-      }
-
-      const userList = JSON.parse(localStorage.getItem('userList') || '[]');
-      const userListElement = document.getElementById('userList');
-      const newUser = { id: Date.now(), name: userName };
-
-      // Add user to the list
-      userList.push(newUser);
-      localStorage.setItem('userList', JSON.stringify(userList));
-
-      // Display user list
-      const li = document.createElement('li');
-      li.className = 'user-item';
-      li.innerHTML = `
-        <div class="user-avatar">${userName[0].toUpperCase()}</div>
-        <div class="user-name">${userName}</div>
-        <div class="user-vote" id="vote-${newUser.id}"></div>
-      `;
-      userListElement.appendChild(li);
+      // Show the modal to prompt for the user's name
+      document.getElementById('namePromptModal').style.display = 'flex';
     });
 
     function generateRoomId() {
       return 'ROOM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function submitName() {
+      const userName = document.getElementById('userNameInput').value;
+      if (userName) {
+        // Close the modal
+        document.getElementById('namePromptModal').style.display = 'none';
+
+        // Save the user name and add it to the user list
+        const userList = JSON.parse(localStorage.getItem('userList') || '[]');
+        const newUser = { id: Date.now(), name: userName };
+        userList.push(newUser);
+        localStorage.setItem('userList', JSON.stringify(userList));
+
+        // Add the user to the UI
+        const userListElement = document.getElementById('userList');
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.innerHTML = `
+          <div class="user-avatar">${userName[0].toUpperCase()}</div>
+          <div class="user-name">${userName}</div>
+          <div class="user-vote" id="vote-${newUser.id}"></div>
+        `;
+        userListElement.appendChild(li);
+      } else {
+        alert('Please enter a name.');
+      }
+    }
+
+    function copyInviteLink() {
+      const inviteLink = document.getElementById('inviteLink');
+      inviteLink.select();
+      document.execCommand('copy');
+    }
+
+    function hideInviteModal() {
+      document.getElementById('inviteModal').style.display = 'none';
     }
   </script>
 </body>
