@@ -10,10 +10,9 @@ const __dirname = dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
-// Create Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins, or restrict it for production
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
@@ -26,111 +25,122 @@ app.use(express.static(join(__dirname, 'public')));
 // Store rooms data
 const rooms = {};
 
-// Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
   let currentRoom = null;
   let currentUser = null;
 
-  // Retrieve roomId and userName from the query parameters
+  // Get roomId and userName from handshake
   const { roomId, userName } = socket.handshake.query;
 
-  // Validate roomId and userName
   if (!roomId || !userName) {
-    console.error('Room ID or User Name missing in the connection request.');
+    console.error('Missing roomId or userName');
     socket.disconnect();
     return;
   }
 
-  // Immediately join the room after connection
   currentRoom = roomId;
   currentUser = userName;
 
   if (!rooms[currentRoom]) {
-    rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [] };
+    rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [], selectedStoryIndex: null };
   }
 
-  // Add the user to the room if not already present
-  if (!rooms[currentRoom].users.includes(currentUser)) {
-    rooms[currentRoom].users.push(currentUser);
+  const room = rooms[currentRoom];
+
+  if (!room.users.includes(currentUser)) {
+    room.users.push(currentUser);
   }
 
   socket.join(currentRoom);
 
-  // Send updated users list to everyone in the room
-  io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
+  // Send updated user list to room
+  io.to(currentRoom).emit('userList', { users: room.users });
 
-  // If a story is already selected, send it to the new user
-  if (rooms[currentRoom].story) {
-    socket.emit('storyChange', { story: rooms[currentRoom].story });
+  // Send current story to the new user
+  if (room.story) {
+    socket.emit('storyChange', { story: room.story });
   }
 
-  // Always send the current CSV data to the newly connected user
-  socket.emit('initialCSVData', rooms[currentRoom].csvData);
+  // Send initial CSV data to new user
+  socket.emit('initialCSVData', room.csvData);
 
-  // Handle CSV data synchronization
+  // Send selected story index to new user (if any)
+  if (room.selectedStoryIndex !== null) {
+    socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
+  }
+
+  // Handle CSV sync
   socket.on('syncCSVData', (data) => {
     if (currentRoom) {
-      // Save the CSV data in the room
-      rooms[currentRoom].csvData = data;
-
-      // Broadcast the updated CSV data to all users in the room
+      room.csvData = data;
       io.to(currentRoom).emit('syncCSVData', data);
     }
   });
 
-  // Handle voting
+  // Handle vote
   socket.on('vote', ({ story, vote }) => {
     if (currentRoom && currentUser) {
-      const room = rooms[currentRoom];
       if (!room.votes[story]) {
         room.votes[story] = {};
       }
       room.votes[story][currentUser] = vote;
-
       io.to(currentRoom).emit('voteUpdate', { story, votes: room.votes[story] });
     }
   });
 
-  // Handle story change
+  // Handle story change (text change)
   socket.on('storyChange', ({ story }) => {
     if (currentRoom) {
-      rooms[currentRoom].story = story;
+      room.story = story;
       io.to(currentRoom).emit('storyChange', { story });
     }
   });
 
-  // Handle reveal votes
+  // Handle selecting a story (index based)
+  socket.on('storySelected', ({ storyIndex }) => {
+    if (currentRoom) {
+      room.selectedStoryIndex = storyIndex;
+      io.to(currentRoom).emit('storySelected', { storyIndex });
+    }
+  });
+
+  // Handle story navigation (next/previous story)
+  socket.on('storyNavigation', ({ index }) => {
+    if (currentRoom) {
+      io.to(currentRoom).emit('storyNavigation', { index });
+    }
+  });
+
+  // Reveal votes
   socket.on('revealVotes', () => {
     if (currentRoom) {
-      rooms[currentRoom].revealed = true;
+      room.revealed = true;
       io.to(currentRoom).emit('revealVotes', {});
     }
   });
 
-  // Handle reset votes
+  // Reset votes
   socket.on('resetVotes', () => {
     if (currentRoom) {
-      const room = rooms[currentRoom];
       room.votes = {};
       room.revealed = false;
       io.to(currentRoom).emit('resetVotes', {});
     }
   });
 
-  // Handle disconnection
+  // Handle disconnect
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
 
     if (currentRoom && currentUser) {
       const room = rooms[currentRoom];
       if (room) {
-        room.users = room.users.filter(user => user !== currentUser);
+        room.users = room.users.filter(u => u !== currentUser);
 
         io.to(currentRoom).emit('userList', { users: room.users });
 
-        // Optionally: Delete empty rooms
         if (room.users.length === 0) {
           delete rooms[currentRoom];
         }
@@ -139,7 +149,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
