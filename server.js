@@ -43,30 +43,37 @@ io.on('connection', (socket) => {
   currentRoom = roomId;
   currentUser = userName;
 
+  // Initialize room if it doesn't exist
   if (!rooms[currentRoom]) {
-    rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false, csvData: [], selectedStoryIndex: null };
+    rooms[currentRoom] = {
+      users: [],
+      votes: {},
+      story: '',
+      revealed: false,
+      csvData: [],
+      selectedStoryIndex: null
+    };
   }
 
   const room = rooms[currentRoom];
 
+  // Add user to room if not already present
   if (!room.users.includes(currentUser)) {
     room.users.push(currentUser);
   }
 
   socket.join(currentRoom);
 
-  // Send updated user list to room
+  // Emit updated user list to room
   io.to(currentRoom).emit('userList', { users: room.users });
 
-  // Send current story to the new user
+  // Emit current story, initial CSV data, and selected story index to new user
   if (room.story) {
     socket.emit('storyChange', { story: room.story });
   }
 
-  // Send initial CSV data to new user
   socket.emit('initialCSVData', room.csvData);
 
-  // Send selected story index to new user (if any)
   if (room.selectedStoryIndex !== null) {
     socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
   }
@@ -79,7 +86,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle vote
+  // Handle vote submission
   socket.on('vote', ({ story, vote }) => {
     if (currentRoom && currentUser) {
       if (!room.votes[story]) {
@@ -90,7 +97,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle story change (text change)
+  // Handle story text change
   socket.on('storyChange', ({ story }) => {
     if (currentRoom) {
       room.story = story;
@@ -98,7 +105,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle selecting a story (index based)
+  // Handle selecting a story (index-based)
   socket.on('storySelected', ({ storyIndex }) => {
     if (currentRoom) {
       room.selectedStoryIndex = storyIndex;
@@ -141,6 +148,7 @@ io.on('connection', (socket) => {
 
         io.to(currentRoom).emit('userList', { users: room.users });
 
+        // Clean up room if no users are left
         if (room.users.length === 0) {
           delete rooms[currentRoom];
         }
