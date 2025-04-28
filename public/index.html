@@ -266,6 +266,12 @@
     document.addEventListener("DOMContentLoaded", function () {
       // Generate a Room ID when the page loads
       const roomId = generateRoomId();
+      
+      // Update the URL with the Room ID (without refreshing the page)
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+      
+      // Display the Room ID on the page
       const roomIdDisplay = document.createElement('div');
       roomIdDisplay.innerHTML = `Room ID: ${roomId}`;
       document.body.appendChild(roomIdDisplay);
