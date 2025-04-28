@@ -3,7 +3,7 @@ import { initializeWebSocket, emitCSVData } from './socket.js';
 let socket;
 let csvData = [];
 let currentStoryIndex = 0;
-let userVotes = {}; // NEW: Keep track of votes
+let userVotes = {}; // Track votes for users
 
 // Get roomId from URL or generate one
 function getRoomIdFromURL() {
@@ -30,8 +30,8 @@ function initializeApp(roomId) {
   if (socket && socket.connected) {
     socket.emit('requestCSVData');
     socket.on('storySelected', handleStorySelected);
-    socket.on('voteUpdate', handleVoteUpdate); // NEW: Handle incoming votes
-    socket.on('revealVotes', revealVotes); // NEW: Handle reveal
+    socket.on('voteUpdate', handleVoteUpdate); // Handle incoming votes
+    socket.on('revealVotes', revealVotes); // Handle reveal
   } else {
     console.error("Socket connection failed or not established.");
   }
@@ -280,9 +280,3 @@ function setupInviteButton() {
 let roomId = getRoomIdFromURL();
 if (!roomId) {
   roomId = 'room-' + Math.floor(Math.random() * 10000);
-  appendRoomIdToURL(roomId);
-}
-
-initializeApp(roomId);
-setupCSVUploader();
-setupInviteButton();
