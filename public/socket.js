@@ -1,9 +1,11 @@
-import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
+import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js"; // Use CDN or local install
 
 let socket;
 let currentRoomId = null;
 let userName = null;
-let selectedStoryIndex = null; // Track selected story globally in session
+let userId = null;
+let selectedStoryIndex = null; // track globally in session
+const rooms = {};
 
 export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   currentRoomId = roomId;
@@ -21,81 +23,96 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
     query: { roomId, userName }
   });
 
-  // Events after connection
   socket.on('connect', () => {
     console.log('Socket.IO connection established.');
-    socket.emit('joinRoom', roomId);
+    socket.emit('join'); // No need to send { roomId, user } again because it's already in query
   });
 
-  // Listening for user list updates
+  // Handle receiving the list of users
   socket.on('userList', (data) => {
     console.log('Received userList:', data);
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'userList', users: data.users });
-    }
+    handleRoomData({ type: 'userList', users: data.users });
+    if (typeof handleMessage === 'function') handleMessage({ type: 'userList', users: data.users });
   });
 
-  // Listening for story change updates
+  // Handle receiving the current story
   socket.on('storyChange', (data) => {
     console.log('Received storyChange:', data);
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'storyChange', story: data.story });
+    // Handle story change (display on UI)
+    if (data.story) {
+      // Assume you have a way to update the UI with the new story
+      updateStoryUI(data.story);
     }
+    if (typeof handleMessage === 'function') handleMessage({ type: 'storyChange', story: data.story });
   });
 
-  // Receiving initial CSV data
+  // Handle receiving the initial CSV data
   socket.on('initialCSVData', (data) => {
     console.log('Received initial CSV data:', data);
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'initialCSVData', csvData: data });
+    // Handle the CSV data (e.g., render it in a table or list)
+    if (data && data.length) {
+      renderCSVData(data);
     }
+    if (typeof handleMessage === 'function') handleMessage({ type: 'initialCSVData', csvData: data });
   });
 
-  // Receiving synced CSV data
+  // Handle selected story index
+  socket.on('storySelected', (data) => {
+    console.log('Received selected story index:', data);
+    // Handle story index (update UI or global state)
+    selectedStoryIndex = data.storyIndex;
+  });
+
+  // Handle sync CSV data
   socket.on('syncCSVData', (data) => {
     console.log('Received synced CSV data:', data);
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'syncCSVData', csvData: data });
-    }
-  });
-
-  // Listening for story selection (highlight selected story for all users)
-  socket.on('storySelected', (data) => {
-    console.log('Received storySelected:', data);
-    selectedStoryIndex = data.storyIndex; // Update local selected story
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'storySelected', storyIndex: data.storyIndex });
-    }
-  });
-
-  // Handle story navigation (next/previous)
-  socket.on('storyNavigation', (data) => {
-    console.log('Received storyNavigation:', data);
-    if (typeof handleMessage === 'function') {
-      handleMessage({ type: 'storyNavigation', index: data.index });
-    }
+    if (typeof handleMessage === 'function') handleMessage({ type: 'syncCSVData', csvData: data });
   });
 }
 
-// Get current room and user data
+// Update the UI with the received story
+function updateStoryUI(story) {
+  // Example: Assume you have an element to display the current story
+  const storyElement = document.getElementById('currentStory');
+  if (storyElement) {
+    storyElement.textContent = story;
+  }
+}
+
+// Render CSV Data
+function renderCSVData(csvData) {
+  // Example: Assume you have a table or list to render the CSV data
+  const csvContainer = document.getElementById('csvDataContainer');
+  if (csvContainer) {
+    csvContainer.innerHTML = ''; // Clear existing content
+    csvData.forEach(row => {
+      const rowElement = document.createElement('div');
+      rowElement.textContent = row; // Or format the CSV data properly
+      csvContainer.appendChild(rowElement);
+    });
+  }
+}
+
+// Exporting the getRoomData function
 export function getRoomData() {
   return {
     roomId: currentRoomId,
     userName: userName,
+    users: Object.keys(rooms),
   };
 }
 
-// Function to send custom message (if needed)
 export function sendMessage(message) {
   if (!socket) {
     console.error('Socket is not initialized!');
     return;
   }
+
   console.log('Sending message:', message);
   socket.emit('message', message);
 }
 
-// Emit CSV data to server for syncing
+// Function to emit CSV data to server
 export function emitCSVData(csvData) {
   if (!socket) {
     console.error('Socket is not initialized!');
@@ -103,4 +120,30 @@ export function emitCSVData(csvData) {
   }
   console.log('Emitting CSV data to server:', csvData);
   socket.emit('syncCSVData', csvData);
+}
+
+// Handle room data (update the UI)
+function handleRoomData(data) {
+  const userListContainer = document.getElementById('userList'); // Assuming you have a container with id "userList"
+  
+  if (data.type === 'userList') {
+    console.log('User list:', data.users);
+    
+    // Clear existing list
+    if (userListContainer) {
+      userListContainer.innerHTML = '';
+
+      // Add users to the list
+      data.users.forEach(user => {
+        const userElement = document.createElement('li');
+        userElement.textContent = user;
+        userListContainer.appendChild(userElement);
+      });
+    }
+  }
+  if (data.type === 'storyChange') {
+    console.log('Story changed:', data.story);
+    // You can update the current story on the UI here
+    updateStoryUI(data.story);
+  }
 }
