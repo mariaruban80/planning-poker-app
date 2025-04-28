@@ -207,6 +207,20 @@ function setupInviteButton() {
     document.body.appendChild(modal);
   };
 }
+// --- Handle story selection across clients ---
+if (!socket) {
+  console.error('Socket not initialized yet.');
+} else {
+  socket.on('storySelected', (data) => {
+    const storyCards = document.querySelectorAll('.story-card');
+    storyCards.forEach(card => card.classList.remove('selected'));
+
+    const selectedStory = storyCards[data.storyIndex];
+    if (selectedStory) {
+      selectedStory.classList.add('selected');
+    }
+  });
+}
 
 // ---- App Start ----
 
