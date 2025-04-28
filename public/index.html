@@ -144,6 +144,18 @@
           storyListContainer.appendChild(storyItem);
         });
       }
+
+      // Add Member Button functionality
+      const addMemberBtn = document.getElementById('addMemberBtn');
+      addMemberBtn.addEventListener('click', function() {
+        const memberName = prompt('Enter the name of the new member:');
+        if (memberName) {
+          const userList = document.getElementById('userList');
+          const userItem = document.createElement('div');
+          userItem.textContent = memberName;
+          userList.appendChild(userItem);
+        }
+      });
     });
 
     function showInviteModal() {
