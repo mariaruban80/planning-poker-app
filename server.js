@@ -1,96 +1,72 @@
-import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+const io = socketIo(server);
 
-// Create Socket.IO server
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Allow all origins, or restrict it for production
-    methods: ["GET", "POST"]
-  }
-});
+let rooms = {}; // Store rooms and users
 
-const PORT = process.env.PORT || 3000;
+// Serve static files for the frontend
+app.use(express.static('public'));
 
-// Serve static files
-app.use(express.static(join(__dirname, 'public')));
-
-// Store rooms data
-const rooms = {};
-
-// Socket.IO connection handling
+// Handle new socket connections
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-
   let currentRoom = null;
   let currentUser = null;
 
-  // Retrieve roomId and userName from the query parameters
-  const { roomId, userName } = socket.handshake.query;
-
-  // Validate roomId and userName
-  if (!roomId || !userName) {
-    console.error('Room ID or User Name missing in the connection request.');
-    socket.disconnect();
-    return;
-  }
-
-  // When a client joins a room
-  socket.on('joinRoom', () => {
-    console.log(`User ${userName} joined room ${roomId}`);
-
+  // When a user joins a room
+  socket.on('joinRoom', ({ roomId, userName }) => {
     currentRoom = roomId;
     currentUser = userName;
 
-    // Initialize room if not already existing
+    console.log(`User ${userName} joined room ${roomId}`);
+
     if (!rooms[currentRoom]) {
       rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false };
     }
 
-    // Add user to the room's user list
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
 
-    // Emit user list to the room
+    // Emit the updated user list to all clients in the room
     io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
-
-    // Emit CSV data to the user
-    socket.emit('syncCSVData', { csvData: rooms[currentRoom].csvData || [] });
   });
 
-  // Handling vote updates from client
+  // Handle story selection
+  socket.on('storySelected', ({ storyIndex }) => {
+    const story = rooms[currentRoom].story[storyIndex];
+    io.to(currentRoom).emit('storySelected', { storyIndex });
+  });
+
+  // Handle vote updates
   socket.on('castVote', ({ vote }) => {
-    if (currentRoom && currentUser) {
-      rooms[currentRoom].votes[socket.id] = vote;
-      io.to(currentRoom).emit('voteUpdate', { userId: socket.id, vote });
-    }
+    rooms[currentRoom].votes[socket.id] = vote;
+    io.to(currentRoom).emit('voteUpdate', { userId: socket.id, vote });
   });
 
-  // Emit votes reveal to the room
+  // Handle votes reveal
   socket.on('revealVotes', () => {
-    if (currentRoom) {
-      io.to(currentRoom).emit('revealVotes', rooms[currentRoom].votes);
-    }
+    io.to(currentRoom).emit('revealVotes', rooms[currentRoom].votes);
   });
 
-  // Handle disconnection
+  // Handle CSV data sync
+  socket.on('syncCSVData', (csvData) => {
+    rooms[currentRoom].story = csvData;
+    io.to(currentRoom).emit('syncCSVData', csvData);
+  });
+
+  // Handle disconnect
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-    if (currentRoom && currentUser) {
+    if (currentRoom && rooms[currentRoom]) {
       rooms[currentRoom].users = rooms[currentRoom].users.filter(user => user.id !== socket.id);
       io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
     }
   });
 });
 
-// Start server
+// Start the server
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
