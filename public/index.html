@@ -267,98 +267,39 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    if (performance.getEntriesByType("navigation")[0].type === "reload") {
-      localStorage.clear();
-    }
-
     document.addEventListener("DOMContentLoaded", function () {
-      const csvInput = document.getElementById('csvInput');
-      const storyListContainer = document.getElementById('storyList');
+      const roomId = generateRoomId();
+      const roomIdDisplay = document.getElementById('roomIdDisplay');
+      roomIdDisplay.innerHTML = `Room ID: ${roomId}`;
 
-      csvInput.addEventListener('change', function (event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const fileContent = e.target.result;
-          const parsedData = parseCSV(fileContent);
-          displayCSVData(parsedData);
-        };
-        reader.readAsText(file);
-      });
-
-      function parseCSV(data) {
-        const rows = data.split('\n').filter(row => row.trim() !== '');
-        return rows.map(row => row.split(','));
+      const userName = prompt("Please enter your name");
+      if (!userName) {
+        alert("Name is required to join the room.");
+        return;
       }
 
-      function displayCSVData(data) {
-        storyListContainer.innerHTML = '';
-        data.forEach((row, index) => {
-          const storyItem = document.createElement('div');
-          storyItem.classList.add('story-card');
-          storyItem.textContent = row.join(' | ');
-          storyItem.dataset.index = index;
-
-          storyItem.addEventListener('click', function () {
-            document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
-            storyItem.classList.add('selected');
-          });
-
-          storyListContainer.appendChild(storyItem);
-        });
-      }
-
-      // Populate user list from localStorage
       const userList = JSON.parse(localStorage.getItem('userList') || '[]');
       const userListElement = document.getElementById('userList');
-      userList.forEach(user => {
-        const li = document.createElement('li');
-        li.className = 'user-item';
+      const newUser = { id: Date.now(), name: userName };
 
-        const avatar = document.createElement('div');
-        avatar.className = 'user-avatar';
-        avatar.textContent = user.name[0].toUpperCase();
+      // Add user to the list
+      userList.push(newUser);
+      localStorage.setItem('userList', JSON.stringify(userList));
 
-        const name = document.createElement('div');
-        name.className = 'user-name';
-        name.textContent = user.name;
-
-        const vote = document.createElement('div');
-        vote.className = 'user-vote';
-        vote.id = `vote-${user.id}`;
-
-        li.appendChild(avatar);
-        li.appendChild(name);
-        li.appendChild(vote);
-
-        userListElement.appendChild(li);
-      });
-
-      document.getElementById('revealVotesBtn').addEventListener('click', function () {
-        const userVotes = JSON.parse(localStorage.getItem('userVotes') || '{}');
-        Object.keys(userVotes).forEach(userId => {
-          const voteElement = document.getElementById(`vote-${userId}`);
-          if (voteElement) {
-            voteElement.classList.add('revealed');
-            voteElement.textContent = userVotes[userId];
-          }
-        });
-      });
-
-      document.getElementById('resetVotesBtn').addEventListener('click', function () {
-        const userVotes = JSON.parse(localStorage.getItem('userVotes') || '{}');
-        Object.keys(userVotes).forEach(userId => {
-          const voteElement = document.getElementById(`vote-${userId}`);
-          if (voteElement) {
-            voteElement.classList.remove('revealed');
-            voteElement.textContent = '';
-          }
-        });
-        localStorage.removeItem('userVotes');
-      });
+      // Display user list
+      const li = document.createElement('li');
+      li.className = 'user-item';
+      li.innerHTML = `
+        <div class="user-avatar">${userName[0].toUpperCase()}</div>
+        <div class="user-name">${userName}</div>
+        <div class="user-vote" id="vote-${newUser.id}"></div>
+      `;
+      userListElement.appendChild(li);
     });
+
+    function generateRoomId() {
+      return 'ROOM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
   </script>
 </body>
 </html>
