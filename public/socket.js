@@ -40,7 +40,6 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
     console.log('Received storyChange:', data);
     // Handle story change (display on UI)
     if (data.story) {
-      // Assume you have a way to update the UI with the new story
       updateStoryUI(data.story);
     }
     if (typeof handleMessage === 'function') handleMessage({ type: 'storyChange', story: data.story });
@@ -61,6 +60,7 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
     console.log('Received selected story index:', data);
     // Handle story index (update UI or global state)
     selectedStoryIndex = data.storyIndex;
+    updateSelectedStoryUI();
   });
 
   // Handle sync CSV data
@@ -90,6 +90,23 @@ function renderCSVData(csvData) {
       rowElement.textContent = row; // Or format the CSV data properly
       csvContainer.appendChild(rowElement);
     });
+  }
+}
+
+// Emit the current story index to sync navigation across all users
+function emitStoryNavigation() {
+  if (socket && typeof selectedStoryIndex === 'number') {
+    socket.emit('storyNavigation', { index: selectedStoryIndex });
+  }
+}
+
+// Handle selected story UI highlight
+function updateSelectedStoryUI() {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected'));
+
+  if (storyCards[selectedStoryIndex]) {
+    storyCards[selectedStoryIndex].classList.add('selected');
   }
 }
 
