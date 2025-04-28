@@ -34,6 +34,7 @@ io.on('connection', (socket) => {
   // Get roomId and userName from handshake
   const { roomId, userName } = socket.handshake.query;
 
+  // Validate roomId and userName
   if (!roomId || !userName) {
     console.error('Missing roomId or userName');
     socket.disconnect();
@@ -144,6 +145,7 @@ io.on('connection', (socket) => {
     if (currentRoom && room) {
       delete room.users[socket.id];
 
+      // Emit updated user list when someone disconnects
       emitUserList(currentRoom);
 
       // Clean up room if no users are left
@@ -153,6 +155,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Emit user list to room
   function emitUserList(roomId) {
     const room = rooms[roomId];
     if (room) {
