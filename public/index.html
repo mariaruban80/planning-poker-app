@@ -117,16 +117,21 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      // Retrieve roomId from URL
+      // Add a cache-busting query parameter to the URL to force reload
+      const cacheBuster = new Date().getTime();
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room') || generateRoomId();
-      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId + "&_=" + cacheBuster;
       window.history.pushState({ path: newUrl }, '', newUrl);
 
-      // Check if userName exists in localStorage
+      // Ensure the 'namePromptModal' exists before trying to access it
       let userName = localStorage.getItem('userName');
+      const namePromptModal = document.getElementById('namePromptModal');
       if (!userName) {
-        document.getElementById('namePromptModal').style.display = 'flex';
+        // Only show the modal if it exists
+        if (namePromptModal) {
+          namePromptModal.style.display = 'flex';
+        }
       } else {
         connectToRoom(userName, roomId);
       }
@@ -142,7 +147,9 @@
           userName = document.getElementById('userNameInput').value.trim();
           if (userName.length > 0) {
             localStorage.setItem('userName', userName);
-            document.getElementById('namePromptModal').style.display = 'none';
+            if (namePromptModal) {
+              namePromptModal.style.display = 'none';
+            }
             connectToRoom(userName, roomId);
           }
         };
