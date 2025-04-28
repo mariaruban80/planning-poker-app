@@ -46,70 +46,21 @@ function initializeApp(roomId) {
   setupStoryNavigation();
 }
 
-// Socket message handler
-function handleSocketMessage(message) {
-  console.log("Received message:", message);
-
-  if (message.type === 'initialCSVData' || message.type === 'syncCSVData') {
-    displayCSVData(message.csvData);
-  }
-  if (message.type === 'userList') {
-    updateUserList(message.users);
-  }
-  if (message.type === 'storyChange') {
-    updateStory(message.story);
-  }
-  if (message.type === 'storyNavigation') {
-    currentStoryIndex = message.index;
-    renderCurrentStory();
-  }
-}
-
-// Handle story selection from server
-function handleStorySelected(data) {
-  const storyCards = document.querySelectorAll('.story-card');
-  storyCards.forEach(card => card.classList.remove('selected'));
-
-  const selectedStory = storyCards[data.storyIndex];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
-  }
-}
-
-// CSV Uploading
-function setupCSVUploader() {
-  const csvInput = document.getElementById('csvInput');
-  if (!csvInput) return;
-
-  csvInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const parsedData = parseCSV(e.target.result);
-      emitCSVData(parsedData);
-      displayCSVData(parsedData);
-    };
-    reader.readAsText(file);
-  });
-}
-
-// Parse CSV content
-function parseCSV(data) {
-  const rows = data.trim().split('\n');
-  return rows.map(row => row.split(','));
-}
-
 // Display CSV content
 function displayCSVData(data) {
+  // Check if data is an array
+  if (!Array.isArray(data)) {
+    console.error('Expected an array but got:', data);
+    return;
+  }
+
   if (JSON.stringify(data) !== JSON.stringify(csvData)) {
     csvData = data;
 
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) return;
 
-    storyListContainer.innerHTML = '';
+    storyListContainer.innerHTML = ''; // Clear current list
 
     data.forEach((row, index) => {
       const storyItem = document.createElement('div');
@@ -149,7 +100,7 @@ function updateUserList(users) {
     avatar.classList.add('avatar');
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name;
+    nameSpan.textContent = user.name; // Display username
     nameSpan.classList.add('username');
 
     const voteBadge = document.createElement('span');
@@ -161,39 +112,19 @@ function updateUserList(users) {
   });
 }
 
-// Update current story
-function updateStory(story) {
-  const storyTitle = document.getElementById('currentStory');
-  if (storyTitle) {
-    storyTitle.textContent = story;
-  }
+// Generate avatar URL (can be replaced with real API later)
+function generateAvatarUrl(name) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
 
-// Render current story
-function renderCurrentStory() {
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer || csvData.length === 0) return;
+// Handle story selection from server
+function handleStorySelected(data) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected'));
 
-  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
-  allStoryItems.forEach(storyItem => storyItem.classList.remove('active'));
-
-  const currentStoryItem = allStoryItems[currentStoryIndex];
-  if (currentStoryItem) {
-    currentStoryItem.classList.add('active');
-  }
-}
-
-// Emit story change
-function emitStoryChange() {
-  if (socket) {
-    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
-  }
-}
-
-// Emit story navigation
-function emitStoryNavigation() {
-  if (socket && typeof currentStoryIndex === 'number') {
-    socket.emit('storyNavigation', { index: currentStoryIndex });
+  const selectedStory = storyCards[data.storyIndex];
+  if (selectedStory) {
+    selectedStory.classList.add('selected');
   }
 }
 
@@ -220,6 +151,20 @@ function setupStoryNavigation() {
       emitStoryChange();
       emitStoryNavigation();
     });
+  }
+}
+
+// Emit story change
+function emitStoryChange() {
+  if (socket) {
+    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+  }
+}
+
+// Emit story navigation
+function emitStoryNavigation() {
+  if (socket && typeof currentStoryIndex === 'number') {
+    socket.emit('storyNavigation', { index: currentStoryIndex });
   }
 }
 
@@ -255,11 +200,6 @@ function revealVotes(votes) {
   }
 }
 
-// Generate avatar URL (can be replaced with real API later)
-function generateAvatarUrl(name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
-}
-
 // Invite Modal
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
@@ -290,5 +230,4 @@ if (!roomId) {
 }
 appendRoomIdToURL(roomId);
 initializeApp(roomId);
-setupCSVUploader();
 setupInviteButton();
