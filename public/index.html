@@ -4,202 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Planning Poker Interactive</title>
+
   <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #fafafa;
-    }
-    .container {
-      display: flex;
-      height: 100vh;
-    }
-    .sidebar, .rightbar {
-      width: 20%;
-      background: #f4f4f8;
-      padding: 20px;
-      overflow-y: auto;
-    }
-    .main {
-      flex: 1;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .user-list-container {
-      list-style: none;
-      padding: 0;
-      margin-top: 10px;
-    }
-    .user-item {
-      display: flex;
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid #d0d0d0;
-      border-radius: 25px;
-      padding: 8px 12px;
-      margin-bottom: 10px;
-      gap: 10px;
-      box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
-    }
-    .user-avatar {
-      width: 32px;
-      height: 32px;
-      background: #6c63ff;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      color: #fff;
-    }
-    .user-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-      flex-grow: 1;
-    }
-    .user-vote {
-      background: #6c63ff;
-      color: white;
-      border-radius: 12px;
-      padding: 2px 8px;
-      font-size: 12px;
-      display: none; /* Hidden until votes are revealed */
-    }
-    .user-vote.revealed {
-      display: inline-block;
-    }
-    .user-dropzone {
-      position: relative;
-      width: 400px;
-      height: 400px;
-      border-radius: 50%;
-      margin: 40px auto;
-    }
-    .user-slot {
-      position: absolute;
-      width: 100px;
-      height: 100px;
-      background: white;
-      border-radius: 50%;
-      border: 2px dashed #ccc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .user-slot.dropped {
-      background: #c1e1c1;
-    }
-    .cards {
-      margin-top: 40px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .card {
-      padding: 10px 20px;
-      background: #cfc6f7;
-      border-radius: 8px;
-      cursor: grab;
-    }
-    .upload-section {
-      display: flex;
-      justify-content: flex-end;
-      padding: 10px;
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      gap: 10px;
-    }
-    .upload-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .banner {
-      background-color: #003366;
-      color: white;
-      padding: 15px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-    }
-    .story-card {
-      margin-bottom: 10px;
-      padding: 10px;
-      background-color: #fff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    .story-card.selected {
-      background-color: #e0e7ff;
-      border: 2px solid #6c63ff;
-    }
-    .story-card.active {
-      background-color: #f0f0f0;
-      border: 2px solid #4CAF50;
-    }
-    .button {
-      margin: 10px 0;
-      padding: 8px 12px;
-      background-color: #6c63ff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-    }
-    .button:hover {
-      background-color: #574fdd;
-    }
-    .invite-button {
-      padding: 5px 10px;
-      background-color: #ff9800;
-      border-radius: 6px;
-      color: white;
-      font-size: 12px;
-      border: none;
-      cursor: pointer;
-    }
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-    .modal {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      width: 300px;
-      text-align: center;
-    }
-    .modal input {
-      width: 100%;
-      padding: 6px;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-    .modal button {
-      margin-top: 10px;
-      background-color: #6c63ff;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fafafa; }
+    .container { display: flex; height: 100vh; }
+    .sidebar, .rightbar { width: 20%; background: #f4f4f8; padding: 20px; overflow-y: auto; }
+    .main { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .user-list-container { list-style: none; padding: 0; margin-top: 10px; }
+    .user-item { display: flex; align-items: center; background: #ffffff; border: 1px solid #d0d0d0; border-radius: 25px; padding: 8px 12px; margin-bottom: 10px; gap: 10px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1); }
+    .user-avatar { width: 32px; height: 32px; background: #6c63ff; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; }
+    .user-name { font-size: 14px; font-weight: 600; color: #333; flex-grow: 1; }
+    .user-vote { background: #6c63ff; color: white; border-radius: 12px; padding: 2px 8px; font-size: 12px; display: none; }
+    .user-vote.revealed { display: inline-block; }
+    .user-dropzone { position: relative; width: 400px; height: 400px; border-radius: 50%; margin: 40px auto; }
+    .user-slot { position: absolute; width: 100px; height: 100px; background: white; border-radius: 50%; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; }
+    .user-slot.dropped { background: #c1e1c1; }
+    .cards { margin-top: 40px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .card { padding: 10px 20px; background: #cfc6f7; border-radius: 8px; cursor: grab; }
+    .upload-section { display: flex; justify-content: flex-end; padding: 10px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); gap: 10px; }
+    .upload-right { display: flex; align-items: center; gap: 10px; }
+    .banner { background-color: #003366; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; }
+    .story-card { margin-bottom: 10px; padding: 10px; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: background-color 0.3s; }
+    .story-card.selected { background-color: #e0e7ff; border: 2px solid #6c63ff; }
+    .story-card.active { background-color: #f0f0f0; border: 2px solid #4CAF50; }
+    .story-card.voted { background-color: #c8f7c5; }
+    .button { margin: 10px 0; padding: 8px 12px; background-color: #6c63ff; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
+    .button:hover { background-color: #574fdd; }
+    .invite-button { padding: 5px 10px; background-color: #ff9800; border-radius: 6px; color: white; font-size: 12px; border: none; cursor: pointer; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    .modal { background: white; padding: 20px; border-radius: 10px; width: 300px; text-align: center; }
+    .modal input { width: 100%; padding: 6px; margin-top: 10px; font-size: 14px; }
+    .modal button { margin-top: 10px; background-color: #6c63ff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
   </style>
 </head>
 
@@ -235,6 +70,8 @@
       <button class="button" id="revealVotesBtn">Reveal Votes</button>
       <button class="button" id="resetVotesBtn">Reset Votes</button>
       <button class="button" id="exportCsvBtn">Export All Votes</button>
+      <!-- Invite Button -->
+      <button class="button" id="inviteButton" onclick="showInviteModal()">Invite Other</button>
     </div>
 
     <div class="main">
@@ -264,39 +101,51 @@
   <script>
     // Wait for the DOM to load fully before executing code
     document.addEventListener("DOMContentLoaded", function () {
-      // Generate a Room ID when the page loads
       const roomId = generateRoomId();
-      
+
       // Update the URL with the Room ID (without refreshing the page)
       const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
       window.history.pushState({ path: newUrl }, '', newUrl);
-      
-      // Display the Room ID on the page
-      const roomIdDisplay = document.createElement('div');
-      roomIdDisplay.innerHTML = `Room ID: ${roomId}`;
-      document.body.appendChild(roomIdDisplay);
 
       // Show the modal to prompt for the user's name
       document.getElementById('namePromptModal').style.display = 'flex';
     });
 
+    // Function to generate the room ID
     function generateRoomId() {
       return 'ROOM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     }
 
+    // Show the Invite Modal
+    function showInviteModal() {
+      const inviteUrl = window.location.href;
+      document.getElementById('inviteLink').value = inviteUrl;
+      document.getElementById('inviteModal').style.display = 'flex';
+    }
+
+    // Function to copy the invite link
+    function copyInviteLink() {
+      const inviteLink = document.getElementById('inviteLink');
+      inviteLink.select();
+      document.execCommand('copy');
+    }
+
+    // Hide the invite modal
+    function hideInviteModal() {
+      document.getElementById('inviteModal').style.display = 'none';
+    }
+
+    // Function to submit the user's name
     function submitName() {
       const userName = document.getElementById('userNameInput').value;
       if (userName) {
-        // Close the modal
         document.getElementById('namePromptModal').style.display = 'none';
 
-        // Save the user name and add it to the user list
         const userList = JSON.parse(localStorage.getItem('userList') || '[]');
         const newUser = { id: Date.now(), name: userName };
         userList.push(newUser);
         localStorage.setItem('userList', JSON.stringify(userList));
 
-        // Add the user to the UI
         const userListElement = document.getElementById('userList');
         const li = document.createElement('li');
         li.className = 'user-item';
@@ -309,16 +158,6 @@
       } else {
         alert('Please enter a name.');
       }
-    }
-
-    function copyInviteLink() {
-      const inviteLink = document.getElementById('inviteLink');
-      inviteLink.select();
-      document.execCommand('copy');
-    }
-
-    function hideInviteModal() {
-      document.getElementById('inviteModal').style.display = 'none';
     }
   </script>
 </body>
