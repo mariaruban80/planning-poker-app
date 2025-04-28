@@ -30,6 +30,7 @@ function initializeApp(roomId) {
   if (socket) {
     socket.on('connect', () => {
       console.log('Connected to socket server!');
+      socket.emit('joinRoom', { roomId, userName }); 
 
       socket.emit('requestCSVData');  // Request CSV data on initial load
       socket.on('storySelected', handleStorySelected);
