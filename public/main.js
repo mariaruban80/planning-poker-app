@@ -3,9 +3,8 @@ import { initializeWebSocket, emitCSVData } from './socket.js';
 let socket;
 let csvData = [];
 let currentStoryIndex = 0;
-let userVotes = {}; // Track votes for users
+let userVotes = {};
 
-// Get roomId from URL or generate one
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('roomId');
@@ -17,7 +16,6 @@ function appendRoomIdToURL(roomId) {
   window.history.pushState(null, '', currentUrl.toString());
 }
 
-// Initialize app
 function initializeApp(roomId) {
   const userName = prompt("Enter your username:");
   if (!userName) {
@@ -25,18 +23,23 @@ function initializeApp(roomId) {
     return;
   }
 
-  // Initialize the socket with roomId and userName
   socket = io({ query: { roomId, userName } });
 
   socket.on('connect', () => {
-    console.log('Connected to socket server!');
+    console.log('Connected to server.');
     socket.emit('joinRoom', { roomId, userName });
+  });
 
-    socket.on('storySelected', handleStorySelected);
-    socket.on('voteUpdate', handleVoteUpdate);
-    socket.on('revealVotes', revealVotes);
-    socket.on('userList', updateUserList);
-    socket.on('syncCSVData', displayCSVData);
+  socket.on('storySelected', handleStorySelected);
+  socket.on('voteUpdate', handleVoteUpdate);
+  socket.on('revealVotes', revealVotes);
+  socket.on('userList', updateUserList);
+  socket.on('syncCSVData', (data) => {
+    if (Array.isArray(data)) {
+      displayCSVData(data);
+    } else {
+      console.error('syncCSVData payload is not an array:', data);
+    }
   });
 
   socket.on('connect_error', (err) => {
@@ -46,11 +49,42 @@ function initializeApp(roomId) {
   setupStoryNavigation();
 }
 
-// Display CSV content
+function handleStorySelected(data) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected'));
+
+  const selectedStory = storyCards[data.storyIndex];
+  if (selectedStory) {
+    selectedStory.classList.add('selected');
+  }
+}
+
+function setupCSVUploader() {
+  const csvInput = document.getElementById('csvInput');
+  if (!csvInput) return;
+
+  csvInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const parsedData = parseCSV(e.target.result);
+      emitCSVData(parsedData);
+      displayCSVData(parsedData);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function parseCSV(data) {
+  const rows = data.trim().split('\n');
+  return rows.map(row => row.split(','));
+}
+
 function displayCSVData(data) {
-  // Check if data is an array
   if (!Array.isArray(data)) {
-    console.error('Expected an array but got:', data);
+    console.error('displayCSVData received invalid data:', data);
     return;
   }
 
@@ -60,7 +94,7 @@ function displayCSVData(data) {
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) return;
 
-    storyListContainer.innerHTML = ''; // Clear current list
+    storyListContainer.innerHTML = '';
 
     data.forEach((row, index) => {
       const storyItem = document.createElement('div');
@@ -82,17 +116,16 @@ function displayCSVData(data) {
   }
 }
 
-// Update user list with avatar + badge
 function updateUserList(users) {
   const userListContainer = document.getElementById('userList');
   if (!userListContainer) return;
 
-  userListContainer.innerHTML = ''; // Clear current list
+  userListContainer.innerHTML = '';
 
   users.forEach(user => {
     const userElement = document.createElement('div');
     userElement.classList.add('user-entry');
-    userElement.id = `user-${user.id}`; // Ensure user ID matches the server-side ID
+    userElement.id = `user-${user.id}`;
 
     const avatar = document.createElement('img');
     avatar.src = generateAvatarUrl(user.name);
@@ -100,35 +133,50 @@ function updateUserList(users) {
     avatar.classList.add('avatar');
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name; // Display username
+    nameSpan.textContent = user.name;
     nameSpan.classList.add('username');
 
     const voteBadge = document.createElement('span');
     voteBadge.classList.add('vote-badge');
-    voteBadge.textContent = '?'; // Vote is hidden initially
+    voteBadge.textContent = '?';
 
-    userElement.append(avatar, nameSpan, voteBadge); // Append the elements
-    userListContainer.appendChild(userElement); // Add to the container
+    userElement.append(avatar, nameSpan, voteBadge);
+    userListContainer.appendChild(userElement);
   });
 }
 
-// Generate avatar URL (can be replaced with real API later)
-function generateAvatarUrl(name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
-}
-
-// Handle story selection from server
-function handleStorySelected(data) {
-  const storyCards = document.querySelectorAll('.story-card');
-  storyCards.forEach(card => card.classList.remove('selected'));
-
-  const selectedStory = storyCards[data.storyIndex];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
+function updateStory(story) {
+  const storyTitle = document.getElementById('currentStory');
+  if (storyTitle) {
+    storyTitle.textContent = story;
   }
 }
 
-// Setup navigation
+function renderCurrentStory() {
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer || csvData.length === 0) return;
+
+  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
+  allStoryItems.forEach(storyItem => storyItem.classList.remove('active'));
+
+  const currentStoryItem = allStoryItems[currentStoryIndex];
+  if (currentStoryItem) {
+    currentStoryItem.classList.add('active');
+  }
+}
+
+function emitStoryChange() {
+  if (socket) {
+    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+  }
+}
+
+function emitStoryNavigation() {
+  if (socket && typeof currentStoryIndex === 'number') {
+    socket.emit('storyNavigation', { index: currentStoryIndex });
+  }
+}
+
 function setupStoryNavigation() {
   const nextButton = document.getElementById('nextStory');
   const prevButton = document.getElementById('prevStory');
@@ -154,40 +202,23 @@ function setupStoryNavigation() {
   }
 }
 
-// Emit story change
-function emitStoryChange() {
-  if (socket) {
-    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
-  }
-}
-
-// Emit story navigation
-function emitStoryNavigation() {
-  if (socket && typeof currentStoryIndex === 'number') {
-    socket.emit('storyNavigation', { index: currentStoryIndex });
-  }
-}
-
-// Handle user voting
 function sendVote(vote) {
   if (socket) {
     socket.emit('castVote', { vote });
   }
 }
 
-// Handle receiving votes
 function handleVoteUpdate({ userId, vote }) {
   userVotes[userId] = vote;
   const userElement = document.getElementById(`user-${userId}`);
   if (userElement) {
     const badge = userElement.querySelector('.vote-badge');
     if (badge) {
-      badge.textContent = '✔️'; // Voted indicator (don't show value yet)
+      badge.textContent = '✔️';
     }
   }
 }
 
-// Reveal all votes
 function revealVotes(votes) {
   for (const userId in votes) {
     const userElement = document.getElementById(`user-${userId}`);
@@ -200,7 +231,10 @@ function revealVotes(votes) {
   }
 }
 
-// Invite Modal
+function generateAvatarUrl(name) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
+}
+
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
@@ -230,4 +264,5 @@ if (!roomId) {
 }
 appendRoomIdToURL(roomId);
 initializeApp(roomId);
+setupCSVUploader();
 setupInviteButton();
