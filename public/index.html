@@ -119,9 +119,29 @@
       try {
         socket = io({ query: { roomId, userName } });
 
-        socket.on('connect', () => {
-          console.log('Connected to room', roomId);
-        });
+      
+          socket.on('userListUpdate', (users) => {
+  if (!Array.isArray(users)) {
+    console.error('Invalid user list received:', users);
+    return;
+  }
+
+  // Here you handle showing users in the UI, for example:
+  const userList = document.getElementById('userList');
+  userList.innerHTML = '';
+  users.forEach(user => {
+    const li = document.createElement('li');
+    li.className = 'user-item';
+    li.innerHTML = `
+      <div class="user-avatar">${user.name[0]}</div>
+      <div class="user-name">${user.name}</div>
+      <div class="user-vote">${user.vote || ''}</div>
+    `;
+    userList.appendChild(li);
+  });
+});
+
+   
 
         // Example: Update members list
         socket.on('userList', users => {
