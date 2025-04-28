@@ -4,6 +4,7 @@ let socket;
 let currentRoomId = null;
 let userName = null;
 let userId = null;
+let selectedStoryIndex = null; // track globally in session
 const rooms = {};
 
 export function initializeWebSocket(roomId, userNameParam, handleMessage) {
@@ -21,6 +22,27 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
     transports: ["websocket"],
     query: { roomId, userName }
   });
+
+  
+
+socket.on('connection', (socket) => {
+  
+  socket.on('joinRoom', (roomId) => {
+    socket.join(roomId);
+    
+    // Send currently selected story to the new user
+    if (selectedStoryIndex !== null) {
+      socket.emit('storySelected', { storyIndex: selectedStoryIndex });
+    }
+  });
+
+  socket.on('storySelected', (data) => {
+    selectedStoryIndex = data.storyIndex; // update the current story
+    socket.broadcast.emit('storySelected', data); // notify others
+  });
+
+});
+
 
   socket.on('connect', () => {
     console.log('Socket.IO connection established.');
