@@ -79,80 +79,15 @@ io.on('connection', (socket) => {
     socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
   }
 
-  // Handle CSV sync
-  socket.on('syncCSVData', (data) => {
-    if (currentRoom) {
-      room.csvData = data;
-      io.to(currentRoom).emit('syncCSVData', data);
-    }
+  // Emit user list when a new user joins
+  socket.on('joinRoom', ({ roomId, userName }) => {
+    rooms[roomId].users[socket.id] = userName;
+    emitUserList(roomId);
   });
 
-  // Handle vote submission
-  socket.on('vote', ({ story, vote }) => {
-    if (currentRoom && currentUser) {
-      if (!room.votes[story]) {
-        room.votes[story] = {};
-      }
-      room.votes[story][currentUser] = vote;
-      io.to(currentRoom).emit('voteUpdate', { story, votes: room.votes[story] });
-    }
-  });
-
-  // Handle story text change
-  socket.on('storyChange', ({ story }) => {
-    if (currentRoom) {
-      room.story = story;
-      io.to(currentRoom).emit('storyChange', { story });
-    }
-  });
-
-  // Handle selecting a story (index-based)
-  socket.on('storySelected', ({ storyIndex }) => {
-    if (currentRoom) {
-      room.selectedStoryIndex = storyIndex;
-      io.to(currentRoom).emit('storySelected', { storyIndex });
-    }
-  });
-
-  // Handle story navigation (next/previous story)
-  socket.on('storyNavigation', ({ index }) => {
-    if (currentRoom) {
-      io.to(currentRoom).emit('storyNavigation', { index });
-    }
-  });
-
-  // Reveal votes
-  socket.on('revealVotes', () => {
-    if (currentRoom) {
-      room.revealed = true;
-      io.to(currentRoom).emit('revealVotes', {});
-    }
-  });
-
-  // Reset votes
-  socket.on('resetVotes', () => {
-    if (currentRoom) {
-      room.votes = {};
-      room.revealed = false;
-      io.to(currentRoom).emit('resetVotes', {});
-    }
-  });
-
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-
-    if (currentRoom && room) {
-      delete room.users[socket.id];
-
-      // Emit updated user list when someone disconnects
-      emitUserList(currentRoom);
-
-      // Clean up room if no users are left
-      if (Object.keys(room.users).length === 0) {
-        delete rooms[currentRoom];
-      }
-    }
+  // Emit updated user list
+  socket.on('getUserList', ({ roomId }) => {
+    emitUserList(roomId);
   });
 
   // Emit user list to room
@@ -163,6 +98,8 @@ io.on('connection', (socket) => {
       io.to(roomId).emit('userList', { users: userNames });
     }
   }
+
+  // Handle other events...
 });
 
 server.listen(PORT, () => {
