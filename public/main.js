@@ -136,23 +136,27 @@ function displayCSVData(data) {
 
 // Update user list with avatar + badge
 function updateUserList(users) {
+  console.log("Received user list:", users); // Debugging aid
+
   const userListContainer = document.getElementById('userList');
   if (!userListContainer) return;
 
   userListContainer.innerHTML = '';
 
   users.forEach(user => {
+    const safeName = user.name?.trim() || "Guest"; // Safe fallback
+
     const userElement = document.createElement('div');
     userElement.classList.add('user-entry');
     userElement.id = `user-${user.id}`;
 
     const avatar = document.createElement('img');
-    avatar.src = generateAvatarUrl(user.name);
-    avatar.alt = user.name;
+    avatar.src = generateAvatarUrl(safeName);
+    avatar.alt = safeName;
     avatar.classList.add('avatar');
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name;
+    nameSpan.textContent = safeName;
     nameSpan.classList.add('username');
 
     const voteBadge = document.createElement('span');
@@ -258,7 +262,7 @@ function revealVotes(votes) {
   }
 }
 
-// Generate avatar URL (can be replaced with real API later)
+// Generate avatar URL
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
