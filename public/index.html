@@ -10,7 +10,51 @@
     .container { display: flex; height: 100vh; }
     .sidebar, .rightbar { width: 20%; background: #f4f4f8; padding: 20px; overflow-y: auto; }
     .main { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .user-list div { background: #d3bff5; color: white; border-radius: 10px; padding: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .user-list-container {
+      list-style: none;
+      padding: 0;
+      margin-top: 10px;
+    }
+    .user-item {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #d0d0d0;
+      border-radius: 25px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      gap: 10px;
+      box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: #6c63ff;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: #fff;
+    }
+    .user-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      flex-grow: 1;
+    }
+    .user-vote {
+      background: #6c63ff;
+      color: white;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 12px;
+      display: none; /* Hidden until votes are revealed */
+    }
+    .user-vote.revealed {
+      display: inline-block;
+    }
     .user-dropzone { position: relative; width: 400px; height: 400px; border-radius: 50%; margin: 40px auto; }
     .user-slot { position: absolute; width: 100px; height: 100px; background: white; border-radius: 50%; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; }
     .user-slot.dropped { background: #c1e1c1; }
@@ -58,10 +102,9 @@
 
   <div class="container">
     <div class="sidebar">
-      <!-- Removed the Add Member Button -->
       <div class="user-list">
         <h3>Current Members:</h3>
-        <ul id="userList"></ul>
+        <ul id="userList" class="user-list-container"></ul>
       </div>
       <h3>Voted</h3>
       <button class="button" id="revealVotesBtn">Reveal Votes</button>
@@ -72,7 +115,7 @@
     <div class="main">
       <h2>Drop a card on user</h2>
       <div class="user-dropzone" id="userArea"></div>
-      <div id="currentStory" class="story-card"></div> <!-- Add this line for the current story display -->
+      <div id="currentStory" class="story-card"></div>
       <div class="cards">
         <div class="card" draggable="true">0</div>
         <div class="card" draggable="true">1</div>
@@ -98,7 +141,6 @@
   <script type="module" src="main.js"></script> 
 
   <script>
-    // Clear localStorage on page reload
     if (performance.getEntriesByType("navigation")[0].type === "reload") {
       localStorage.clear();
     }
@@ -107,7 +149,6 @@
       const csvInput = document.getElementById('csvInput');
       const storyListContainer = document.getElementById('storyList');
 
-      // Handle CSV upload
       csvInput.addEventListener('change', function (event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -128,7 +169,6 @@
 
       function displayCSVData(data) {
         storyListContainer.innerHTML = '';
-
         data.forEach((row, index) => {
           const storyItem = document.createElement('div');
           storyItem.classList.add('story-card');
@@ -138,34 +178,55 @@
           storyItem.addEventListener('click', function() {
             document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
             storyItem.classList.add('selected');
-            // You can trigger your story load/activation logic here
           });
 
           storyListContainer.appendChild(storyItem);
         });
       }
 
-      // Handling adding members (replacing "Add Member" button functionality)
-      const addMemberBtn = document.getElementById('addMemberBtn');
-      addMemberBtn.addEventListener('click', function() {
-        const memberName = prompt('Enter the name of the new member:');
-        if (memberName) {
-          const userList = document.getElementById('userList');
-          const userItem = document.createElement('div');
-          userItem.textContent = memberName;
-          userItem.classList.add('user-item'); // Added a class for styling
-          userList.appendChild(userItem);
-        }
-      });
-
-      // On page load, populate the members from localStorage (if any)
+      // Populate user list from localStorage
       const userList = JSON.parse(localStorage.getItem('userList') || '[]');
       const userListElement = document.getElementById('userList');
       userList.forEach(user => {
-        const li = document.createElement('div');
-        li.textContent = user.name;
-        li.classList.add('user-item');
+        const li = document.createElement('li');
+        li.className = 'user-item';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'user-avatar';
+        avatar.textContent = user.name[0].toUpperCase();
+
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = user.name;
+
+        const vote = document.createElement('div');
+        vote.className = 'user-vote';
+        vote.id = `vote-${user.id}`;
+
+        li.appendChild(avatar);
+        li.appendChild(name);
+        li.appendChild(vote);
+
         userListElement.appendChild(li);
+      });
+
+      document.getElementById('revealVotesBtn').addEventListener('click', function() {
+        const userVotes = JSON.parse(localStorage.getItem('userVotes') || '{}');
+        Object.keys(userVotes).forEach(userId => {
+          const voteBadge = document.getElementById(`vote-${userId}`);
+          if (voteBadge) {
+            voteBadge.textContent = userVotes[userId];
+            voteBadge.classList.add('revealed');
+          }
+        });
+      });
+
+      document.getElementById('resetVotesBtn').addEventListener('click', function() {
+        document.querySelectorAll('.user-vote').forEach(badge => {
+          badge.classList.remove('revealed');
+          badge.textContent = '';
+        });
+        localStorage.removeItem('userVotes');
       });
     });
 
