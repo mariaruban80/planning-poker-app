@@ -30,55 +30,50 @@
     .modal { background: white; padding: 20px; border-radius: 10px; width: 300px; text-align: center; }
     .modal input { width: 100%; padding: 6px; margin-top: 10px; font-size: 14px; }
     .modal button { margin-top: 10px; background-color: #6c63ff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-  #userList {
+#userList {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 10px;
   justify-content: center;
   padding: 1rem;
 }
 
 .user-entry {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 140px;
-  padding: 10px;
-  text-align: center;
-}
-
-.user-top {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 8px 12px;
+  width: auto;
+  min-width: 200px;
+  height: 50px;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
+  object-fit: cover;
   margin-right: 8px;
 }
 
 .username {
-  font-weight: 600;
-  font-size: 16px;
+  font-weight: 500;
+  font-size: 14px;
   color: #333;
+  margin-right: 8px;
 }
 
 .vote-badge {
-  margin-top: 8px;
   background-color: #007bff;
   color: white;
-  padding: 5px 10px;
-  border-radius: 20px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
   font-weight: bold;
-  font-size: 14px;
 }
- 
+
   </style>
 </head>
 
