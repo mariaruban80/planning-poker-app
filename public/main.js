@@ -42,8 +42,11 @@ function initializeApp(roomId) {
     }
   });
 
-  // ✨ Immediately request the current CSV stories
-  socket.emit('requestCSVData');
+  // Ensure socket is initialized before emitting
+  if (socket) {
+    // ✨ Immediately request the current CSV stories
+    socket.emit('requestCSVData');
+  }
 
   // Setup story navigation buttons
   setupStoryNavigation();
@@ -105,7 +108,9 @@ function displayCSVData(data) {
       storyItem.addEventListener('click', function() {
         document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
         storyItem.classList.add('selected');
-        socket.emit('storySelected', { storyIndex: index });
+        if (socket) {
+          socket.emit('storySelected', { storyIndex: index });
+        }
       });
     });
 
