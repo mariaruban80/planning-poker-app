@@ -75,7 +75,7 @@ io.on('connection', (socket) => {
   socket.emit('initialCSVData', room.csvData);
 
   if (room.selectedStoryIndex !== null) {
-    socket.emit('storySelected', { storyIndex: room.selectedStoryIndex });
+    socket.emit('storySelected', { storyIndex: room.selectedStoryIndex }); // Ensuring selected story index is sent
   }
 
   // Handle CSV sync
