@@ -109,13 +109,15 @@
       const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
       window.history.pushState({ path: newUrl }, '', newUrl);
 
-      // Check if userName already exists in localStorage
+      // Check if userName exists in localStorage
       let userName = localStorage.getItem('userName');
+
+      // Show prompt modal if no userName in localStorage
       if (!userName) {
-        // Show the modal to prompt for the user's name if not yet stored
+        // Show the modal to prompt for the user's name
         document.getElementById('namePromptModal').style.display = 'flex';
       } else {
-        // If userName exists, skip the modal and connect directly to the room
+        // If userName exists, proceed to connect
         connectToRoom(userName, roomId);
       }
 
