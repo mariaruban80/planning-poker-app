@@ -25,13 +25,11 @@
     .main {
       flex: 1;
       padding: 20px;
-      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
     }
-
     .user-list div {
       background: #d3bff5;
       color: white;
@@ -41,7 +39,6 @@
       display: flex;
       justify-content: space-between;
     }
-
     .user-dropzone {
       position: relative;
       width: 400px;
@@ -49,7 +46,6 @@
       border-radius: 50%;
       margin: 40px auto;
     }
-
     .user-slot {
       position: absolute;
       width: 100px;
@@ -62,24 +58,13 @@
       justify-content: center;
       font-weight: bold;
       text-align: center;
-      transition: background 0.3s ease;
     }
-
-    .user-slot.dropped {
-      background: #c1e1c1;
-    }
-
-    .cards .card {
-      animation: fadeIn 0.5s ease-out forwards;
-    }
-
     .cards {
       margin-top: 40px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
-
     .card {
       padding: 10px 20px;
       background: #cfc6f7;
@@ -87,28 +72,19 @@
       cursor: grab;
       font-weight: bold;
     }
-
     .upload-section {
       display: flex;
       justify-content: flex-end;
-      text-align: right;
       padding: 10px;
       background: #fff;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       gap: 10px;
     }
-
     .upload-right {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-
-    #story-info {
-      margin-top: 10px;
-      font-size: 14px;
-    }
-
     .story-card {
       margin-bottom: 10px;
       padding: 10px;
@@ -118,12 +94,10 @@
       cursor: pointer;
       transition: background-color 0.3s ease;
     }
-
     .story-card.selected {
       background-color: #e0e7ff;
       border: 2px solid #6c63ff;
     }
-
     .banner {
       background-color: #003366;
       color: white;
@@ -131,9 +105,7 @@
       text-align: center;
       font-size: 24px;
       font-weight: bold;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-
     .button {
       margin: 10px 0;
       padding: 8px 12px;
@@ -144,184 +116,119 @@
       cursor: pointer;
       width: 100%;
     }
-
-    .story-card.voted {
-      background-color: #c8f7c5;
-    }
-
     .button:hover {
       background-color: #574fdd;
     }
-  </style>
-</head>
-<body>
-  <div class="banner">Planning Poker</div>
- <style>
-    .story-card.active {
-      background-color: #f0f0f0; /* Light gray background */
-      border: 2px solid #4CAF50; /* Green border */
-    }
-  </style>
-  <!-- Invite Button and Modal -->
-  <style>
     .invite-button {
       padding: 5px 10px;
+      background-color: #ff9800;
       border: none;
       border-radius: 6px;
-      background-color: #ff9800;
       color: white;
       cursor: pointer;
       font-size: 12px;
     }
-
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    .modal {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      width: 300px;
-      text-align: center;
-    }
-
-    .modal input {
-      width: 100%;
-      padding: 6px;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-
-    .modal button {
-      margin-top: 10px;
-      background-color: #6c63ff;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .modal img {
-      margin-top: 15px;
-      max-width: 100%;
-    }
   </style>
+</head>
 
-  <div class="modal-overlay" id="inviteModal">
-    <div class="modal">
-      <h3>Invite Link</h3>
-      <input type="text" id="inviteLink" readonly />
-      <button onclick="copyInviteLink()">Copy Link</button>
-      <button onclick="hideInviteModal()">Close</button>
-    </div>
+<body>
+
+<div class="banner">Planning Poker</div>
+
+<div class="upload-section">
+  <div class="upload-right">
+    <input type="file" id="csvInput" accept=".csv" />
+    <button class="invite-button" id="inviteButton" onclick="showInviteModal()">Invite Others</button>
+    <span id="storyCount"></span>
+    <div id="story-info"></div>
   </div>
-  
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script type="module" src="main.js"></script>
+</div>
 
-  <script>
-    if (performance.getEntriesByType("navigation")[0].type === "reload") {
-      localStorage.clear();
-    }
-  </script>
-
-  <div class="upload-section">
-    <div class="upload-right">
-      <input type="file" id="csvInput" accept=".csv" />
-      <button class="invite-button" id="inviteButton" onclick="showInviteModal()">Invite Others</button>
-      <span id="storyCount"></span>
-      <div id="story-info"></div>
+<div class="container">
+  <div class="sidebar">
+    <button class="button" id="addMemberBtn">Add Member</button>
+    <div class="user-list">
+      <h3>Current Members:</h3>
+      <ul id="userList"></ul>
     </div>
+    <h3>Voted</h3>
+    <button class="button" id="revealVotesBtn">Reveal Votes</button>
+    <button class="button" id="resetVotesBtn">Reset Votes</button>
+    <button class="button" id="exportCsvBtn">Export All Votes</button>
   </div>
-  
-  <div class="container">
-    <div class="sidebar">
-      <button class="button" id="addMemberBtn">Add Member</button>
-      <!-- User List Section -->
-      <div class="user-list">
-        <h3>Current Members:</h3>
-        <ul id="userList"></ul> <!-- User List will be dynamically added here -->
-      </div>
-      <h3>Voted</h3>
-      <button class="button" id="revealVotesBtn">Reveal Votes</button>
-      <button class="button" id="resetVotesBtn">Reset Votes</button>
-      <button class="button" id="exportCsvBtn">Export All Votes</button>
-    </div>
-    
-    <div class="main">
-      <h2>Drop a card on user</h2>
-      <div class="user-dropzone" id="userArea"></div>
-      <div class="cards">
-        <div class="card" draggable="true">0</div>
-        <div class="card" draggable="true">1</div>
-        <div class="card" draggable="true">3</div>
-        <div class="card" draggable="true">5</div>
-        <div class="card" draggable="true">8</div>
-        <div class="card" draggable="true">13</div>
-        <div class="card" draggable="true">21</div>
-      </div>
-    </div>
-    
-    <div class="rightbar" id="storyListContainer">
-      <div id="storyList"></div>
-      <div style="margin-top: 20px;">
-        <button class="button" onclick="navigateStory('prev')">Previous Story</button>
-        <button class="button" onclick="navigateStory('next')">Next Story</button>
-      </div>
+
+  <div class="main">
+    <h2>Drop a card on user</h2>
+    <div class="user-dropzone" id="userArea"></div>
+    <div class="cards">
+      <div class="card" draggable="true">0</div>
+      <div class="card" draggable="true">1</div>
+      <div class="card" draggable="true">3</div>
+      <div class="card" draggable="true">5</div>
+      <div class="card" draggable="true">8</div>
+      <div class="card" draggable="true">13</div>
+      <div class="card" draggable="true">21</div>
     </div>
   </div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      const csvInput = document.getElementById('csvInput');  // The input field to select a file
-      const storyListContainer = document.getElementById('storyList');  // Where to display the CSV data
+  <div class="rightbar" id="storyListContainer">
+    <div id="storyList"></div>
+    <div style="margin-top: 20px;">
+      <button class="button" onclick="navigateStory('prev')">Previous Story</button>
+      <button class="button" onclick="navigateStory('next')">Next Story</button>
+    </div>
+  </div>
+</div>
 
-      // Event listener for file input
-      csvInput.addEventListener('change', function(event) {
-        const file = event.target.files[0];  // Get the selected file
-        if (!file) return;  // If no file is selected, exit
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const csvInput = document.getElementById('csvInput');
+  const storyListContainer = document.getElementById('storyList');
 
-        const reader = new FileReader();
-        
-        reader.onload = function(e) {
-          const fileContent = e.target.result;
-          const parsedData = parseCSV(fileContent);  // Parse the CSV data
-          displayCSVData(parsedData);  // Display the parsed data in the portal
-        };
+  csvInput.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-        reader.readAsText(file);  // Read the file content as text
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const fileContent = e.target.result;
+      const parsedData = parseCSV(fileContent);
+      displayCSVData(parsedData);
+    };
+    reader.readAsText(file);
+  });
+
+  function parseCSV(data) {
+    const rows = data.split('\n').filter(row => row.trim() !== '');
+    return rows.map(row => row.split(','));
+  }
+
+  function displayCSVData(data) {
+    storyListContainer.innerHTML = '';
+
+    data.forEach((row) => {
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card');
+      storyItem.textContent = row.join(' | ');
+
+      storyItem.addEventListener('click', function() {
+        document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+        this.classList.add('selected');
       });
 
-      // Function to parse CSV data into an array
-      function parseCSV(data) {
-        const rows = data.split('\n');  // Split into rows by newline
-        const result = rows.map(row => row.split(','));  // Split each row by comma
-        return result;
-      }
-
-      // Function to display the CSV data in the portal
-      function displayCSVData(data) {
-        storyListContainer.innerHTML = '';  // Clear the existing content
-
-        // Loop through the parsed data and create HTML elements
-        data.forEach((row, index) => {
-          const storyItem = document.createElement('div');
-          storyItem.classList.add('story-card');
-          storyItem.textContent = row.join(' | ');  // Display data with pipe as separator
-          storyListContainer.appendChild(storyItem);
-        });
-      }
+      storyListContainer.appendChild(storyItem);
     });
-  </script>
+  }
+});
+
+// Dummy functions for buttons
+function showInviteModal() {
+  alert('Show Invite Modal - functionality to be implemented.');
+}
+function navigateStory(direction) {
+  alert('Navigating to ' + direction + ' story.');
+}
+</script>
+
 </body>
 </html>
