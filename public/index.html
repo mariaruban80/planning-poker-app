@@ -142,8 +142,8 @@
         userName = document.getElementById('userNameInput').value.trim();
         if (userName.length > 0) {
           localStorage.setItem('userName', userName);  // Save the name to localStorage
-          document.getElementById('namePromptModal').style.display = 'none';
-          connectToRoom(userName, roomId);
+          document.getElementById('namePromptModal').style.display = 'none';  // Hide the modal
+          connectToRoom(userName, roomId);  // Connect to the room
         }
       };
 
