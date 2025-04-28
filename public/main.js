@@ -24,6 +24,7 @@ function initializeApp(roomId) {
     return;
   }
 
+  // Initialize the WebSocket connection
   socket = initializeWebSocket(roomId, userName, (message) => {
     console.log("Received message:", message);
 
@@ -42,25 +43,24 @@ function initializeApp(roomId) {
     }
   });
 
-  // Ensure socket is initialized before emitting
-  if (socket) {
-    // ✨ Immediately request the current CSV stories
-    socket.emit('requestCSVData');
+  // Ensure the socket is connected before emitting or listening
+  if (socket && socket.connected) {
+    socket.emit('requestCSVData');  // Request CSV data
+    socket.on('storySelected', (data) => {
+      const storyCards = document.querySelectorAll('.story-card');
+      storyCards.forEach(card => card.classList.remove('selected'));
+
+      const selectedStory = storyCards[data.storyIndex];
+      if (selectedStory) {
+        selectedStory.classList.add('selected');
+      }
+    });
+  } else {
+    console.error("Socket connection failed or not established.");
   }
 
   // Setup story navigation buttons
   setupStoryNavigation();
-
-  // Handle story selection synchronization
-  socket.on('storySelected', (data) => {
-    const storyCards = document.querySelectorAll('.story-card');
-    storyCards.forEach(card => card.classList.remove('selected'));
-
-    const selectedStory = storyCards[data.storyIndex];
-    if (selectedStory) {
-      selectedStory.classList.add('selected');
-    }
-  });
 }
 
 // CSV Uploading
