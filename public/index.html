@@ -6,67 +6,94 @@
   <title>Planning Poker Interactive</title>
 
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fafafa; }
+    body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fafafa; }
     .container { display: flex; height: 100vh; }
     .sidebar, .rightbar { width: 20%; background: #f4f4f8; padding: 20px; overflow-y: auto; }
     .main { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .banner { background-color: #003366; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; }
-
-    .modal-overlay { 
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-      background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; 
-      z-index: 9999; 
+    .user-list-container { list-style: none; padding: 0; margin-top: 10px; display: flex; flex-direction: column; gap: 15px; }
+    
+    .user-card { 
+      display: flex; 
+      align-items: center; 
+      background: #ffffff; 
+      border: 1px solid #d0d0d0; 
+      border-radius: 10px; 
+      padding: 12px 15px; 
+      gap: 10px; 
+      box-shadow: 0px 2px 4px rgba(0,0,0,0.1); 
+      transition: background-color 0.3s;
     }
-    .modal { background: white; padding: 20px; border-radius: 10px; width: 300px; text-align: center; }
-    .modal input { width: 100%; padding: 6px; margin-top: 10px; font-size: 14px; }
-    .modal button { margin-top: 10px; background-color: #6c63ff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
 
-    .cards { margin-top: 40px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .card { padding: 10px 20px; background: #cfc6f7; border-radius: 8px; cursor: grab; }
-    .user-dropzone { position: relative; width: 400px; height: 400px; border-radius: 50%; margin: 40px auto; border: 2px dashed #ccc; }
-    .story-card { margin-top: 20px; padding: 10px; background: #fff; border-radius: 8px; text-align: center; }
+    .user-card:hover { 
+      background-color: #f1f1f1; 
+    }
 
-    .button { margin: 10px 0; padding: 8px 12px; background-color: #6c63ff; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
-    .button:hover { background-color: #574fdd; }
+    .user-avatar { 
+      width: 40px; 
+      height: 40px; 
+      background: #6c63ff; 
+      border-radius: 50%; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: white; 
+      font-size: 16px; 
+    }
+
+    .user-name { 
+      font-size: 16px; 
+      font-weight: 600; 
+      color: #333; 
+      flex-grow: 1; 
+    }
+
+    .user-vote { 
+      background: #6c63ff; 
+      color: white; 
+      border-radius: 12px; 
+      padding: 5px 10px; 
+      font-size: 14px; 
+      display: inline-block;
+    }
+
+    .user-list-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .button { 
+      margin: 10px 0; 
+      padding: 8px 12px; 
+      background-color: #6c63ff; 
+      color: white; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      width: 100%; 
+    }
+    .button:hover { 
+      background-color: #574fdd; 
+    }
   </style>
 </head>
 
 <body>
   <div class="banner">Planning Poker</div>
 
-  <!-- Invite Modal -->
-  <div class="modal-overlay" id="inviteModal">
-    <div class="modal">
-      <h3>Invite Link</h3>
-      <input type="text" id="inviteLink" readonly />
-      <button onclick="copyInviteLink()">Copy Link</button>
-      <button onclick="hideInviteModal()">Close</button>
-    </div>
-  </div>
-
-  <!-- User Prompt Modal -->
-  <div class="modal-overlay" id="namePromptModal">
-    <div class="modal">
-      <h3>Enter Your Name</h3>
-      <input type="text" id="userNameInput" placeholder="Enter your name..." />
-      <button onclick="submitName()">Submit</button>
-    </div>
-  </div>
-
   <div class="container">
     <div class="sidebar">
-      <h3>Current Members:</h3>
-      <ul id="userList"></ul>
+      <h3 class="user-list-title">Current Members:</h3>
+      <ul id="userList" class="user-list-container"></ul>
       <button class="button" id="revealVotesBtn">Reveal Votes</button>
       <button class="button" id="resetVotesBtn">Reset Votes</button>
-      <button class="button" id="exportCsvBtn">Export All Votes</button>
-      <button class="button" onclick="showInviteModal()">Invite Others</button>
     </div>
 
     <div class="main">
       <h2>Drop a card on user</h2>
       <div class="user-dropzone" id="userArea"></div>
-      <div id="currentStory" class="story-card">Current Story</div>
+      <div id="currentStory" class="story-card"></div>
       <div class="cards">
         <div class="card" draggable="true">0</div>
         <div class="card" draggable="true">1</div>
@@ -78,7 +105,7 @@
       </div>
     </div>
 
-    <div class="rightbar">
+    <div class="rightbar" id="storyListContainer">
       <div id="storyList"></div>
       <div style="margin-top: 20px;">
         <button class="button" onclick="navigateStory('prev')">Previous Story</button>
@@ -87,101 +114,70 @@
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    let socket;
-
     document.addEventListener("DOMContentLoaded", function () {
+      // Retrieve roomId from URL
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room') || generateRoomId();
-      const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${roomId}`;
-      window.history.pushState({}, '', newUrl);
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
+      window.history.pushState({ path: newUrl }, '', newUrl);
 
+      // Check if userName exists in localStorage
       let userName = localStorage.getItem('userName');
-
       if (!userName) {
         document.getElementById('namePromptModal').style.display = 'flex';
       } else {
         connectToRoom(userName, roomId);
       }
-    });
 
-    function submitName() {
-      const input = document.getElementById('userNameInput').value.trim();
-      if (input.length > 0) {
-        localStorage.setItem('userName', input);
-        document.getElementById('namePromptModal').style.display = 'none';
-        const roomId = new URLSearchParams(window.location.search).get('room');
-        connectToRoom(input, roomId);
-      }
-    }
-
-    function connectToRoom(userName, roomId) {
-      try {
-        socket = io({ query: { roomId, userName } });
-
-      
-          socket.on('userListUpdate', (users) => {
-  if (!Array.isArray(users)) {
-    console.error('Invalid user list received:', users);
-    return;
-  }
-
-  // Here you handle showing users in the UI, for example:
-  const userList = document.getElementById('userList');
-  userList.innerHTML = '';
-  users.forEach(user => {
-    const li = document.createElement('li');
-    li.className = 'user-item';
-    li.innerHTML = `
-      <div class="user-avatar">${user.name[0]}</div>
-      <div class="user-name">${user.name}</div>
-      <div class="user-vote">${user.vote || ''}</div>
-    `;
-    userList.appendChild(li);
-  });
-});
-
-   
-
-        // Example: Update members list
-        socket.on('userList', users => {
-          const userList = document.getElementById('userList');
-          userList.innerHTML = users.map(u => `<li>${u}</li>`).join('');
+      function connectToRoom(userName, roomId) {
+        const socket = io({ query: { roomId: roomId, userName: userName } });
+        socket.on('userListUpdate', (users) => {
+          updateUserList(users);
         });
 
-      } catch (err) {
-        console.error('Socket connection failed', err);
+        // Handle name submission from the modal
+        window.submitName = function() {
+          userName = document.getElementById('userNameInput').value.trim();
+          if (userName.length > 0) {
+            localStorage.setItem('userName', userName);
+            document.getElementById('namePromptModal').style.display = 'none';
+            connectToRoom(userName, roomId);
+          }
+        };
       }
-    }
 
-    function generateRoomId() {
-      return Math.random().toString(36).substr(2, 8);
-    }
+      function updateUserList(users) {
+        const userListContainer = document.getElementById('userList');
+        userListContainer.innerHTML = ''; // Clear current list
+        users.forEach(user => {
+          const userItem = document.createElement('li');
+          userItem.className = 'user-card';
+          
+          const avatar = document.createElement('div');
+          avatar.className = 'user-avatar';
+          avatar.textContent = user.name.charAt(0); // Avatar shows first letter of name
 
-    function showInviteModal() {
-      document.getElementById('inviteLink').value = window.location.href;
-      document.getElementById('inviteModal').style.display = 'flex';
-    }
+          const userName = document.createElement('div');
+          userName.className = 'user-name';
+          userName.textContent = user.name;
 
-    function hideInviteModal() {
-      document.getElementById('inviteModal').style.display = 'none';
-    }
+          const vote = document.createElement('div');
+          vote.className = 'user-vote';
+          vote.textContent = user.vote ? user.vote : 'No Vote';
 
-    function copyInviteLink() {
-      const inviteLink = document.getElementById('inviteLink');
-      inviteLink.select();
-      document.execCommand('copy');
-      alert('Invite link copied!');
-    }
+          userItem.appendChild(avatar);
+          userItem.appendChild(userName);
+          userItem.appendChild(vote);
+          userListContainer.appendChild(userItem);
+        });
+      }
 
-    function navigateStory(direction) {
-      console.log('Navigate:', direction);
-      // Implement your story navigation logic
-    }
+      function generateRoomId() {
+        return Math.random().toString(36).substring(2, 10);
+      }
+    });
   </script>
-
-  <!-- Load Socket.IO last -->
-  <script src="/socket.io/socket.io.js"></script>
-
 </body>
 </html>
