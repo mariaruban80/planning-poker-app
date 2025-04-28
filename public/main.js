@@ -44,6 +44,16 @@ function initializeApp(roomId) {
 
   // Handle Next/Previous story buttons
   setupStoryNavigation();
+   // ✅ Now socket is ready — Add the listener for story selection
+  socket.on('storySelected', (data) => {
+    const storyCards = document.querySelectorAll('.story-card');
+    storyCards.forEach(card => card.classList.remove('selected'));
+
+    const selectedStory = storyCards[data.storyIndex];
+    if (selectedStory) {
+      selectedStory.classList.add('selected');
+    }
+  });
 }
 
 // CSV Uploading
