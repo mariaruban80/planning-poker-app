@@ -4,8 +4,8 @@ let socket;
 let currentRoomId = null;
 let userName = null;
 let userId = null;
-let selectedStoryIndex = null; // track globally in session
-const rooms = {};
+let selectedStoryIndex = null; // Track globally in session
+const rooms = {}; // Object to keep track of users in each room
 
 export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   currentRoomId = roomId;
@@ -105,7 +105,7 @@ export function getRoomData() {
   return {
     roomId: currentRoomId,
     userName: userName,
-    users: Object.keys(rooms),
+    users: rooms[currentRoomId] || [],
   };
 }
 
@@ -186,3 +186,21 @@ function handleRoomData(data) {
     updateStoryUI(data.story);
   }
 }
+
+// Room management: add user to room when they join
+socket.on('join', () => {
+  if (!rooms[currentRoomId]) {
+    rooms[currentRoomId] = [];
+  }
+
+  rooms[currentRoomId].push({ userId, userName });
+  io.to(currentRoomId).emit('userList', { users: rooms[currentRoomId] });
+});
+
+// Handle user disconnection
+socket.on('disconnect', () => {
+  if (rooms[currentRoomId]) {
+    rooms[currentRoomId] = rooms[currentRoomId].filter(user => user.userName !== userName);
+    io.to(currentRoomId).emit('userList', { users: rooms[currentRoomId] });
+  }
+});
