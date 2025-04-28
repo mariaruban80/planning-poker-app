@@ -91,7 +91,13 @@ function displayCSVData(data) {
       storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
       storyItem.dataset.index = index; // Store index in the data attribute
       storyListContainer.appendChild(storyItem);
+       // Add this click event here
+      storyItem.addEventListener('click', function() {
+      document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+      storyItem.classList.add('selected');
+      socket.emit('storySelected', { storyIndex: index }); // ✨ Send selected story index to server
     });
+});  
 
     renderCurrentStory();  // Make sure the current story is rendered after the data is displayed
   }
