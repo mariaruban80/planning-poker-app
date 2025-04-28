@@ -58,7 +58,7 @@
 
   <div class="container">
     <div class="sidebar">
-      <button class="button" id="addMemberBtn">Add Member</button>
+      <!-- Removed the Add Member Button -->
       <div class="user-list">
         <h3>Current Members:</h3>
         <ul id="userList"></ul>
@@ -145,7 +145,7 @@
         });
       }
 
-      // Add Member Button functionality
+      // Handling adding members (replacing "Add Member" button functionality)
       const addMemberBtn = document.getElementById('addMemberBtn');
       addMemberBtn.addEventListener('click', function() {
         const memberName = prompt('Enter the name of the new member:');
@@ -153,8 +153,19 @@
           const userList = document.getElementById('userList');
           const userItem = document.createElement('div');
           userItem.textContent = memberName;
+          userItem.classList.add('user-item'); // Added a class for styling
           userList.appendChild(userItem);
         }
+      });
+
+      // On page load, populate the members from localStorage (if any)
+      const userList = JSON.parse(localStorage.getItem('userList') || '[]');
+      const userListElement = document.getElementById('userList');
+      userList.forEach(user => {
+        const li = document.createElement('div');
+        li.textContent = user.name;
+        li.classList.add('user-item');
+        userListElement.appendChild(li);
       });
     });
 
@@ -168,26 +179,10 @@
     }
 
     function copyInviteLink() {
-      const inviteInput = document.getElementById('inviteLink');
-      inviteInput.select();
+      const inviteLink = document.getElementById('inviteLink');
+      inviteLink.select();
       document.execCommand('copy');
       alert('Invite link copied!');
-    }
-
-    function navigateStory(direction) {
-      const selected = document.querySelector('.story-card.selected');
-      const stories = [...document.querySelectorAll('.story-card')];
-
-      if (stories.length === 0) return;
-      let idx = selected ? stories.indexOf(selected) : -1;
-
-      if (direction === 'next') idx = (idx + 1) % stories.length;
-      if (direction === 'prev') idx = (idx - 1 + stories.length) % stories.length;
-
-      if (idx >= 0) {
-        stories.forEach(card => card.classList.remove('selected'));
-        stories[idx].classList.add('selected');
-      }
     }
   </script>
 </body>
