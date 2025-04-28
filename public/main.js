@@ -3,9 +3,9 @@ import { initializeWebSocket, emitCSVData } from './socket.js';
 let socket;
 let csvData = [];
 let currentStoryIndex = 0;
-let userVotes = {}; // Track votes for users
+let userVotes = {};
+let roomId, userName;
 
-// Get roomId from URL or generate one
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('roomId');
@@ -17,9 +17,8 @@ function appendRoomIdToURL(roomId) {
   window.history.pushState(null, '', currentUrl.toString());
 }
 
-// Initialize app
-function initializeApp(roomId) {
-  const userName = prompt("Enter your username:");
+function initializeApp() {
+  userName = prompt("Enter your username:");
   if (!userName) {
     alert("Username is required!");
     return;
@@ -30,9 +29,8 @@ function initializeApp(roomId) {
   if (socket) {
     socket.on('connect', () => {
       console.log('Connected to socket server!');
-      socket.emit('joinRoom', { roomId, userName }); 
+      socket.emit('joinRoom', { roomId, userName }); // FIXED here ✅
 
-      socket.emit('requestCSVData');  // Request CSV data on initial load
       socket.on('storySelected', handleStorySelected);
       socket.on('voteUpdate', handleVoteUpdate);
       socket.on('revealVotes', revealVotes);
@@ -50,45 +48,16 @@ function initializeApp(roomId) {
   setupStoryNavigation();
 }
 
-// Socket message handler
 function handleSocketMessage(message) {
-  console.log("Received message:", message);
-
-  if (message.type === 'initialCSVData' || message.type === 'syncCSVData') {
-    displayCSVData(message.csvData);
-  }
-  if (message.type === 'userList') {
-    updateUserList(message.users);
-  }
-  if (message.type === 'storyChange') {
-    updateStory(message.story);
-  }
-  if (message.type === 'storyNavigation') {
-    currentStoryIndex = message.index;
-    renderCurrentStory();
-  }
+  console.log("Received:", message);
 }
 
-// Handle story selection from server
-function handleStorySelected(data) {
-  const storyCards = document.querySelectorAll('.story-card');
-  storyCards.forEach(card => card.classList.remove('selected'));
-
-  const selectedStory = storyCards[data.storyIndex];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
-  }
-}
-
-// CSV Uploading
 function setupCSVUploader() {
   const csvInput = document.getElementById('csvInput');
   if (!csvInput) return;
-
   csvInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       const parsedData = parseCSV(e.target.result);
@@ -99,180 +68,116 @@ function setupCSVUploader() {
   });
 }
 
-// Parse CSV content
 function parseCSV(data) {
-  const rows = data.trim().split('\n');
-  return rows.map(row => row.split(','));
+  return data.trim().split('\n').map(row => row.split(','));
 }
 
-// Display CSV content
 function displayCSVData(data) {
   if (JSON.stringify(data) !== JSON.stringify(csvData)) {
     csvData = data;
-
-    const storyListContainer = document.getElementById('storyList');
-    if (!storyListContainer) return;
-
-    storyListContainer.innerHTML = '';
-
+    const container = document.getElementById('storyList');
+    container.innerHTML = '';
     data.forEach((row, index) => {
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-      storyItem.dataset.index = index;
-      storyListContainer.appendChild(storyItem);
-
-      storyItem.addEventListener('click', function () {
-        document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
-        storyItem.classList.add('selected');
-        if (socket) {
-          socket.emit('storySelected', { storyIndex: index });
-        }
+      const card = document.createElement('div');
+      card.className = 'story-card';
+      card.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+      card.dataset.index = index;
+      container.appendChild(card);
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.story-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        socket.emit('storySelected', { storyIndex: index });
       });
     });
-
     renderCurrentStory();
   }
 }
 
-// Update user list with avatar + badge
 function updateUserList(users) {
-  console.log("Received user list:", users); // Debugging aid
-
-  const userListContainer = document.getElementById('userList');
-  if (!userListContainer) return;
-
-  userListContainer.innerHTML = '';
-
+  const container = document.getElementById('userList');
+  container.innerHTML = '';
   users.forEach(user => {
-    const safeName = user.name?.trim() || "Guest"; // Safe fallback
-
-    const userElement = document.createElement('div');
-    userElement.classList.add('user-entry');
-    userElement.id = `user-${user.id}`;
+    const entry = document.createElement('div');
+    entry.classList.add('user-entry');
+    entry.id = `user-${user.id}`;
 
     const avatar = document.createElement('img');
-    avatar.src = generateAvatarUrl(safeName);
-    avatar.alt = safeName;
+    avatar.src = generateAvatarUrl(user.name);
+    avatar.alt = user.name;
     avatar.classList.add('avatar');
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = safeName;
+    nameSpan.textContent = user.name;
     nameSpan.classList.add('username');
 
-    const voteBadge = document.createElement('span');
-    voteBadge.classList.add('vote-badge');
-    voteBadge.textContent = '?'; // Hidden initially
+    const badge = document.createElement('span');
+    badge.classList.add('vote-badge');
+    badge.textContent = '?';
 
-    userElement.append(avatar, nameSpan, voteBadge);
-    userListContainer.appendChild(userElement);
+    entry.append(avatar, nameSpan, badge);
+    container.appendChild(entry);
   });
 }
 
-// Update current story
-function updateStory(story) {
-  const storyTitle = document.getElementById('currentStory');
-  if (storyTitle) {
-    storyTitle.textContent = story;
-  }
+function handleStorySelected({ storyIndex }) {
+  const cards = document.querySelectorAll('.story-card');
+  cards.forEach(c => c.classList.remove('selected'));
+  const selected = cards[storyIndex];
+  if (selected) selected.classList.add('selected');
 }
 
-// Render current story
-function renderCurrentStory() {
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer || csvData.length === 0) return;
-
-  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
-  allStoryItems.forEach(storyItem => storyItem.classList.remove('active'));
-
-  const currentStoryItem = allStoryItems[currentStoryIndex];
-  if (currentStoryItem) {
-    currentStoryItem.classList.add('active');
-  }
-}
-
-// Emit story change
-function emitStoryChange() {
-  if (socket) {
-    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
-  }
-}
-
-// Emit story navigation
-function emitStoryNavigation() {
-  if (socket && typeof currentStoryIndex === 'number') {
-    socket.emit('storyNavigation', { index: currentStoryIndex });
-  }
-}
-
-// Setup navigation
-function setupStoryNavigation() {
-  const nextButton = document.getElementById('nextStory');
-  const prevButton = document.getElementById('prevStory');
-
-  if (nextButton) {
-    nextButton.addEventListener('click', () => {
-      if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
-      renderCurrentStory();
-      emitStoryChange();
-      emitStoryNavigation();
-    });
-  }
-
-  if (prevButton) {
-    prevButton.addEventListener('click', () => {
-      if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
-      renderCurrentStory();
-      emitStoryChange();
-      emitStoryNavigation();
-    });
-  }
-}
-
-// Handle user voting
-function sendVote(vote) {
-  if (socket) {
-    socket.emit('castVote', { vote });
-  }
-}
-
-// Handle receiving votes
 function handleVoteUpdate({ userId, vote }) {
   userVotes[userId] = vote;
   const userElement = document.getElementById(`user-${userId}`);
   if (userElement) {
     const badge = userElement.querySelector('.vote-badge');
-    if (badge) {
-      badge.textContent = '✔️'; // Voted indicator (don't show value yet)
-    }
+    if (badge) badge.textContent = '✔️';
   }
 }
 
-// Reveal all votes
 function revealVotes(votes) {
   for (const userId in votes) {
     const userElement = document.getElementById(`user-${userId}`);
     if (userElement) {
       const badge = userElement.querySelector('.vote-badge');
-      if (badge) {
-        badge.textContent = votes[userId];
-      }
+      if (badge) badge.textContent = votes[userId];
     }
   }
 }
 
-// Generate avatar URL
+function renderCurrentStory() {
+  const container = document.getElementById('storyList');
+  if (!container || csvData.length === 0) return;
+  const allCards = container.querySelectorAll('.story-card');
+  allCards.forEach(c => c.classList.remove('active'));
+  const current = allCards[currentStoryIndex];
+  if (current) current.classList.add('active');
+}
+
+function setupStoryNavigation() {
+  document.getElementById('nextStory')?.addEventListener('click', () => {
+    if (csvData.length === 0) return;
+    currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
+    renderCurrentStory();
+    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+    socket.emit('storyNavigation', { index: currentStoryIndex });
+  });
+  document.getElementById('prevStory')?.addEventListener('click', () => {
+    if (csvData.length === 0) return;
+    currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+    renderCurrentStory();
+    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
+    socket.emit('storyNavigation', { index: currentStoryIndex });
+  });
+}
+
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
 
-// Invite Modal
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
-
   inviteButton.onclick = () => {
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
@@ -291,12 +196,13 @@ function setupInviteButton() {
   };
 }
 
-// --- App Start ---
-let roomId = getRoomIdFromURL();
+// --- Start App ---
+roomId = getRoomIdFromURL();
 if (!roomId) {
   roomId = 'room-' + Math.floor(Math.random() * 10000);
 }
 appendRoomIdToURL(roomId);
-initializeApp(roomId);
+
+initializeApp();
 setupCSVUploader();
 setupInviteButton();
