@@ -123,25 +123,35 @@ function updateUserList(users) {
   userListContainer.innerHTML = '';
 
   users.forEach(user => {
-    const userElement = document.createElement('div');
-    userElement.classList.add('user-entry');
-    userElement.id = `user-${user.id}`;
 
-    const avatar = document.createElement('img');
-    avatar.src = generateAvatarUrl(user.name);
-    avatar.alt = user.name;
-    avatar.classList.add('avatar');
+const userElement = document.createElement('div');
+userElement.classList.add('user-entry');
+userElement.id = `user-${user.id}`;
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name;
-    nameSpan.classList.add('username');
+// Top section with avatar and username
+const userTop = document.createElement('div');
+userTop.classList.add('user-top');
 
-    const voteBadge = document.createElement('span');
-    voteBadge.classList.add('vote-badge');
-    voteBadge.textContent = '?';
+const avatar = document.createElement('img');
+avatar.src = generateAvatarUrl(user.name);
+avatar.alt = user.name;
+avatar.classList.add('avatar');
 
-    userElement.append(avatar, nameSpan, voteBadge);
-    userListContainer.appendChild(userElement);
+const nameSpan = document.createElement('span');
+nameSpan.textContent = user.name;
+nameSpan.classList.add('username');
+
+userTop.appendChild(avatar);
+userTop.appendChild(nameSpan);
+
+// Vote badge
+const voteBadge = document.createElement('span');
+voteBadge.classList.add('vote-badge');
+voteBadge.textContent = '*'; // Hidden initially
+
+userElement.append(userTop, voteBadge);
+userListContainer.appendChild(userElement);
+
   });
 }
 
