@@ -214,7 +214,7 @@
       return Math.random().toString(36).substring(2, 10).toUpperCase();
     }
   </script>
-  <script>
+ <script>
   document.addEventListener("DOMContentLoaded", function () {
     // Retrieve roomId from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -224,14 +224,21 @@
     const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
     window.history.pushState({ path: newUrl }, '', newUrl);
 
-    // Show the modal to prompt for the user's name
-    document.getElementById('namePromptModal').style.display = 'flex';
+    // Check if userName already exists in localStorage
+    let userName = localStorage.getItem('userName');
+    if (!userName) {
+      // Show the modal to prompt for the user's name if not yet stored
+      document.getElementById('namePromptModal').style.display = 'flex';
+    } else {
+      // If userName exists, skip the modal and connect directly to the room
+      connectToRoom(userName, roomId);
+    }
 
-    // Connect to the socket server
+    // Connect to the socket server once name is set
     const socket = io({
       query: {
         roomId: roomId,
-        userName: localStorage.getItem('userName') || '' // Initially empty, until user enters a name
+        userName: userName
       }
     });
 
@@ -241,18 +248,16 @@
       userListElement.innerHTML = ''; // Clear existing list
 
       // Only add users if the user has a valid name
-      if (localStorage.getItem('userName')) {
-        data.users.forEach(userName => {
-          const li = document.createElement('li');
-          li.className = 'user-item';
-          li.innerHTML = `
-            <div class="user-avatar">${userName[0].toUpperCase()}</div>
-            <div class="user-name">${userName}</div>
-            <div class="user-vote"></div>
-          `;
-          userListElement.appendChild(li);
-        });
-      }
+      data.users.forEach(userName => {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.innerHTML = `
+          <div class="user-avatar">${userName[0].toUpperCase()}</div>
+          <div class="user-name">${userName}</div>
+          <div class="user-vote"></div>
+        `;
+        userListElement.appendChild(li);
+      });
     });
 
     // Emit vote on card drop
@@ -264,13 +269,43 @@
 
     // Name submission from modal
     window.submitName = function () {
-      const userName = document.getElementById('userNameInput').value;
+      const nameInput = document.getElementById('userNameInput');
+      userName = nameInput.value.trim();
       if (userName) {
         localStorage.setItem('userName', userName);
-        socket.emit('joinRoom', { roomId, userName });
+        connectToRoom(userName, roomId);
         document.getElementById('namePromptModal').style.display = 'none';
       }
     };
+
+    // Connect to the room after name is submitted
+    function connectToRoom(userName, roomId) {
+      const socket = io({
+        query: {
+          roomId: roomId,
+          userName: userName
+        }
+      });
+
+      // You can send a message to the server after connecting
+      socket.emit('joinRoom', { roomId, userName });
+
+      // Show the user list on successful connection
+      socket.on('userList', (data) => {
+        const userListElement = document.getElementById('userList');
+        userListElement.innerHTML = '';
+        data.users.forEach(userName => {
+          const li = document.createElement('li');
+          li.className = 'user-item';
+          li.innerHTML = `
+            <div class="user-avatar">${userName[0].toUpperCase()}</div>
+            <div class="user-name">${userName}</div>
+            <div class="user-vote"></div>
+          `;
+          userListElement.appendChild(li);
+        });
+      });
+    }
 
     // Invite modal functions
     window.showInviteModal = function () {
@@ -295,6 +330,7 @@
     return Math.random().toString(36).substring(2, 10).toUpperCase();
   }
 </script>
+
 
 </body>
 </html>
