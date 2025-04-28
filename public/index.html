@@ -109,228 +109,70 @@
       const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
       window.history.pushState({ path: newUrl }, '', newUrl);
 
-      // Show the modal to prompt for the user's name
-      document.getElementById('namePromptModal').style.display = 'flex';
-
-      // Connect to the socket server
-      const socket = io({
-        query: {
-          roomId: roomId,
-          userName: localStorage.getItem('userName') || 'Guest'
-        }
-      });
-
-      // Listen for user list update
-      socket.on('userList', (data) => {
-        const userListElement = document.getElementById('userList');
-        userListElement.innerHTML = ''; // Clear existing list
-        data.users.forEach(userName => {
-          const li = document.createElement('li');
-          li.className = 'user-item';
-          li.innerHTML = `
-            <div class="user-avatar">${userName[0].toUpperCase()}</div>
-            <div class="user-name">${userName}</div>
-            <div class="user-vote"></div>
-          `;
-          userListElement.appendChild(li);
-        });
-      });
-
-      // Listen for story changes
-      socket.on('storyChange', (data) => {
-        document.getElementById('currentStory').innerText = data.story;
-      });
-
-      // Listen for vote updates
-      socket.on('voteUpdate', (data) => {
-        const userVoteElement = document.getElementById(`vote-${data.user}`);
-        if (userVoteElement) {
-          userVoteElement.innerText = data.vote;
-          userVoteElement.classList.add('revealed');
-        }
-      });
-
-      // Emit vote on card drop
-      document.querySelectorAll('.card').forEach(card => {
-        card.addEventListener('dragstart', (event) => {
-          event.dataTransfer.setData('vote', event.target.innerText);
-        });
-      });
-
-      document.getElementById('userArea').addEventListener('drop', (event) => {
-        event.preventDefault();
-        const vote = event.dataTransfer.getData('vote');
-        socket.emit('vote', { vote: vote });
-      });
-
-      // Button actions
-      document.getElementById('revealVotesBtn').addEventListener('click', () => {
-        socket.emit('revealVotes');
-      });
-
-      document.getElementById('resetVotesBtn').addEventListener('click', () => {
-        socket.emit('resetVotes');
-      });
-
-      document.getElementById('exportCsvBtn').addEventListener('click', () => {
-        socket.emit('exportCsv');
-      });
-
-      // Story navigation
-      function navigateStory(direction) {
-        socket.emit('storyNavigation', { direction });
+      // Check if userName already exists in localStorage
+      let userName = localStorage.getItem('userName');
+      if (!userName) {
+        // Show the modal to prompt for the user's name if not yet stored
+        document.getElementById('namePromptModal').style.display = 'flex';
+      } else {
+        // If userName exists, skip the modal and connect directly to the room
+        connectToRoom(userName, roomId);
       }
 
-      // Name submission from modal
-      window.submitName = function () {
-        const userName = document.getElementById('userNameInput').value;
-        if (userName) {
-          localStorage.setItem('userName', userName);
-          socket.emit('joinRoom', { roomId, userName });
+      // Function to connect to the room
+      let socket;
+      function connectToRoom(userName, roomId) {
+        if (!socket) {  // Only create the socket connection once
+          socket = io({
+            query: {
+              roomId: roomId,
+              userName: userName
+            }
+          });
+
+          socket.on('connect', () => {
+            console.log('Connected to room');
+            // Do things like updating the UI with user list, story cards, etc.
+          });
+        }
+      }
+
+      // Handle name submission from the modal
+      window.submitName = function() {
+        userName = document.getElementById('userNameInput').value.trim();
+        if (userName.length > 0) {
+          localStorage.setItem('userName', userName);  // Save the name to localStorage
           document.getElementById('namePromptModal').style.display = 'none';
+          connectToRoom(userName, roomId);
         }
       };
 
-      // Invite modal functions
-      window.showInviteModal = function () {
+      // Show Invite Modal
+      window.showInviteModal = function() {
+        const inviteLink = `${window.location.href}`;
+        document.getElementById('inviteLink').value = inviteLink;
         document.getElementById('inviteModal').style.display = 'flex';
-        document.getElementById('inviteLink').value = newUrl;
       };
 
-      window.copyInviteLink = function () {
-        const inviteLink = document.getElementById('inviteLink');
-        inviteLink.select();
-        document.execCommand('copy');
-        alert('Invite link copied!');
-      };
-
-      window.hideInviteModal = function () {
+      // Hide Invite Modal
+      window.hideInviteModal = function() {
         document.getElementById('inviteModal').style.display = 'none';
       };
-    });
 
-    // Generate a random Room ID
-    function generateRoomId() {
-      return Math.random().toString(36).substring(2, 10).toUpperCase();
-    }
+      // Copy invite link to clipboard
+      window.copyInviteLink = function() {
+        const inviteLink = document.getElementById('inviteLink');
+        inviteLink.select();
+        inviteLink.setSelectionRange(0, 99999); // For mobile devices
+        document.execCommand('copy');
+        alert('Invite link copied to clipboard');
+      };
+
+      // Generate random roomId if none exists
+      function generateRoomId() {
+        return Math.random().toString(36).substring(2, 10);
+      }
+    });
   </script>
- <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // Retrieve roomId from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room') || generateRoomId();
-
-    // Update the URL with the Room ID (without refreshing the page)
-    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
-    window.history.pushState({ path: newUrl }, '', newUrl);
-
-    // Check if userName already exists in localStorage
-    let userName = localStorage.getItem('userName');
-    if (!userName) {
-      // Show the modal to prompt for the user's name if not yet stored
-      document.getElementById('namePromptModal').style.display = 'flex';
-    } else {
-      // If userName exists, skip the modal and connect directly to the room
-      connectToRoom(userName, roomId);
-    }
-
-    // Connect to the socket server once name is set
-    const socket = io({
-      query: {
-        roomId: roomId,
-        userName: userName
-      }
-    });
-
-    // Listen for user list update
-    socket.on('userList', (data) => {
-      const userListElement = document.getElementById('userList');
-      userListElement.innerHTML = ''; // Clear existing list
-
-      // Only add users if the user has a valid name
-      data.users.forEach(userName => {
-        const li = document.createElement('li');
-        li.className = 'user-item';
-        li.innerHTML = `
-          <div class="user-avatar">${userName[0].toUpperCase()}</div>
-          <div class="user-name">${userName}</div>
-          <div class="user-vote"></div>
-        `;
-        userListElement.appendChild(li);
-      });
-    });
-
-    // Emit vote on card drop
-    document.querySelectorAll('.card').forEach(card => {
-      card.addEventListener('dragstart', (event) => {
-        event.dataTransfer.setData('vote', event.target.innerText);
-      });
-    });
-
-    // Name submission from modal
-    window.submitName = function () {
-      const nameInput = document.getElementById('userNameInput');
-      userName = nameInput.value.trim();
-      if (userName) {
-        localStorage.setItem('userName', userName);
-        connectToRoom(userName, roomId);
-        document.getElementById('namePromptModal').style.display = 'none';
-      }
-    };
-
-    // Connect to the room after name is submitted
-    function connectToRoom(userName, roomId) {
-      const socket = io({
-        query: {
-          roomId: roomId,
-          userName: userName
-        }
-      });
-
-      // You can send a message to the server after connecting
-      socket.emit('joinRoom', { roomId, userName });
-
-      // Show the user list on successful connection
-      socket.on('userList', (data) => {
-        const userListElement = document.getElementById('userList');
-        userListElement.innerHTML = '';
-        data.users.forEach(userName => {
-          const li = document.createElement('li');
-          li.className = 'user-item';
-          li.innerHTML = `
-            <div class="user-avatar">${userName[0].toUpperCase()}</div>
-            <div class="user-name">${userName}</div>
-            <div class="user-vote"></div>
-          `;
-          userListElement.appendChild(li);
-        });
-      });
-    }
-
-    // Invite modal functions
-    window.showInviteModal = function () {
-      document.getElementById('inviteModal').style.display = 'flex';
-      document.getElementById('inviteLink').value = newUrl;
-    };
-
-    window.copyInviteLink = function () {
-      const inviteLink = document.getElementById('inviteLink');
-      inviteLink.select();
-      document.execCommand('copy');
-      alert('Invite link copied!');
-    };
-
-    window.hideInviteModal = function () {
-      document.getElementById('inviteModal').style.display = 'none';
-    };
-  });
-
-  // Generate a random Room ID
-  function generateRoomId() {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
-  }
-</script>
-
-
 </body>
 </html>
