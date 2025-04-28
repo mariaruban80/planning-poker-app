@@ -214,5 +214,87 @@
       return Math.random().toString(36).substring(2, 10).toUpperCase();
     }
   </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Retrieve roomId from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room') || generateRoomId();
+
+    // Update the URL with the Room ID (without refreshing the page)
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?room=" + roomId;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+
+    // Show the modal to prompt for the user's name
+    document.getElementById('namePromptModal').style.display = 'flex';
+
+    // Connect to the socket server
+    const socket = io({
+      query: {
+        roomId: roomId,
+        userName: localStorage.getItem('userName') || '' // Initially empty, until user enters a name
+      }
+    });
+
+    // Listen for user list update
+    socket.on('userList', (data) => {
+      const userListElement = document.getElementById('userList');
+      userListElement.innerHTML = ''; // Clear existing list
+
+      // Only add users if the user has a valid name
+      if (localStorage.getItem('userName')) {
+        data.users.forEach(userName => {
+          const li = document.createElement('li');
+          li.className = 'user-item';
+          li.innerHTML = `
+            <div class="user-avatar">${userName[0].toUpperCase()}</div>
+            <div class="user-name">${userName}</div>
+            <div class="user-vote"></div>
+          `;
+          userListElement.appendChild(li);
+        });
+      }
+    });
+
+    // Emit vote on card drop
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('vote', event.target.innerText);
+      });
+    });
+
+    // Name submission from modal
+    window.submitName = function () {
+      const userName = document.getElementById('userNameInput').value;
+      if (userName) {
+        localStorage.setItem('userName', userName);
+        socket.emit('joinRoom', { roomId, userName });
+        document.getElementById('namePromptModal').style.display = 'none';
+      }
+    };
+
+    // Invite modal functions
+    window.showInviteModal = function () {
+      document.getElementById('inviteModal').style.display = 'flex';
+      document.getElementById('inviteLink').value = newUrl;
+    };
+
+    window.copyInviteLink = function () {
+      const inviteLink = document.getElementById('inviteLink');
+      inviteLink.select();
+      document.execCommand('copy');
+      alert('Invite link copied!');
+    };
+
+    window.hideInviteModal = function () {
+      document.getElementById('inviteModal').style.display = 'none';
+    };
+  });
+
+  // Generate a random Room ID
+  function generateRoomId() {
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
+  }
+</script>
+
 </body>
 </html>
