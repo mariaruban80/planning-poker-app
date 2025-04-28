@@ -98,6 +98,7 @@
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     // Wait for the DOM to load fully before executing code
     document.addEventListener("DOMContentLoaded", function () {
@@ -109,55 +110,107 @@
 
       // Show the modal to prompt for the user's name
       document.getElementById('namePromptModal').style.display = 'flex';
+
+      // Connect to the socket server
+      const socket = io({
+        query: {
+          roomId: roomId,
+          userName: localStorage.getItem('userName') || 'Guest'
+        }
+      });
+
+      // Listen for user list update
+      socket.on('userList', (data) => {
+        const userListElement = document.getElementById('userList');
+        userListElement.innerHTML = ''; // Clear existing list
+        data.users.forEach(userName => {
+          const li = document.createElement('li');
+          li.className = 'user-item';
+          li.innerHTML = `
+            <div class="user-avatar">${userName[0].toUpperCase()}</div>
+            <div class="user-name">${userName}</div>
+            <div class="user-vote"></div>
+          `;
+          userListElement.appendChild(li);
+        });
+      });
+
+      // Listen for story changes
+      socket.on('storyChange', (data) => {
+        document.getElementById('currentStory').innerText = data.story;
+      });
+
+      // Listen for vote updates
+      socket.on('voteUpdate', (data) => {
+        const userVoteElement = document.getElementById(`vote-${data.user}`);
+        if (userVoteElement) {
+          userVoteElement.innerText = data.vote;
+          userVoteElement.classList.add('revealed');
+        }
+      });
+
+      // Emit vote on card drop
+      document.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('dragstart', (event) => {
+          event.dataTransfer.setData('vote', event.target.innerText);
+        });
+      });
+
+      document.getElementById('userArea').addEventListener('drop', (event) => {
+        event.preventDefault();
+        const vote = event.dataTransfer.getData('vote');
+        socket.emit('vote', { vote: vote });
+      });
+
+      // Button actions
+      document.getElementById('revealVotesBtn').addEventListener('click', () => {
+        socket.emit('revealVotes');
+      });
+
+      document.getElementById('resetVotesBtn').addEventListener('click', () => {
+        socket.emit('resetVotes');
+      });
+
+      document.getElementById('exportCsvBtn').addEventListener('click', () => {
+        socket.emit('exportCsv');
+      });
+
+      // Story navigation
+      function navigateStory(direction) {
+        socket.emit('storyNavigation', { direction });
+      }
+
+      // Name submission from modal
+      window.submitName = function () {
+        const userName = document.getElementById('userNameInput').value;
+        if (userName) {
+          localStorage.setItem('userName', userName);
+          socket.emit('joinRoom', { roomId, userName });
+          document.getElementById('namePromptModal').style.display = 'none';
+        }
+      };
+
+      // Invite modal functions
+      window.showInviteModal = function () {
+        document.getElementById('inviteModal').style.display = 'flex';
+        document.getElementById('inviteLink').value = newUrl;
+      };
+
+      window.copyInviteLink = function () {
+        const inviteLink = document.getElementById('inviteLink');
+        inviteLink.select();
+        document.execCommand('copy');
+        alert('Invite link copied!');
+      };
+
+      window.hideInviteModal = function () {
+        document.getElementById('inviteModal').style.display = 'none';
+      };
     });
 
-    // Function to generate the room ID
+    // Generate a random Room ID
     function generateRoomId() {
-      return 'ROOM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
-    // Show the Invite Modal
-    function showInviteModal() {
-      const inviteUrl = window.location.href;
-      document.getElementById('inviteLink').value = inviteUrl;
-      document.getElementById('inviteModal').style.display = 'flex';
-    }
-
-    // Function to copy the invite link
-    function copyInviteLink() {
-      const inviteLink = document.getElementById('inviteLink');
-      inviteLink.select();
-      document.execCommand('copy');
-    }
-
-    // Hide the invite modal
-    function hideInviteModal() {
-      document.getElementById('inviteModal').style.display = 'none';
-    }
-
-    // Function to submit the user's name
-    function submitName() {
-      const userName = document.getElementById('userNameInput').value;
-      if (userName) {
-        document.getElementById('namePromptModal').style.display = 'none';
-
-        const userList = JSON.parse(localStorage.getItem('userList') || '[]');
-        const newUser = { id: Date.now(), name: userName };
-        userList.push(newUser);
-        localStorage.setItem('userList', JSON.stringify(userList));
-
-        const userListElement = document.getElementById('userList');
-        const li = document.createElement('li');
-        li.className = 'user-item';
-        li.innerHTML = `
-          <div class="user-avatar">${userName[0].toUpperCase()}</div>
-          <div class="user-name">${userName}</div>
-          <div class="user-vote" id="vote-${newUser.id}"></div>
-        `;
-        userListElement.appendChild(li);
-      } else {
-        alert('Please enter a name.');
-      }
+      return Math.random().toString(36).substring(2, 10).toUpperCase();
     }
   </script>
 </body>
