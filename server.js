@@ -33,18 +33,8 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUser = null;
 
-  // Retrieve roomId and userName from the query parameters
-  const { roomId, userName } = socket.handshake.query;
-
-  // Validate roomId and userName
-  if (!roomId || !userName) {
-    console.error('Room ID or User Name missing in the connection request.');
-    socket.disconnect();
-    return;
-  }
-
-  // When a client joins a room
-  socket.on('join', () => {
+  // Wait for client to send roomId and userName
+  socket.on('joinRoom', ({ roomId, userName }) => {
     console.log(`User ${userName} joined room ${roomId}`);
 
     currentRoom = roomId;
@@ -52,18 +42,16 @@ io.on('connection', (socket) => {
 
     // Initialize room if not already existing
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: '', revealed: false };
+      rooms[currentRoom] = { users: {}, votes: {}, story: '', revealed: false };
     }
 
-    // Add the user to the room
-    if (!rooms[currentRoom].users.includes(currentUser)) {
-      rooms[currentRoom].users.push(currentUser);
-    }
+    // Save user to the room with their socket ID
+    rooms[currentRoom].users[socket.id] = currentUser;
 
     socket.join(currentRoom);
 
     // Send updated users list to everyone in the room
-    io.to(currentRoom).emit('userList', { users: rooms[currentRoom].users });
+    sendUserList(currentRoom);
 
     // If a story is already selected, send it to the new user
     if (rooms[currentRoom].story) {
@@ -116,18 +104,27 @@ io.on('connection', (socket) => {
 
     if (currentRoom && currentUser) {
       const room = rooms[currentRoom];
-      if (room) {
-        room.users = room.users.filter(user => user !== currentUser);
+      if (room && room.users[socket.id]) {
+        delete room.users[socket.id];
 
-        io.to(currentRoom).emit('userList', { users: room.users });
+        sendUserList(currentRoom);
 
         // Optionally: Delete empty rooms
-        if (room.users.length === 0) {
+        if (Object.keys(room.users).length === 0) {
           delete rooms[currentRoom];
         }
       }
     }
   });
+
+  // Helper function to send updated user list
+  function sendUserList(roomId) {
+    const room = rooms[roomId];
+    if (room) {
+      const userList = Object.values(room.users); // Get array of usernames
+      io.to(roomId).emit('userList', { users: userList });
+    }
+  }
 });
 
 // Start server
