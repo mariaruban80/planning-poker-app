@@ -42,7 +42,7 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-  initializeWebSocket(roomId, userName, handleSocketMessage);
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
