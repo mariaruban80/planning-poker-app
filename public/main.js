@@ -123,34 +123,31 @@ function updateUserList(users) {
   userListContainer.innerHTML = '';
 
   users.forEach(user => {
-
 const userElement = document.createElement('div');
 userElement.classList.add('user-entry');
 userElement.id = `user-${user.id}`;
 
-// Top section with avatar and username
-const userTop = document.createElement('div');
-userTop.classList.add('user-top');
-
+// Avatar
 const avatar = document.createElement('img');
 avatar.src = generateAvatarUrl(user.name);
 avatar.alt = user.name;
 avatar.classList.add('avatar');
 
+// Username
 const nameSpan = document.createElement('span');
 nameSpan.textContent = user.name;
 nameSpan.classList.add('username');
 
-userTop.appendChild(avatar);
-userTop.appendChild(nameSpan);
-
-// Vote badge
+// Vote Badge
 const voteBadge = document.createElement('span');
 voteBadge.classList.add('vote-badge');
-voteBadge.textContent = '*'; // Hidden initially
+voteBadge.textContent = '?'; // Hidden initially
 
-userElement.append(userTop, voteBadge);
+// Append all in order
+userElement.append(avatar, nameSpan, voteBadge);
 userListContainer.appendChild(userElement);
+
+
 
   });
 }
