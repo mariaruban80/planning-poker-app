@@ -232,7 +232,24 @@ function revealVotes(votes) {
     if (userElement) {
       const badge = userElement.querySelector('.vote-badge');
       if (badge) {
-        badge.textContent = votes[userId];
+        const vote = votes[userId];
+        badge.textContent = vote;
+
+        // Color logic based on vote
+        if (vote === '?' || vote === '☕') {
+          badge.style.backgroundColor = '#6c757d'; // Gray
+        } else if (!isNaN(vote)) {
+          const voteNum = parseFloat(vote);
+          if (voteNum <= 3) {
+            badge.style.backgroundColor = '#28a745'; // Green
+          } else if (voteNum <= 8) {
+            badge.style.backgroundColor = '#ffc107'; // Yellow
+          } else {
+            badge.style.backgroundColor = '#dc3545'; // Red
+          }
+        } else {
+          badge.style.backgroundColor = '#007bff'; // Default Blue
+        }
       }
     }
   }
