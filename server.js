@@ -34,7 +34,7 @@ io.on('connection', (socket) => {
 
     // Initialize room if it doesn't exist
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
+      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
     }
 
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
