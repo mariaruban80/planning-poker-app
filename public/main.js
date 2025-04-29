@@ -58,6 +58,10 @@ function handleStorySelected(data) {
   const selectedStory = storyCards[data.storyIndex];
   if (selectedStory) {
     selectedStory.classList.add('selected');
+    currentStoryIndex = data.storyIndex;  // Sync story index
+    renderCurrentStory();                // Update current story view
+    emitStoryChange();                   // Optional: sync story content if needed
+    emitStoryNavigation();               // Optional: sync navigation index
   }
 }
 
