@@ -34,8 +34,16 @@ io.on('connection', (socket) => {
 
     // Initialize room if it doesn't exist
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
+     // rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
       //rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
+      rooms[currentRoom] = {
+        users: [],
+        votes: {},
+        story: [],
+        revealed: false,
+        csvData: [],  
+        selectedStoryIndex: null,
+      }
     }
 
      // Prevent duplicate user IDs on reconnects
@@ -57,10 +65,15 @@ io.on('connection', (socket) => {
       if (rooms[currentRoom].csvData && rooms[currentRoom].csvData.length > 0) {
       socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
+    if (rooms[currentRoom].selectedStoryIndex !== null) {
+      socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedStoryIndex });
+    }
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
-    if (currentRoom) {
+   // if (currentRoom) {
+    if (currentRoom && rooms[currentRoom]) {
+      rooms[currentRoom].selectedStoryIndex = storyIndex;
       io.to(currentRoom).emit('storySelected', { storyIndex });
     }
   });
