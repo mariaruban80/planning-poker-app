@@ -24,10 +24,8 @@ export function initializeWebSocket(roomId, userNameParam, handleMessage) {
   });
 
   socket.on('connect', () => {
-    
     console.log('Socket.IO connection established.');
-    //socket.emit('join');
-    socket.emit('joinRoom', { roomId, userName });
+    socket.emit('join');
   });
 
   setupSocketListeners(handleMessage);
