@@ -23,7 +23,8 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-  socket = io({ query: { roomId, userName } });
+//  socket = io({ query: { roomId, userName } });
+  initializeWebSocket(roomId, userName, handleSocketMessage);
 
   socket.on('connect', () => {
     console.log('Connected to server.');
@@ -64,6 +65,23 @@ function handleStorySelected(data) {
     renderCurrentStory();                // Update current story view
     emitStoryChange();                   // Optional: sync story content if needed
     emitStoryNavigation();               // Optional: sync navigation index
+  }
+}
+function handleSocketMessage(message) {
+  if (message.type === 'syncCSVData') {
+    console.log('Handling syncCSVData from socket.js:', message.csvData);
+    csvData = message.csvData;
+    currentStoryIndex = 0;
+    displayCSVData(csvData);
+    renderCurrentStory();
+  }
+
+  if (message.type === 'userList') {
+    updateUserList(message.users);
+  }
+
+  if (message.type === 'storyChange') {
+    updateStory(message.story);
   }
 }
 
