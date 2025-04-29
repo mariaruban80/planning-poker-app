@@ -141,7 +141,7 @@ nameSpan.classList.add('username');
 // Vote Badge
 const voteBadge = document.createElement('span');
 voteBadge.classList.add('vote-badge');
-voteBadge.textContent = 'user.votes'; // Hidden initially
+voteBadge.textContent = '?'; // Hidden initially
 
 // Append all in order
 userElement.append(avatar, nameSpan, voteBadge);
