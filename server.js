@@ -15,9 +15,10 @@ const io = new Server(httpServer, {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-app.use(express.static(join(__dirname, 'public'))); // Adjust path if needed
+app.use(express.static(join(__dirname, 'public')));
 
-const rooms = {}; // { roomId: { users: [], votes: {}, story: [], revealed: false } }
+// Extended room structure to include csvData
+const rooms = {}; // { roomId: { users: [], votes: {}, story: [], revealed: false, csvData: [] } }
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -31,19 +32,25 @@ io.on('connection', (socket) => {
 
     console.log(`User ${userName} joined room ${roomId}`);
 
+    // Initialize room if it doesn't exist
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
+      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
     }
 
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
 
     socket.join(currentRoom);
 
-    // 🔥 Send current user list to the new user
+    // Send current user list to the new user
     socket.emit('userList', rooms[currentRoom].users);
 
-    // 🔥 Broadcast updated user list to everyone else
+    // Broadcast updated user list to others
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
+
+    // Send current CSV data to the new user if available
+    if (rooms[currentRoom].csvData.length > 0) {
+      socket.emit('syncCSVData', rooms[currentRoom].csvData);
+    }
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
@@ -81,6 +88,8 @@ io.on('connection', (socket) => {
 
   socket.on('syncCSVData', (csvData) => {
     if (currentRoom) {
+      // Save and sync CSV data across users in the room
+      rooms[currentRoom].csvData = csvData;
       io.to(currentRoom).emit('syncCSVData', csvData);
     }
   });
