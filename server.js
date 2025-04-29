@@ -45,11 +45,11 @@ io.on('connection', (socket) => {
     socket.join(currentRoom);
 
     // Send current user list to the new user
-    //socket.emit('userList', rooms[currentRoom].users);
+    socket.emit('userList', rooms[currentRoom].users);
     
 
     // Broadcast updated user list to others
-    io.to(currentRoom).emit('userList', rooms[currentRoom].users);
+    socket.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
     // Send current CSV data to the new user if available
    // if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0){
