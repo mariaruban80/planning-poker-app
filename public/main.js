@@ -17,10 +17,10 @@ function appendRoomIdToURL(roomId) {
 }
 
 function initializeApp(roomId) {
-  const userName = prompt("Enter your username:");
-  if (!userName) {
-    alert("Username is required!");
-    return;
+  let userName = '';
+  while (!userName) {
+    userName = prompt("Enter your username:");
+    if (!userName) alert("Username is required!");
   }
 
   socket = io({ query: { roomId, userName } });
@@ -28,6 +28,10 @@ function initializeApp(roomId) {
   socket.on('connect', () => {
     console.log('Connected to server.');
     socket.emit('joinRoom', { roomId, userName });
+
+    setupCSVUploader();
+    setupInviteButton();
+    setupStoryNavigation();
   });
 
   socket.on('storySelected', handleStorySelected);
@@ -45,8 +49,6 @@ function initializeApp(roomId) {
   socket.on('connect_error', (err) => {
     console.error('Socket connection error:', err);
   });
-
-  setupStoryNavigation();
 }
 
 function handleStorySelected(data) {
@@ -123,32 +125,27 @@ function updateUserList(users) {
   userListContainer.innerHTML = '';
 
   users.forEach(user => {
-const userElement = document.createElement('div');
-userElement.classList.add('user-entry');
-userElement.id = `user-${user.id}`;
+    const userElement = document.createElement('div');
+    userElement.classList.add('user-entry');
+    userElement.id = `user-${user.id}`;
 
-// Avatar
-const avatar = document.createElement('img');
-avatar.src = generateAvatarUrl(user.name);
-avatar.alt = user.name;
-avatar.classList.add('avatar');
+    const avatar = document.createElement('img');
+    avatar.src = generateAvatarUrl(user.name);
+    avatar.alt = user.name;
+    avatar.classList.add('avatar');
 
-// Username
-const nameSpan = document.createElement('span');
-nameSpan.textContent = user.name;
-nameSpan.classList.add('username');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = user.name;
+    nameSpan.classList.add('username');
 
-// Vote Badge
-const voteBadge = document.createElement('span');
-voteBadge.classList.add('vote-badge');
-voteBadge.textContent = '?'; // Hidden initially
+    const voteBadge = document.createElement('span');
+    voteBadge.classList.add('vote-badge');
+    voteBadge.textContent = '?';
 
-// Append all in order
-userElement.append(avatar, nameSpan, voteBadge);
-userListContainer.appendChild(userElement);
+    userElement.append(avatar, nameSpan, voteBadge);
+    userListContainer.appendChild(userElement);
   });
-}
-// === NEW CIRCULAR AVATAR TABLE ===
+
   const userCircleContainer = document.getElementById('userCircle');
   if (!userCircleContainer) return;
 
@@ -191,7 +188,6 @@ userListContainer.appendChild(userElement);
     userCircleContainer.appendChild(userElement);
   });
 
-  // === REVEAL BUTTON IN THE CENTER ===
   const revealBtn = document.createElement('button');
   revealBtn.textContent = 'Reveal Cards';
   revealBtn.id = 'revealBtn';
@@ -212,6 +208,7 @@ userListContainer.appendChild(userElement);
 
   userCircleContainer.appendChild(revealBtn);
 }
+
 function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) {
@@ -288,7 +285,6 @@ function handleVoteUpdate({ userId, vote }) {
 
 function revealVotes(votes) {
   for (const userId in votes) {
-    // LEFT PANEL
     const leftUser = document.getElementById(`user-${userId}`);
     if (leftUser) {
       const badge = leftUser.querySelector('.vote-badge');
@@ -298,7 +294,6 @@ function revealVotes(votes) {
       }
     }
 
-    // CIRCULAR LAYOUT
     const circleUser = document.getElementById(`user-circle-${userId}`);
     if (circleUser) {
       const badge = circleUser.querySelector('.vote-badge');
@@ -330,7 +325,6 @@ function styleBadge(badge, vote) {
   badge.style.borderRadius = '6px';
 }
 
-
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
@@ -357,12 +351,11 @@ function setupInviteButton() {
   };
 }
 
-// --- App Start ---
-let roomId = getRoomIdFromURL();
-if (!roomId) {
-  roomId = 'room-' + Math.floor(Math.random() * 10000);
-}
-appendRoomIdToURL(roomId);
-initializeApp(roomId);
-setupCSVUploader();
-setupInviteButton();
+document.addEventListener('DOMContentLoaded', () => {
+  let roomId = getRoomIdFromURL();
+  if (!roomId) {
+    roomId = 'room-' + Math.floor(Math.random() * 10000);
+  }
+  appendRoomIdToURL(roomId);
+  initializeApp(roomId);
+});
