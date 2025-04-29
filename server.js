@@ -38,13 +38,15 @@ io.on('connection', (socket) => {
       //rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
     }
 
-    
+     // Prevent duplicate user IDs on reconnects
+  rooms[currentRoom].users = rooms[currentRoom].users.filter(u => u.id !== socket.id);
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
 
     socket.join(currentRoom);
 
     // Send current user list to the new user
-    socket.emit('userList', rooms[currentRoom].users);
+    //socket.emit('userList', rooms[currentRoom].users);
+    
 
     // Broadcast updated user list to others
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
