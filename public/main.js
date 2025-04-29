@@ -1,8 +1,9 @@
-import { initializeWebSocket, emitCSVData } from './socket.js';
+import { initializeWebSocket, emitCSVData } from './socket.js'; 
 
 let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
+let socket = null; // Keep reference for reuse
 
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -42,6 +43,7 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
+  // 🔁 Save socket ref so we can emit from anywhere
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
@@ -167,7 +169,9 @@ function updateUserList(users) {
     color: 'white',
     cursor: 'pointer'
   });
-  revealBtn.onclick = () => socket.emit('revealVotes');
+  revealBtn.onclick = () => {
+    if (socket) socket.emit('revealVotes');
+  };
   userCircleContainer.appendChild(revealBtn);
 }
 
@@ -223,7 +227,7 @@ function setupInviteButton() {
   };
 }
 
-// Start app
+// App start
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
   if (!roomId) {
