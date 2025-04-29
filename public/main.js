@@ -28,17 +28,8 @@ function initializeApp(roomId) {
   socket.on('connect', () => {
     console.log('Connected to server.');
     socket.emit('joinRoom', { roomId, userName });
-
-    setupCSVUploader();
-    setupInviteButton();
-    setupStoryNavigation();
   });
-
-  socket.on('storySelected', handleStorySelected);
-  socket.on('voteUpdate', handleVoteUpdate);
-  socket.on('revealVotes', revealVotes);
-  socket.on('userList', updateUserList);
-  socket.on('syncCSVData', (data) => {
+    socket.on('syncCSVData', (data) => {
     if (Array.isArray(data)) {
       displayCSVData(data);
     } else {
@@ -46,9 +37,17 @@ function initializeApp(roomId) {
     }
   });
 
+  socket.on('storySelected', handleStorySelected);
+  socket.on('voteUpdate', handleVoteUpdate);
+  socket.on('revealVotes', revealVotes);
+  socket.on('userList', updateUserList);
   socket.on('connect_error', (err) => {
     console.error('Socket connection error:', err);
   });
+  
+    setupCSVUploader();
+    setupInviteButton();
+    setupStoryNavigation();
 }
 
 function handleStorySelected(data) {
