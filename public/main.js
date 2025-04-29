@@ -31,7 +31,10 @@ function initializeApp(roomId) {
   });
     socket.on('syncCSVData', (data) => {
     if (Array.isArray(data)) {
-      displayCSVData(data);
+      csvData = data;
+      currentStoryIndex = 0; // Reset to show the first story
+      displayCSVData(csvData);
+      renderCurrentStory(); // Ensure it shows visually
     } else {
       console.error('syncCSVData payload is not an array:', data);
     }
