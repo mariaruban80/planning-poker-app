@@ -23,9 +23,12 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  socket = io({ query: { roomId, userName } });
 
-  
+  socket.on('connect', () => {
+    console.log('Connected to server.');
+    socket.emit('joinRoom', { roomId, userName });
+  });
     socket.on('syncCSVData', (data) => {
     if (Array.isArray(data)) {
       csvData = data;
@@ -44,29 +47,7 @@ socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   socket.on('connect_error', (err) => {
     console.error('Socket connection error:', err);
   });
-  function handleSocketMessage(message) {
-  switch (message.type) {
-    case 'syncCSVData':
-      if (Array.isArray(message.csvData)) {
-        csvData = message.csvData;
-        currentStoryIndex = 0;
-        displayCSVData(csvData);
-        renderCurrentStory();
-      } else {
-        console.error('Invalid syncCSVData format:', message.csvData);
-      }
-      break;
-    case 'userList':
-      updateUserList(message.users);
-      break;
-    case 'storyChange':
-      updateStory(message.story);
-      break;
-    default:
-      console.log('Unhandled socket message:', message);
-  }
-}
-
+  
     setupCSVUploader();
     setupInviteButton();
     setupStoryNavigation();
