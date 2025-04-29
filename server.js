@@ -34,7 +34,8 @@ io.on('connection', (socket) => {
 
     // Initialize room if it doesn't exist
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
+      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
+      //rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
     }
 
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
@@ -50,7 +51,7 @@ io.on('connection', (socket) => {
     // Send current CSV data to the new user if available
     if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0){
     //if (rooms[currentRoom].csvData.length > 0) {
-      socket.emit('syncCSVData', rooms[currentRoom].story);
+      socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
   });
 
