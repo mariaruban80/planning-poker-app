@@ -1,3 +1,5 @@
+// server.js (cleaned and fixed)
+
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -8,7 +10,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: '*'
   }
 });
 
@@ -17,8 +19,7 @@ const __dirname = dirname(__filename);
 
 app.use(express.static(join(__dirname, 'public')));
 
-// Extended room structure to include csvData
-const rooms = {}; // { roomId: { users: [], votes: {}, story: [], revealed: false, csvData: [] } }
+const rooms = {}; // roomId: { users: [], votes: {}, story: '', revealed: false, csvData: [] }
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -32,26 +33,29 @@ io.on('connection', (socket) => {
 
     console.log(`User ${userName} joined room ${roomId}`);
 
-    // Initialize room if it doesn't exist
     if (!rooms[currentRoom]) {
-      rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false, csvData: [] };
-      //rooms[currentRoom] = { users: [], votes: {}, story: [], revealed: false };
+      rooms[currentRoom] = {
+        users: [],
+        votes: {},
+        story: '',
+        revealed: false,
+        csvData: []
+      };
     }
 
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
-
     socket.join(currentRoom);
 
-    // Send current user list to the new user
-    socket.emit('userList', rooms[currentRoom].users);
-
-    // Broadcast updated user list to others
+    // Emit user list to all users in the room (including new user)
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
-    // Send current CSV data to the new user if available
-    //if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0){
-      if (rooms[currentRoom].csvData && rooms[currentRoom].csvData.length > 0) {
-    //if (rooms[currentRoom].csvData.length > 0) {
+    // Send current story to new user
+    if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0) {
+      socket.emit('storyChange', { story: rooms[currentRoom].story });
+    }
+
+    // Send CSV data to new user
+    if (rooms[currentRoom].csvData && rooms[currentRoom].csvData.length > 0) {
       socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
   });
@@ -91,7 +95,6 @@ io.on('connection', (socket) => {
 
   socket.on('syncCSVData', (csvData) => {
     if (currentRoom) {
-      // Save and sync CSV data across users in the room
       rooms[currentRoom].csvData = csvData;
       io.to(currentRoom).emit('syncCSVData', csvData);
     }
@@ -105,6 +108,11 @@ io.on('connection', (socket) => {
       delete rooms[currentRoom].votes[socket.id];
 
       io.to(currentRoom).emit('userList', rooms[currentRoom].users);
+
+      // Optionally clean up empty rooms
+      if (rooms[currentRoom].users.length === 0) {
+        delete rooms[currentRoom];
+      }
     }
   });
 });
