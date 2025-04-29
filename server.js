@@ -49,7 +49,8 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
     // Send current CSV data to the new user if available
-    if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0){
+    //if (rooms[currentRoom].story && rooms[currentRoom].story.length > 0){
+      if (rooms[currentRoom].csvData && rooms[currentRoom].csvData.length > 0) {
     //if (rooms[currentRoom].csvData.length > 0) {
       socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
