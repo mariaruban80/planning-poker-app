@@ -1,6 +1,5 @@
 import { initializeWebSocket, emitCSVData } from './socket.js';
 
-let socket;
 let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
@@ -16,6 +15,26 @@ function appendRoomIdToURL(roomId) {
   window.history.pushState(null, '', currentUrl.toString());
 }
 
+// 🔁 Called by socket.js on receiving server messages
+function handleSocketMessage(message) {
+  switch (message.type) {
+    case 'syncCSVData':
+      csvData = message.csvData;
+      currentStoryIndex = 0;
+      displayCSVData(csvData);
+      renderCurrentStory();
+      break;
+    case 'userList':
+      updateUserList(message.users);
+      break;
+    case 'storyChange':
+      updateStory(message.story);
+      break;
+    default:
+      console.warn('Unhandled message:', message);
+  }
+}
+
 function initializeApp(roomId) {
   let userName = '';
   while (!userName) {
@@ -23,66 +42,10 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-//  socket = io({ query: { roomId, userName } });
   initializeWebSocket(roomId, userName, handleSocketMessage);
-
-  socket.on('connect', () => {
-    console.log('Connected to server.');
-    socket.emit('joinRoom', { roomId, userName });
-  });
-    socket.on('syncCSVData', (data) => {
-    if (Array.isArray(data)) {
-      csvData = data;
-      currentStoryIndex = 0; // Reset to show the first story
-      displayCSVData(csvData);
-      renderCurrentStory(); // Ensure it shows visually
-    } else {
-      console.error('syncCSVData payload is not an array:', data);
-    }
-  });
-
-  socket.on('storySelected', handleStorySelected);
-  socket.on('voteUpdate', handleVoteUpdate);
-  socket.on('revealVotes', revealVotes);
-  socket.on('userList', updateUserList);
-  socket.on('connect_error', (err) => {
-    console.error('Socket connection error:', err);
-  });
-  
-    setupCSVUploader();
-    setupInviteButton();
-    setupStoryNavigation();
-}
-
-function handleStorySelected(data) {
-  const storyCards = document.querySelectorAll('.story-card');
-  storyCards.forEach(card => card.classList.remove('selected'));
-
-  const selectedStory = storyCards[data.storyIndex];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
-    currentStoryIndex = data.storyIndex;  // Sync story index
-    renderCurrentStory();                // Update current story view
-    emitStoryChange();                   // Optional: sync story content if needed
-    emitStoryNavigation();               // Optional: sync navigation index
-  }
-}
-function handleSocketMessage(message) {
-  if (message.type === 'syncCSVData') {
-    console.log('Handling syncCSVData from socket.js:', message.csvData);
-    csvData = message.csvData;
-    currentStoryIndex = 0;
-    displayCSVData(csvData);
-    renderCurrentStory();
-  }
-
-  if (message.type === 'userList') {
-    updateUserList(message.users);
-  }
-
-  if (message.type === 'storyChange') {
-    updateStory(message.story);
-  }
+  setupCSVUploader();
+  setupInviteButton();
+  setupStoryNavigation();
 }
 
 function setupCSVUploader() {
@@ -96,8 +59,10 @@ function setupCSVUploader() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const parsedData = parseCSV(e.target.result);
-      emitCSVData(parsedData);
-      displayCSVData(parsedData);
+      emitCSVData(parsedData);       // 🔁 send to server
+      csvData = parsedData;          // 🔁 set local
+      displayCSVData(csvData);       // 🔁 render locally
+      renderCurrentStory();
     };
     reader.readAsText(file);
   });
@@ -109,135 +74,26 @@ function parseCSV(data) {
 }
 
 function displayCSVData(data) {
-  if (!Array.isArray(data)) {
-    console.error('displayCSVData received invalid data:', data);
-    return;
-  }
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer) return;
 
-  if (JSON.stringify(data) !== JSON.stringify(csvData)) {
-    csvData = data;
+  storyListContainer.innerHTML = '';
 
-    const storyListContainer = document.getElementById('storyList');
-    if (!storyListContainer) return;
+  data.forEach((row, index) => {
+    const storyItem = document.createElement('div');
+    storyItem.classList.add('story-card');
+    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+    storyItem.dataset.index = index;
 
-    storyListContainer.innerHTML = '';
-
-    data.forEach((row, index) => {
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-      storyItem.dataset.index = index;
-      storyListContainer.appendChild(storyItem);
-
-      storyItem.addEventListener('click', function () {
-        document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
-        storyItem.classList.add('selected');
-        if (socket) {
-          socket.emit('storySelected', { storyIndex: index });
-        }
-      });
+    storyItem.addEventListener('click', () => {
+      document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+      storyItem.classList.add('selected');
+      currentStoryIndex = index;
+      renderCurrentStory();
     });
 
-    renderCurrentStory();
-  }
-}
-
-function updateUserList(users) {
-  const userListContainer = document.getElementById('userList');
-  if (!userListContainer) return;
-
-  userListContainer.innerHTML = '';
-
-  users.forEach(user => {
-    const userElement = document.createElement('div');
-    userElement.classList.add('user-entry');
-    userElement.id = `user-${user.id}`;
-
-    const avatar = document.createElement('img');
-    avatar.src = generateAvatarUrl(user.name);
-    avatar.alt = user.name;
-    avatar.classList.add('avatar');
-
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name;
-    nameSpan.classList.add('username');
-
-    const voteBadge = document.createElement('span');
-    voteBadge.classList.add('vote-badge');
-    voteBadge.textContent = '?';
-
-    userElement.append(avatar, nameSpan, voteBadge);
-    userListContainer.appendChild(userElement);
+    storyListContainer.appendChild(storyItem);
   });
-
-  const userCircleContainer = document.getElementById('userCircle');
-  if (!userCircleContainer) return;
-
-  userCircleContainer.innerHTML = '';
-
-  const radius = 150;
-  const centerX = 200;
-  const centerY = 200;
-  const angleStep = (2 * Math.PI) / users.length;
-
-  users.forEach((user, index) => {
-    const angle = index * angleStep;
-    const x = centerX + radius * Math.cos(angle) - 30;
-    const y = centerY + radius * Math.sin(angle) - 30;
-
-    const userElement = document.createElement('div');
-    userElement.classList.add('user-circle-entry');
-    userElement.id = `user-circle-${user.id}`;
-    userElement.style.position = 'absolute';
-    userElement.style.left = `${x}px`;
-    userElement.style.top = `${y}px`;
-    userElement.style.textAlign = 'center';
-
-    const avatar = document.createElement('img');
-    avatar.src = generateAvatarUrl(user.name);
-    avatar.alt = user.name;
-    avatar.classList.add('avatar');
-    avatar.style.width = '40px';
-    avatar.style.height = '40px';
-    avatar.style.borderRadius = '50%';
-    avatar.style.border = '2px solid #ccc';
-
-    const badge = document.createElement('span');
-    badge.classList.add('vote-badge');
-    badge.textContent = '?';
-    badge.style.display = 'block';
-    badge.style.marginTop = '5px';
-
-    userElement.append(avatar, badge);
-    userCircleContainer.appendChild(userElement);
-  });
-
-  const revealBtn = document.createElement('button');
-  revealBtn.textContent = 'Reveal Cards';
-  revealBtn.id = 'revealBtn';
-  revealBtn.style.position = 'absolute';
-  revealBtn.style.left = '50%';
-  revealBtn.style.top = '50%';
-  revealBtn.style.transform = 'translate(-50%, -50%)';
-  revealBtn.style.padding = '10px 20px';
-  revealBtn.style.borderRadius = '8px';
-  revealBtn.style.border = 'none';
-  revealBtn.style.backgroundColor = '#007bff';
-  revealBtn.style.color = 'white';
-  revealBtn.style.cursor = 'pointer';
-
-  revealBtn.onclick = () => {
-    if (socket) socket.emit('revealVotes');
-  };
-
-  userCircleContainer.appendChild(revealBtn);
-}
-
-function updateStory(story) {
-  const storyTitle = document.getElementById('currentStory');
-  if (storyTitle) {
-    storyTitle.textContent = story;
-  }
 }
 
 function renderCurrentStory() {
@@ -245,24 +101,79 @@ function renderCurrentStory() {
   if (!storyListContainer || csvData.length === 0) return;
 
   const allStoryItems = storyListContainer.querySelectorAll('.story-card');
-  allStoryItems.forEach(storyItem => storyItem.classList.remove('active'));
+  allStoryItems.forEach(card => card.classList.remove('active'));
 
-  const currentStoryItem = allStoryItems[currentStoryIndex];
-  if (currentStoryItem) {
-    currentStoryItem.classList.add('active');
-  }
+  const current = allStoryItems[currentStoryIndex];
+  if (current) current.classList.add('active');
 }
 
-function emitStoryChange() {
-  if (socket) {
-    socket.emit('storyChange', { story: csvData[currentStoryIndex] });
-  }
+function updateUserList(users) {
+  const userListContainer = document.getElementById('userList');
+  const userCircleContainer = document.getElementById('userCircle');
+  if (!userListContainer || !userCircleContainer) return;
+
+  userListContainer.innerHTML = '';
+  userCircleContainer.innerHTML = '';
+
+  const radius = 150, centerX = 200, centerY = 200;
+  const angleStep = (2 * Math.PI) / users.length;
+
+  users.forEach((user, index) => {
+    const angle = index * angleStep;
+    const x = centerX + radius * Math.cos(angle) - 30;
+    const y = centerY + radius * Math.sin(angle) - 30;
+
+    // Left panel
+    const userEntry = document.createElement('div');
+    userEntry.classList.add('user-entry');
+    userEntry.id = `user-${user.id}`;
+    userEntry.innerHTML = `
+      <img src="${generateAvatarUrl(user.name)}" class="avatar" alt="${user.name}">
+      <span class="username">${user.name}</span>
+      <span class="vote-badge">?</span>
+    `;
+    userListContainer.appendChild(userEntry);
+
+    // Circle layout
+    const circleEntry = document.createElement('div');
+    circleEntry.classList.add('user-circle-entry');
+    circleEntry.id = `user-circle-${user.id}`;
+    circleEntry.style.position = 'absolute';
+    circleEntry.style.left = `${x}px`;
+    circleEntry.style.top = `${y}px`;
+    circleEntry.style.textAlign = 'center';
+
+    circleEntry.innerHTML = `
+      <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc;" />
+      <span class="vote-badge" style="display:block; margin-top:5px;">?</span>
+    `;
+
+    userCircleContainer.appendChild(circleEntry);
+  });
+
+  // Reveal button
+  const revealBtn = document.createElement('button');
+  revealBtn.textContent = 'Reveal Cards';
+  revealBtn.id = 'revealBtn';
+  Object.assign(revealBtn.style, {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#007bff',
+    color: 'white',
+    cursor: 'pointer'
+  });
+  revealBtn.onclick = () => socket.emit('revealVotes');
+  userCircleContainer.appendChild(revealBtn);
 }
 
-function emitStoryNavigation() {
-  if (socket && typeof currentStoryIndex === 'number') {
-    socket.emit('storyNavigation', { index: currentStoryIndex });
-  }
+function updateStory(story) {
+  const storyTitle = document.getElementById('currentStory');
+  if (storyTitle) storyTitle.textContent = story;
 }
 
 function setupStoryNavigation() {
@@ -274,8 +185,6 @@ function setupStoryNavigation() {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
       renderCurrentStory();
-      emitStoryChange();
-      emitStoryNavigation();
     });
   }
 
@@ -284,69 +193,8 @@ function setupStoryNavigation() {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
       renderCurrentStory();
-      emitStoryChange();
-      emitStoryNavigation();
     });
   }
-}
-
-function sendVote(vote) {
-  if (socket) {
-    socket.emit('castVote', { vote });
-  }
-}
-
-function handleVoteUpdate({ userId, vote }) {
-  userVotes[userId] = vote;
-  const userElement = document.getElementById(`user-${userId}`);
-  if (userElement) {
-    const badge = userElement.querySelector('.vote-badge');
-    if (badge) {
-      badge.textContent = '✔️';
-    }
-  }
-}
-
-function revealVotes(votes) {
-  for (const userId in votes) {
-    const leftUser = document.getElementById(`user-${userId}`);
-    if (leftUser) {
-      const badge = leftUser.querySelector('.vote-badge');
-      if (badge) {
-        badge.textContent = votes[userId];
-        styleBadge(badge, votes[userId]);
-      }
-    }
-
-    const circleUser = document.getElementById(`user-circle-${userId}`);
-    if (circleUser) {
-      const badge = circleUser.querySelector('.vote-badge');
-      if (badge) {
-        badge.textContent = votes[userId];
-        styleBadge(badge, votes[userId]);
-      }
-    }
-  }
-}
-
-function styleBadge(badge, vote) {
-  if (vote === '?' || vote === '☕') {
-    badge.style.backgroundColor = '#6c757d';
-  } else if (!isNaN(vote)) {
-    const voteNum = parseFloat(vote);
-    if (voteNum <= 3) {
-      badge.style.backgroundColor = '#28a745';
-    } else if (voteNum <= 8) {
-      badge.style.backgroundColor = '#ffc107';
-    } else {
-      badge.style.backgroundColor = '#dc3545';
-    }
-  } else {
-    badge.style.backgroundColor = '#007bff';
-  }
-  badge.style.color = '#fff';
-  badge.style.padding = '2px 6px';
-  badge.style.borderRadius = '6px';
 }
 
 function generateAvatarUrl(name) {
@@ -375,6 +223,7 @@ function setupInviteButton() {
   };
 }
 
+// Start app
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
   if (!roomId) {
