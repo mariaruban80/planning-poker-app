@@ -146,12 +146,72 @@ voteBadge.textContent = '?'; // Hidden initially
 // Append all in order
 userElement.append(avatar, nameSpan, voteBadge);
 userListContainer.appendChild(userElement);
-
-
-
   });
 }
+// === NEW CIRCULAR AVATAR TABLE ===
+  const userCircleContainer = document.getElementById('userCircle');
+  if (!userCircleContainer) return;
 
+  userCircleContainer.innerHTML = '';
+
+  const radius = 150;
+  const centerX = 200;
+  const centerY = 200;
+  const angleStep = (2 * Math.PI) / users.length;
+
+  users.forEach((user, index) => {
+    const angle = index * angleStep;
+    const x = centerX + radius * Math.cos(angle) - 30;
+    const y = centerY + radius * Math.sin(angle) - 30;
+
+    const userElement = document.createElement('div');
+    userElement.classList.add('user-circle-entry');
+    userElement.id = `user-circle-${user.id}`;
+    userElement.style.position = 'absolute';
+    userElement.style.left = `${x}px`;
+    userElement.style.top = `${y}px`;
+    userElement.style.textAlign = 'center';
+
+    const avatar = document.createElement('img');
+    avatar.src = generateAvatarUrl(user.name);
+    avatar.alt = user.name;
+    avatar.classList.add('avatar');
+    avatar.style.width = '40px';
+    avatar.style.height = '40px';
+    avatar.style.borderRadius = '50%';
+    avatar.style.border = '2px solid #ccc';
+
+    const badge = document.createElement('span');
+    badge.classList.add('vote-badge');
+    badge.textContent = '?';
+    badge.style.display = 'block';
+    badge.style.marginTop = '5px';
+
+    userElement.append(avatar, badge);
+    userCircleContainer.appendChild(userElement);
+  });
+
+  // === REVEAL BUTTON IN THE CENTER ===
+  const revealBtn = document.createElement('button');
+  revealBtn.textContent = 'Reveal Cards';
+  revealBtn.id = 'revealBtn';
+  revealBtn.style.position = 'absolute';
+  revealBtn.style.left = '50%';
+  revealBtn.style.top = '50%';
+  revealBtn.style.transform = 'translate(-50%, -50%)';
+  revealBtn.style.padding = '10px 20px';
+  revealBtn.style.borderRadius = '8px';
+  revealBtn.style.border = 'none';
+  revealBtn.style.backgroundColor = '#007bff';
+  revealBtn.style.color = 'white';
+  revealBtn.style.cursor = 'pointer';
+
+  revealBtn.onclick = () => {
+    if (socket) socket.emit('revealVotes');
+  };
+
+  userCircleContainer.appendChild(revealBtn);
+}
 function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) {
@@ -228,32 +288,48 @@ function handleVoteUpdate({ userId, vote }) {
 
 function revealVotes(votes) {
   for (const userId in votes) {
-    const userElement = document.getElementById(`user-${userId}`);
-    if (userElement) {
-      const badge = userElement.querySelector('.vote-badge');
+    // LEFT PANEL
+    const leftUser = document.getElementById(`user-${userId}`);
+    if (leftUser) {
+      const badge = leftUser.querySelector('.vote-badge');
       if (badge) {
-        const vote = votes[userId];
-        badge.textContent = vote;
+        badge.textContent = votes[userId];
+        styleBadge(badge, votes[userId]);
+      }
+    }
 
-        // Color logic based on vote
-        if (vote === '?' || vote === '☕') {
-          badge.style.backgroundColor = '#6c757d'; // Gray
-        } else if (!isNaN(vote)) {
-          const voteNum = parseFloat(vote);
-          if (voteNum <= 3) {
-            badge.style.backgroundColor = '#28a745'; // Green
-          } else if (voteNum <= 8) {
-            badge.style.backgroundColor = '#ffc107'; // Yellow
-          } else {
-            badge.style.backgroundColor = '#dc3545'; // Red
-          }
-        } else {
-          badge.style.backgroundColor = '#007bff'; // Default Blue
-        }
+    // CIRCULAR LAYOUT
+    const circleUser = document.getElementById(`user-circle-${userId}`);
+    if (circleUser) {
+      const badge = circleUser.querySelector('.vote-badge');
+      if (badge) {
+        badge.textContent = votes[userId];
+        styleBadge(badge, votes[userId]);
       }
     }
   }
 }
+
+function styleBadge(badge, vote) {
+  if (vote === '?' || vote === '☕') {
+    badge.style.backgroundColor = '#6c757d';
+  } else if (!isNaN(vote)) {
+    const voteNum = parseFloat(vote);
+    if (voteNum <= 3) {
+      badge.style.backgroundColor = '#28a745';
+    } else if (voteNum <= 8) {
+      badge.style.backgroundColor = '#ffc107';
+    } else {
+      badge.style.backgroundColor = '#dc3545';
+    }
+  } else {
+    badge.style.backgroundColor = '#007bff';
+  }
+  badge.style.color = '#fff';
+  badge.style.padding = '2px 6px';
+  badge.style.borderRadius = '6px';
+}
+
 
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
