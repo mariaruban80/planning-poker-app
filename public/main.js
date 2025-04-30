@@ -161,7 +161,27 @@ function updateUserList(users) {
       <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc;" />
       <span class="vote-badge" style="display:block; margin-top:5px;">?</span>
     `;
+    circleEntry.setAttribute('draggable', 'false'); // Ensure users aren't draggable
+
+// 🔁 Enable drag-and-drop for votes
+circleEntry.addEventListener('dragover', (e) => e.preventDefault());
+
+circleEntry.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const vote = e.dataTransfer.getData('text/plain');
+  const userId = user.id; // Use the user ID for the vote
+
+  if (socket && vote) {
+    socket.emit('castVote', { vote, targetUserId: userId });
+  }
+
+  // Optional UI feedback
+  const badge = circleEntry.querySelector('.vote-badge');
+  if (badge) badge.textContent = '✔️';
+});
+
     userCircleContainer.appendChild(circleEntry);
+    
   });
 
   const revealBtn = document.createElement('button');
@@ -229,7 +249,14 @@ function setupInviteButton() {
     document.body.appendChild(modal);
   };
 }
-
+// Make vote cards draggable
+function setupVoteCardsDrag() {
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', card.textContent.trim());
+    });
+  });
+}
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
   if (!roomId) {
