@@ -34,6 +34,9 @@ function handleSocketMessage(message) {
       currentStoryIndex = message.storyIndex;
       highlightSelectedStory(currentStoryIndex);
       break;
+    case 'voteUpdate':
+      updateVoteVisuals(message.userId, message.vote);
+      break;
     default:
       console.warn('Unhandled message:', message);
   }
@@ -105,6 +108,11 @@ function displayCSVData(data) {
       storyItem.classList.add('selected');
       currentStoryIndex = index;
       renderCurrentStory();
+
+      // Transmit story change across rooms
+      if (socket) {
+        socket.emit('storySelected', { storyIndex: currentStoryIndex });
+      }
     });
 
     storyListContainer.appendChild(storyItem);
@@ -157,11 +165,10 @@ function updateUserList(users) {
     circleEntry.style.textAlign = 'center';
 
     circleEntry.innerHTML = `
-      <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc;" />
+      <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; background-color: white;" />
       <span class="vote-badge" style="display:block; margin-top:5px;">?</span>
     `;
 
-    // Enable drag-and-drop voting
     circleEntry.setAttribute('draggable', 'false');
     circleEntry.addEventListener('dragover', (e) => e.preventDefault());
     circleEntry.addEventListener('drop', (e) => {
@@ -173,11 +180,7 @@ function updateUserList(users) {
         socket.emit('castVote', { vote, targetUserId: userId });
       }
 
-      const badge = circleEntry.querySelector('.vote-badge');
-      if (badge) badge.textContent = '✔️';
-
-      // Change background to green
-      circleEntry.style.backgroundColor = '#c1e1c1';
+      updateVoteVisuals(userId, vote);
     });
 
     userCircleContainer.appendChild(circleEntry);
@@ -204,6 +207,15 @@ function updateUserList(users) {
   userCircleContainer.appendChild(revealBtn);
 }
 
+function updateVoteVisuals(userId, vote) {
+  const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
+                document.querySelector(`#user-circle-${userId} .vote-badge`);
+  if (badge) badge.textContent = vote;
+
+  const circle = document.getElementById(`user-circle-${userId}`);
+  if (circle) circle.style.backgroundColor = '#c1e1c1';
+}
+
 function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) storyTitle.textContent = story;
@@ -218,6 +230,7 @@ function setupStoryNavigation() {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
       renderCurrentStory();
+      if (socket) socket.emit('storySelected', { storyIndex: currentStoryIndex });
     });
   }
 
@@ -226,6 +239,7 @@ function setupStoryNavigation() {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
       renderCurrentStory();
+      if (socket) socket.emit('storySelected', { storyIndex: currentStoryIndex });
     });
   }
 }
@@ -256,9 +270,6 @@ function setupInviteButton() {
   };
 }
 
-// App start
-
-// Make vote cards draggable
 function setupVoteCardsDrag() {
   document.querySelectorAll('.card').forEach(card => {
     card.addEventListener('dragstart', (e) => {
