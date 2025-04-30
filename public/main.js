@@ -35,7 +35,9 @@ function handleSocketMessage(message) {
       highlightSelectedStory(currentStoryIndex);
       break;
     case 'voteUpdate':
+      if (message.storyIndex === currentStoryIndex) {
       updateVoteVisuals(message.userId, message.vote);
+      }
       break;
     default:
       console.warn('Unhandled message:', message);
