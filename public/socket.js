@@ -31,16 +31,28 @@ export function initializeWebSocket(roomId, userName, handleMessage) {
   //socket.on('voteUpdate', (payload) => {
    // handleMessage({ type: 'voteUpdate', ...payload });
   //});
-socket.on('voteUpdate', ({ userId, vote }) => {
+//socket.on('voteUpdate', ({ userId, vote }) => {
     // Update UI badges directly
-    const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
-                  document.querySelector(`#user-circle-${userId} .vote-badge`);
-    if (badge) {
-      badge.textContent = vote;
-    }
+  //  const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
+    //              document.querySelector(`#user-circle-${userId} .vote-badge`);
+    //if (badge) {
+     // badge.textContent = vote;
+    //}
 
     // Also forward to handler if needed
-    handleMessage({ type: 'voteUpdate', userId, vote });
+   // handleMessage({ type: 'voteUpdate', userId, vote });
+  //});
+  socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
+    if (storyIndex !== selectedStoryIndex) return; // Ignore if not the current story
+
+    const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
+                  document.querySelector(`#user-circle-${userId} .vote-badge`);
+    if (badge) badge.textContent = vote;
+
+    const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
+    if (avatar) avatar.style.backgroundColor = '#c1e1c1';
+
+    handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
   });
 
   socket.on('revealVotes', (votes) => {
