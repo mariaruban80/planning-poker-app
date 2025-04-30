@@ -60,12 +60,20 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('castVote', ({ vote }) => {
-    if (currentRoom) {
-      rooms[currentRoom].votes[socket.id] = vote;
-      io.to(currentRoom).emit('voteUpdate', { userId: socket.id, vote: '✔️' });
-    }
-  });
+//  socket.on('castVote', ({ vote }) => {
+  //  if (currentRoom) {
+    //  rooms[currentRoom].votes[socket.id] = vote;
+     // io.to(currentRoom).emit('voteUpdate', { userId: socket.id, vote: '✔️' });
+   // }
+  //});
+
+  socket.on('castVote', ({ vote, targetUserId }) => {
+  if (currentRoom && targetUserId) {
+    rooms[currentRoom].votes[targetUserId] = vote;
+    io.to(currentRoom).emit('voteUpdate', { userId: targetUserId, vote: '✔️' });
+  }
+});
+
 
   socket.on('revealVotes', () => {
     if (currentRoom) {
