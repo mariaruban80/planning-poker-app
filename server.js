@@ -64,10 +64,20 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
     // Send CSV data to the newly joined user
-    if (rooms[currentRoom].csvData?.length > 0) {
-    socket.emit('syncCSVData', rooms[currentRoom].csvData);
-    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex }); // ✅ Broadcast selected
-    }
+if (rooms[currentRoom].csvData?.length > 0) {
+  socket.emit('syncCSVData', rooms[currentRoom].csvData);
+
+  // ✅ Use selectedIndex if it's defined
+  if (typeof rooms[currentRoom].selectedIndex === 'number') {
+    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
+  }
+}
+
+    
+//    if (rooms[currentRoom].csvData?.length > 0) {
+  //  socket.emit('syncCSVData', rooms[currentRoom].csvData);
+   // socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex }); // ✅ Broadcast selected
+    //}
 
     
 //    if (rooms[currentRoom].csvData.length > 0) {
@@ -75,9 +85,9 @@ io.on('connection', (socket) => {
    // }
 
     // Send selected story index to the new user
-    if (rooms[currentRoom].selectedStoryIndex !== null) {
-      socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedStoryIndex });
-    }
+ //   if (rooms[currentRoom].selectedStoryIndex !== null) {
+   //   socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedStoryIndex });
+    //}
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
