@@ -1,9 +1,10 @@
-import { initializeWebSocket, emitCSVData } from './socket.js'; 
+// ✅ Updated main.js
+import { initializeWebSocket, emitCSVData } from './socket.js';
 
 let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
-let socket = null; // Keep reference for reuse
+let bufferedStoryIndex = null;
 
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -16,7 +17,6 @@ function appendRoomIdToURL(roomId) {
   window.history.pushState(null, '', currentUrl.toString());
 }
 
-// 🔁 Called by socket.js on receiving server messages
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
@@ -24,6 +24,17 @@ function handleSocketMessage(message) {
       currentStoryIndex = 0;
       displayCSVData(csvData);
       renderCurrentStory();
+      if (bufferedStoryIndex !== null) {
+        highlightSelectedStory(bufferedStoryIndex);
+        bufferedStoryIndex = null;
+      }
+      break;
+    case 'storySelected':
+      if (csvData.length === 0) {
+        bufferedStoryIndex = message.storyIndex;
+      } else {
+        highlightSelectedStory(message.storyIndex);
+      }
       break;
     case 'userList':
       updateUserList(message.users);
@@ -31,23 +42,8 @@ function handleSocketMessage(message) {
     case 'storyChange':
       updateStory(message.story);
       break;
-    case 'storySelected':
-      currentStoryIndex = message.storyIndex;
-      highlightSelectedStory(currentStoryIndex);
-      break;
-
     default:
       console.warn('Unhandled message:', message);
-  }
-}
-function highlightSelectedStory(index) {
-  const storyCards = document.querySelectorAll('.story-card');
-  storyCards.forEach(card => card.classList.remove('selected', 'active'));
-
-  const selectedStory = storyCards[index];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
-    selectedStory.classList.add('active');
   }
 }
 
@@ -57,9 +53,7 @@ function initializeApp(roomId) {
     userName = prompt("Enter your username:");
     if (!userName) alert("Username is required!");
   }
-
-  // 🔁 Save socket ref so we can emit from anywhere
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
@@ -76,9 +70,9 @@ function setupCSVUploader() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const parsedData = parseCSV(e.target.result);
-      emitCSVData(parsedData);       // 🔁 send to server
-      csvData = parsedData;          // 🔁 set local
-      displayCSVData(csvData);       // 🔁 render locally
+      emitCSVData(parsedData);
+      csvData = parsedData;
+      displayCSVData(csvData);
       renderCurrentStory();
     };
     reader.readAsText(file);
@@ -113,13 +107,18 @@ function displayCSVData(data) {
   });
 }
 
+function highlightSelectedStory(index) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected'));
+  const selected = storyCards[index];
+  if (selected) selected.classList.add('selected');
+}
+
 function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer || csvData.length === 0) return;
-
   const allStoryItems = storyListContainer.querySelectorAll('.story-card');
   allStoryItems.forEach(card => card.classList.remove('active'));
-
   const current = allStoryItems[currentStoryIndex];
   if (current) current.classList.add('active');
 }
@@ -140,7 +139,6 @@ function updateUserList(users) {
     const x = centerX + radius * Math.cos(angle) - 30;
     const y = centerY + radius * Math.sin(angle) - 30;
 
-    // Left panel
     const userEntry = document.createElement('div');
     userEntry.classList.add('user-entry');
     userEntry.id = `user-${user.id}`;
@@ -151,7 +149,6 @@ function updateUserList(users) {
     `;
     userListContainer.appendChild(userEntry);
 
-    // Circle layout
     const circleEntry = document.createElement('div');
     circleEntry.classList.add('user-circle-entry');
     circleEntry.id = `user-circle-${user.id}`;
@@ -164,29 +161,20 @@ function updateUserList(users) {
       <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc;" />
       <span class="vote-badge" style="display:block; margin-top:5px;">?</span>
     `;
-
     userCircleContainer.appendChild(circleEntry);
   });
 
-  // Reveal button
   const revealBtn = document.createElement('button');
   revealBtn.textContent = 'Reveal Cards';
   revealBtn.id = 'revealBtn';
   Object.assign(revealBtn.style, {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
+    position: 'absolute', left: '50%', top: '50%',
     transform: 'translate(-50%, -50%)',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#007bff',
-    color: 'white',
-    cursor: 'pointer'
+    padding: '10px 20px', borderRadius: '8px',
+    border: 'none', backgroundColor: '#007bff',
+    color: 'white', cursor: 'pointer'
   });
-  revealBtn.onclick = () => {
-    if (socket) socket.emit('revealVotes');
-  };
+  revealBtn.onclick = () => socket.emit('revealVotes');
   userCircleContainer.appendChild(revealBtn);
 }
 
@@ -242,7 +230,6 @@ function setupInviteButton() {
   };
 }
 
-// App start
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
   if (!roomId) {
