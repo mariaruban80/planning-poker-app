@@ -1,3 +1,4 @@
+// === server.js ===
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -7,9 +8,7 @@ import { dirname, join } from 'path';
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-  }
+  cors: { origin: '*' }
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,22 +16,10 @@ const __dirname = dirname(__filename);
 
 app.use(express.static(join(__dirname, 'public')));
 
-// Room structure: 1 object per room
-const rooms = {}; 
-// Structure: {
-//   roomId: {
-//     users: [],
-//     votes: {},
-//     story: [],
-//     revealed: false,
-//     csvData: [],
-//     selectedStoryIndex: null
-//   }
-// }
+// Room structure
+const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex }
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
   let currentRoom = null;
   let currentUser = null;
 
@@ -40,9 +27,6 @@ io.on('connection', (socket) => {
     currentRoom = roomId;
     currentUser = userName;
 
-    console.log(`User ${userName} joined room ${roomId}`);
-
-    // Initialize room if not exists
     if (!rooms[currentRoom]) {
       rooms[currentRoom] = {
         users: [],
@@ -50,51 +34,28 @@ io.on('connection', (socket) => {
         story: [],
         revealed: false,
         csvData: [],
-        selectedIndex: 0
+        selectedIndex: null
       };
     }
 
-    // Avoid duplicates on reconnect
     rooms[currentRoom].users = rooms[currentRoom].users.filter(u => u.id !== socket.id);
     rooms[currentRoom].users.push({ id: socket.id, name: userName });
-
     socket.join(currentRoom);
 
-    // Broadcast updated user list
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
-    // Send CSV data to the newly joined user
-if (rooms[currentRoom].csvData?.length > 0) {
-  socket.emit('syncCSVData', rooms[currentRoom].csvData);
+    if (rooms[currentRoom].csvData?.length > 0) {
+      socket.emit('syncCSVData', rooms[currentRoom].csvData);
+    }
 
-  // ✅ Use selectedIndex if it's defined
-  if (typeof rooms[currentRoom].selectedIndex === 'number') {
-    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
-  }
-}
-
-    
-//    if (rooms[currentRoom].csvData?.length > 0) {
-  //  socket.emit('syncCSVData', rooms[currentRoom].csvData);
-   // socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex }); // ✅ Broadcast selected
-    //}
-
-    
-//    if (rooms[currentRoom].csvData.length > 0) {
-  //    socket.emit('syncCSVData', rooms[currentRoom].csvData);
-   // }
-
-    // Send selected story index to the new user
- //   if (rooms[currentRoom].selectedStoryIndex !== null) {
-   //   socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedStoryIndex });
-    //}
+    if (typeof rooms[currentRoom].selectedIndex === 'number') {
+      socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
+    }
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
-     if (currentRoom) {
-    //if (currentRoom && rooms[currentRoom]) {
-       rooms[currentRoom].selectedIndex = storyIndex; 
-      //rooms[currentRoom].selectedStoryIndex = storyIndex;
+    if (currentRoom) {
+      rooms[currentRoom].selectedIndex = storyIndex;
       io.to(currentRoom).emit('storySelected', { storyIndex });
     }
   });
@@ -134,12 +95,9 @@ if (rooms[currentRoom].csvData?.length > 0) {
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-
     if (currentRoom && rooms[currentRoom]) {
       rooms[currentRoom].users = rooms[currentRoom].users.filter(user => user.id !== socket.id);
       delete rooms[currentRoom].votes[socket.id];
-
       io.to(currentRoom).emit('userList', rooms[currentRoom].users);
     }
   });
@@ -149,3 +107,58 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
+// === socket.js ===
+import { io } from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
+
+let socket = null;
+let selectedStoryIndex = null;
+
+export function initializeWebSocket(roomId, userName, handleMessage) {
+  socket = io({
+    transports: ['websocket'],
+    query: { roomId, userName }
+  });
+
+  socket.on('connect', () => {
+    console.log('Connected to server');
+    socket.emit('joinRoom', { roomId, userName });
+  });
+
+  socket.on('userList', (users) => {
+    handleMessage({ type: 'userList', users });
+  });
+
+  socket.on('syncCSVData', (csvData) => {
+    handleMessage({ type: 'syncCSVData', csvData });
+  });
+
+  socket.on('storySelected', ({ storyIndex }) => {
+    selectedStoryIndex = storyIndex;
+    handleMessage({ type: 'storySelected', storyIndex });
+  });
+
+  socket.on('voteUpdate', (payload) => {
+    handleMessage({ type: 'voteUpdate', ...payload });
+  });
+
+  socket.on('revealVotes', (votes) => {
+    handleMessage({ type: 'revealVotes', votes });
+  });
+
+  socket.on('storyChange', ({ story }) => {
+    handleMessage({ type: 'storyChange', story });
+  });
+
+  socket.on('storyNavigation', ({ index }) => {
+    handleMessage({ type: 'storyNavigation', index });
+  });
+}
+
+export function emitCSVData(data) {
+  if (socket) socket.emit('syncCSVData', data);
+}
+
+export function emitStorySelected(index) {
+  if (socket) socket.emit('storySelected', { storyIndex: index });
+}
