@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
         story: [],
         revealed: false,
         csvData: [],
-        selectedStoryIndex: null
+        selectedIndex: 0
       };
     }
 
@@ -64,9 +64,15 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
 
     // Send CSV data to the newly joined user
-    if (rooms[currentRoom].csvData.length > 0) {
-      socket.emit('syncCSVData', rooms[currentRoom].csvData);
+    if (rooms[currentRoom].csvData?.length > 0) {
+    socket.emit('syncCSVData', rooms[currentRoom].csvData);
+    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex }); // ✅ Broadcast selected
     }
+
+    
+//    if (rooms[currentRoom].csvData.length > 0) {
+  //    socket.emit('syncCSVData', rooms[currentRoom].csvData);
+   // }
 
     // Send selected story index to the new user
     if (rooms[currentRoom].selectedStoryIndex !== null) {
@@ -75,8 +81,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
-    if (currentRoom && rooms[currentRoom]) {
-      rooms[currentRoom].selectedStoryIndex = storyIndex;
+     if (currentRoom) {
+    //if (currentRoom && rooms[currentRoom]) {
+       rooms[currentRoom].selectedIndex = storyIndex; 
+      //rooms[currentRoom].selectedStoryIndex = storyIndex;
       io.to(currentRoom).emit('storySelected', { storyIndex });
     }
   });
