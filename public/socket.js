@@ -28,10 +28,24 @@ export function initializeWebSocket(roomId, userName, handleMessage) {
     handleMessage({ type: 'storySelected', storyIndex });
   });
 
-  socket.on('voteUpdate', (payload) => {
-    handleMessage({ type: 'voteUpdate', ...payload });
+  //socket.on('voteUpdate', (payload) => {
+   // handleMessage({ type: 'voteUpdate', ...payload });
+  //});
+socket.on('voteUpdate', ({ userId, vote }) => {
+    // Update UI badges directly
+    const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
+                  document.querySelector(`#user-circle-${userId} .vote-badge`);
+    if (badge) {
+      badge.textContent = vote;
+    }
+
+    // Also forward to handler if needed
+    handleMessage({ type: 'voteUpdate', userId, vote });
   });
 
+  socket.on('revealVotes', (votes) => {
+    handleMessage({ type: 'revealVotes', votes });
+  });
   socket.on('revealVotes', (votes) => {
     handleMessage({ type: 'revealVotes', votes });
   });
