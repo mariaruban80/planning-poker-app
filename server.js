@@ -34,7 +34,8 @@ io.on('connection', (socket) => {
         story: [],
         revealed: false,
         csvData: [],
-        selectedIndex: null
+        selectedIndex: null,
+        votesPerStory: {} // Added for per-story vote tracking
       };
     }
 
@@ -67,13 +68,32 @@ io.on('connection', (socket) => {
    // }
   //});
 
+  //socket.on('castVote', ({ vote, targetUserId }) => {
+  //if (currentRoom && targetUserId) {
+   // rooms[currentRoom].votes[targetUserId] = vote;
+   // io.to(currentRoom).emit('voteUpdate', { userId: targetUserId, vote: '✔️' });
+ // }
+//});
   socket.on('castVote', ({ vote, targetUserId }) => {
-  if (currentRoom && targetUserId) {
-    rooms[currentRoom].votes[targetUserId] = vote;
-    io.to(currentRoom).emit('voteUpdate', { userId: targetUserId, vote: '✔️' });
-  }
-});
+    if (currentRoom && targetUserId != null) {
+      const currentStoryIndex = rooms[currentRoom].selectedIndex;
 
+      if (!rooms[currentRoom].votesPerStory) {
+        rooms[currentRoom].votesPerStory = {};
+      }
+      if (!rooms[currentRoom].votesPerStory[currentStoryIndex]) {
+        rooms[currentRoom].votesPerStory[currentStoryIndex] = {};
+      }
+
+      rooms[currentRoom].votesPerStory[currentStoryIndex][targetUserId] = vote;
+
+      io.to(currentRoom).emit('voteUpdate', {
+        userId: targetUserId,
+        vote,
+        storyIndex: currentStoryIndex
+      });
+    }
+  });
 
   socket.on('revealVotes', () => {
     if (currentRoom) {
