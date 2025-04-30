@@ -213,7 +213,7 @@ function updateVoteVisuals(userId, vote) {
   if (badge) badge.textContent = vote;
 
   const circle = document.getElementById(`user-circle-${userId}`);
-  if (circle) circle.style.backgroundColor = '#c1e1c1';
+  if (circle) circle.style.backgroundColor = ''; // Remove green background
 }
 
 function updateStory(story) {
