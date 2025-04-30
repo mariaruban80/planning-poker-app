@@ -57,14 +57,27 @@ function handleMessageSafely(handler, message) {
     handler(message);
   }
 }
-
 function updateSelectedStoryUI() {
-  const cards = document.querySelectorAll('.story-card');
-  cards.forEach(c => c.classList.remove('selected'));
-  if (cards[selectedStoryIndex]) {
-    cards[selectedStoryIndex].classList.add('selected');
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected', 'active'));
+
+  if (storyCards[selectedStoryIndex]) {
+    storyCards[selectedStoryIndex].classList.add('selected');
+    storyCards[selectedStoryIndex].classList.add('active');
+
+    // Sync with currentStoryIndex in main.js if accessible
+    currentStoryIndex = selectedStoryIndex;
   }
 }
+
+
+//function updateSelectedStoryUI() {
+  //const cards = document.querySelectorAll('.story-card');
+  //cards.forEach(c => c.classList.remove('selected'));
+  //if (cards[selectedStoryIndex]) {
+   // cards[selectedStoryIndex].classList.add('selected');
+ // }
+//}
 
 // Sync story index across clients
 export function emitStoryNavigation() {
