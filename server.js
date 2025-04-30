@@ -44,15 +44,32 @@ io.on('connection', (socket) => {
     socket.join(currentRoom);
 
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
-
-    if (rooms[currentRoom].csvData?.length > 0) {
+ if (rooms[currentRoom].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
 
     if (typeof rooms[currentRoom].selectedIndex === 'number') {
-      socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
+      const storyIndex = rooms[currentRoom].selectedIndex;
+      socket.emit('storySelected', { storyIndex });
+
+      // Send existing votes for the selected story to the new user
+      const existingVotes = rooms[currentRoom].votesPerStory?.[storyIndex];
+      if (existingVotes) {
+        for (const [userId, vote] of Object.entries(existingVotes)) {
+          socket.emit('voteUpdate', { userId, vote, storyIndex });
+        }
+      }
     }
   });
+
+    //if (rooms[currentRoom].csvData?.length > 0) {
+    //  socket.emit('syncCSVData', rooms[currentRoom].csvData);
+  //  }
+
+//    if (typeof rooms[currentRoom].selectedIndex === 'number') {
+  //    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
+   // }
+  //});
 
   socket.on('storySelected', ({ storyIndex }) => {
     if (currentRoom) {
