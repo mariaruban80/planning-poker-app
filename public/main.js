@@ -31,8 +31,23 @@ function handleSocketMessage(message) {
     case 'storyChange':
       updateStory(message.story);
       break;
+    case 'storySelected':
+      currentStoryIndex = message.storyIndex;
+      highlightSelectedStory(currentStoryIndex);
+      break;
+
     default:
       console.warn('Unhandled message:', message);
+  }
+}
+function highlightSelectedStory(index) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach(card => card.classList.remove('selected', 'active'));
+
+  const selectedStory = storyCards[index];
+  if (selectedStory) {
+    selectedStory.classList.add('selected');
+    selectedStory.classList.add('active');
   }
 }
 
