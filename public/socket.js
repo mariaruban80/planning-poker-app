@@ -44,13 +44,21 @@ function setupSocketListeners(handleMessage) {
     console.log('🔁 syncCSVData:', data);
     handleMessageSafely(handleMessage, { type: 'syncCSVData', csvData: data });
   });
-
-  socket.on('storySelected', (data) => {
-    console.log('🔁 storySelected:', data);
-    selectedStoryIndex = data.storyIndex;
-    updateSelectedStoryUI();
+socket.on('storySelected', (data) => {
+  console.log('Received selected story index:', data);
+  selectedStoryIndex = data.storyIndex;
+  handleMessageSafely(handleMessage, {
+    type: 'storySelected',
+    storyIndex: selectedStoryIndex
   });
-}
+});
+
+//  socket.on('storySelected', (data) => {
+  //  console.log('🔁 storySelected:', data);
+    //selectedStoryIndex = data.storyIndex;
+    //updateSelectedStoryUI();
+  //});
+//}
 
 function handleMessageSafely(handler, message) {
   if (typeof handler === 'function') {
