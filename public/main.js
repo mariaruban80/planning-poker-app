@@ -64,7 +64,6 @@ function initializeApp(roomId) {
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
-  injectPulseAnimationStyle();
 }
 
 function setupCSVUploader() {
@@ -212,26 +211,8 @@ function updateVoteVisuals(userId, vote) {
                 document.querySelector(`#user-circle-${userId} .vote-badge`);
   if (badge) badge.textContent = vote;
 
-  const circle = document.getElementById(`user-circle-${userId}`);
-  if (circle) {
-    circle.classList.add('pulse');
-    setTimeout(() => circle.classList.remove('pulse'), 1000);
-  }
-}
-
-function injectPulseAnimationStyle() {
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); }
-    }
-    .pulse {
-      animation: pulse 1s ease-out;
-    }
-  `;
-  document.head.appendChild(style);
+  const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
+  if (avatar) avatar.style.backgroundColor = '#c1e1c1';
 }
 
 function updateStory(story) {
