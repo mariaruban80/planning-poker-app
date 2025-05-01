@@ -16,8 +16,8 @@ const __dirname = dirname(__filename);
 
 app.use(express.static(join(__dirname, 'public')));
 
-// Room structure
-const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory }
+// Enhanced room structure with vote revealing state
+const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory, votesRevealed }
 
 io.on('connection', (socket) => {
   console.log(`[SERVER] New client connected: ${socket.id}`);
@@ -36,7 +36,8 @@ io.on('connection', (socket) => {
         revealed: false,
         csvData: [],
         selectedIndex: 0, // Default to first story
-        votesPerStory: {}
+        votesPerStory: {},
+        votesRevealed: {} // Track which stories have revealed votes
       };
     }
 
@@ -70,6 +71,11 @@ io.on('connection', (socket) => {
         const existingVotes = rooms[roomId].votesPerStory[storyIndex] || {};
         if (Object.keys(existingVotes).length > 0) {
           socket.emit('storyVotes', { storyIndex, votes: existingVotes });
+          
+          // Also send vote reveal status
+          if (rooms[roomId].votesRevealed[storyIndex]) {
+            socket.emit('votesRevealed', { storyIndex });
+          }
         }
       }
     }
@@ -119,6 +125,11 @@ io.on('connection', (socket) => {
       const votes = rooms[roomId].votesPerStory[storyIndex] || {};
       console.log(`[SERVER] Sending votes for story ${storyIndex} to client ${socket.id}`);
       socket.emit('storyVotes', { storyIndex, votes });
+      
+      // If votes have been revealed for this story, also send that info
+      if (rooms[roomId].votesRevealed[storyIndex]) {
+        socket.emit('votesRevealed', { storyIndex });
+      }
     }
   });
 
@@ -127,11 +138,14 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       const currentStoryIndex = rooms[roomId].selectedIndex;
-      const storyVotes = rooms[roomId].votesPerStory[currentStoryIndex] || {};
       
-      // Send the current story's votes to all clients
-      io.to(roomId).emit('revealVotes', storyVotes);
-      rooms[roomId].revealed = true;
+      // Mark this story as having revealed votes
+      rooms[roomId].votesRevealed[currentStoryIndex] = true;
+      
+      // Send the reveal signal to all clients
+      io.to(roomId).emit('votesRevealed', { storyIndex: currentStoryIndex });
+      
+      console.log(`[SERVER] Votes revealed for story ${currentStoryIndex} in room ${roomId}`);
     }
   });
 
@@ -144,6 +158,9 @@ io.on('connection', (socket) => {
       // Clear votes for the current story
       if (rooms[roomId].votesPerStory[currentStoryIndex]) {
         rooms[roomId].votesPerStory[currentStoryIndex] = {};
+        // Reset revealed status
+        rooms[roomId].votesRevealed[currentStoryIndex] = false;
+        
         console.log(`[SERVER] Votes reset for story ${currentStoryIndex} in room ${roomId}`);
         io.to(roomId).emit('votesReset', { storyIndex: currentStoryIndex });
       }
@@ -174,6 +191,7 @@ io.on('connection', (socket) => {
       rooms[roomId].csvData = csvData;
       rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
       rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
+      rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded
       io.to(roomId).emit('syncCSVData', csvData);
     }
   });
@@ -186,6 +204,7 @@ io.on('connection', (socket) => {
         room: roomId,
         stories: rooms[roomId].csvData,
         votes: rooms[roomId].votesPerStory,
+        revealed: rooms[roomId].votesRevealed,
         timestamp: new Date().toISOString()
       };
       
