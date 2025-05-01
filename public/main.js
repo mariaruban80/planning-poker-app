@@ -19,23 +19,23 @@ function appendRoomIdToURL(roomId) {
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
-      console.log('[SOCKET] Received syncCSVData:', message.csvData);
+     
       csvData = message.csvData;
-      currentStoryIndex = 0;
+     // currentStoryIndex = 0;
+       console.log('[SOCKET] Received syncCSVData:', message.csvData);
       displayCSVData(csvData);
     //  renderCurrentStory();
       if (pendingStoryIndex !== null) {
         console.log('[APPLY] Pending story index after CSV load:', pendingStoryIndex);
       currentStoryIndex = pendingStoryIndex;
-      highlightSelectedStory(currentStoryIndex);
-      renderCurrentStory();
-      pendingStoryIndex = null;
+        pendingStoryIndex = null;      
       }
       else {
       currentStoryIndex = 0;
+      }
       highlightSelectedStory(currentStoryIndex);
       renderCurrentStory();
-      }
+      
       break;
     case 'userList':
       updateUserList(message.users);
