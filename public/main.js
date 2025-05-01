@@ -34,21 +34,40 @@ function handleSocketMessage(message) {
       currentStoryIndex = message.storyIndex;
       highlightSelectedStory(currentStoryIndex);
       break;
-    case 'voteUpdate':
-      if (currentStoryIndex == null) {
-      setTimeout(() => {
+   // tempory    
+//    case 'voteUpdate':
+  //    if (currentStoryIndex == null) {
+    //  setTimeout(() => {
+      //if (message.storyIndex === currentStoryIndex) {
+        //updateVoteVisuals(message.userId, message.vote);
+      //}
+        //}, 100);
+          //} else if (message.storyIndex === currentStoryIndex) {
+    //updateVoteVisuals(message.userId, message.vote);
+    //}
+
+      //break;
+      case 'voteUpdate':
+  console.log('[voteUpdate]', {
+    storyIndex: message.storyIndex,
+    currentStoryIndex,
+    userId: message.userId,
+    vote: message.vote
+  });
+
+  if (currentStoryIndex == null) {
+    setTimeout(() => {
       if (message.storyIndex === currentStoryIndex) {
+        console.log('Applying delayed vote:', message.userId, message.vote);
         updateVoteVisuals(message.userId, message.vote);
       }
-        }, 100);
-          } else if (message.storyIndex === currentStoryIndex) {
+    }, 100);
+  } else if (message.storyIndex === currentStoryIndex) {
+    console.log('Applying immediate vote:', message.userId, message.vote);
     updateVoteVisuals(message.userId, message.vote);
-    }
-      
-    //  if (message.storyIndex === currentStoryIndex) {
-     // updateVoteVisuals(message.userId, message.vote);
-     // }
-      break;
+  }
+  break;
+
     default:
       console.warn('Unhandled message:', message);
   }
