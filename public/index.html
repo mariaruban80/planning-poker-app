@@ -10,7 +10,7 @@
       font-family: 'Arial', sans-serif; 
       margin: 0; 
       padding: 0; 
-      background: #e0e0e0; /* Pearl white background */
+      background: #f5f6fa; /* Pearl white background */
     }
     
     .container { 
@@ -37,7 +37,7 @@
       display: flex; 
       flex-direction: column; 
       align-items: center;
-      background: #f5f6fa;
+      background: #f5f6fa; /* Match sidebar/rightbar */
       box-shadow: none;
     }
     
@@ -231,19 +231,18 @@
     }
 
     .vote-badge {
-    background-color: transparent;
-     color: transparent; /* Hide initially */
-     font-size: 14px; /* Exactly match username font size */
-     font-weight: 600; /* Match username font weight */
-     padding: 2px 8px;
-     min-width: 28px;
-     text-align: center;
-     color: #3b444b; /* Same color as username when revealed */;
+      background-color: transparent;
+      color: transparent; /* Hide the question marks by making text transparent */
+      font-size: 14px; /* Match username font size exactly */
+      font-weight: 600; /* Match username font weight */
+      padding: 2px 8px;
+      min-width: 28px;
+      text-align: center;
     }
     
     /* Show vote values when votes are revealed */
     .votes-revealed .vote-badge {
-       color: #3b444b !important; /* Match username color */
+      color: #673ab7 !important; /* Purple color matching your screenshot */
     }
     
     /* New poker table layout */
@@ -389,10 +388,9 @@
       width: 100%;
       text-align: center;
       margin-top: 20px;
-       padding: 15px;
-     background-color: white; /* Added white background for this section */
-     border-radius: 8px;
-     box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Light shadow for depth */
+      padding: 15px;
+      background-color: #f5f6fa; /* Matches the sidebar/rightbar background */
+      /* Removing border-radius and box-shadow to match the main panel background styling */
     }
     
     .planning-cards-section h3 {
@@ -451,6 +449,15 @@
         border: none;
         border-bottom: 1px solid #e0e0e0;
       }
+    }
+
+    /* User circle container styling */
+    #userCircle {
+      background-color: #f5f6fa; /* Matches the sidebar/rightbar background */
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 100%;
+      /* Removing border-radius and box-shadow to match the main panel background styling */
     }
   </style>
 </head>
@@ -579,7 +586,7 @@
           
           // Make each vote-badge visible
           document.querySelectorAll('.vote-badge').forEach(badge => {
-            badge.style.color = '#3b444b';
+            badge.style.color = '#673ab7'; // Purple color for revealed votes
           });
           
           // Make each vote card space show its content
@@ -614,7 +621,7 @@
             if (hasRevealedClass || hasRevealedCards || hasVisibleVotes) {
               // Make all vote badges visible
               document.querySelectorAll('.vote-badge').forEach(badge => {
-                badge.style.color = '#333';
+                badge.style.color = '#673ab7'; // Purple color for revealed votes
               });
               
               // Add revealed class to vote card spaces
