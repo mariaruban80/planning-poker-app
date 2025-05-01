@@ -23,44 +23,45 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUser = null;
 
-  socket.on('joinRoom', ({ roomId, userName }) => {
-    currentRoom = roomId;
-    currentUser = userName;
+socket.on('joinRoom', ({ roomId, userName }) => {
+  socket.data.roomId = roomId;
+  socket.data.userName = userName;
 
-    if (!rooms[currentRoom]) {
-      rooms[currentRoom] = {
-        users: [],
-        votes: {},
-        story: [],
-        revealed: false,
-        csvData: [],
-        selectedIndex: null,
-        votesPerStory: {} // Added for per-story vote tracking
-      };
-    }
+  if (!rooms[roomId]) {
+    rooms[roomId] = {
+      users: [],
+      votes: {},
+      story: [],
+      revealed: false,
+      csvData: [],
+      selectedIndex: null,
+      votesPerStory: {}
+    };
+  }
 
-    rooms[currentRoom].users = rooms[currentRoom].users.filter(u => u.id !== socket.id);
-    rooms[currentRoom].users.push({ id: socket.id, name: userName });
-    socket.join(currentRoom);
+  rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
+  rooms[roomId].users.push({ id: socket.id, name: userName });
+  socket.join(roomId);
 
-    io.to(currentRoom).emit('userList', rooms[currentRoom].users);
- if (rooms[currentRoom].csvData?.length > 0) {
-      socket.emit('syncCSVData', rooms[currentRoom].csvData);
-    }
+  io.to(roomId).emit('userList', rooms[roomId].users);
 
-    if (typeof rooms[currentRoom].selectedIndex === 'number') {
-      const storyIndex = rooms[currentRoom].selectedIndex;
-      socket.emit('storySelected', { storyIndex });
+  if (rooms[roomId].csvData?.length > 0) {
+    socket.emit('syncCSVData', rooms[roomId].csvData);
+  }
 
-      // Send existing votes for the selected story to the new user
-      const existingVotes = rooms[currentRoom].votesPerStory?.[storyIndex];
-      if (existingVotes) {
-        for (const [userId, vote] of Object.entries(existingVotes)) {
-          socket.emit('voteUpdate', { userId, vote, storyIndex });
-        }
+  if (typeof rooms[roomId].selectedIndex === 'number') {
+    const storyIndex = rooms[roomId].selectedIndex;
+    socket.emit('storySelected', { storyIndex });
+
+    const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
+    if (existingVotes) {
+      for (const [userId, vote] of Object.entries(existingVotes)) {
+        socket.emit('voteUpdate', { userId, vote, storyIndex });
       }
     }
-  });
+  }
+});
+
 
     //if (rooms[currentRoom].csvData?.length > 0) {
     //  socket.emit('syncCSVData', rooms[currentRoom].csvData);
@@ -70,16 +71,17 @@ io.on('connection', (socket) => {
   //    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
    // }
   //});
-
-  socket.on('storySelected', ({ storyIndex }) => {
-    if (currentRoom) {
-      console.log(`[SERVER] storySelected received from ${socket.id} in room ${currentRoom}, storyIndex: ${storyIndex}`);
-      rooms[currentRoom].selectedIndex = storyIndex;
-      io.to(currentRoom).emit('storySelected', { storyIndex });
-    }else {
-    console.warn(`[SERVER] storySelected received but currentRoom is null for socket ${socket.id}`);
+socket.on('storySelected', ({ storyIndex }) => {
+  const roomId = socket.data.roomId;
+  if (roomId && rooms[roomId]) {
+    console.log(`[SERVER] storySelected received from ${socket.id} in room ${roomId}, storyIndex: ${storyIndex}`);
+    rooms[roomId].selectedIndex = storyIndex;
+    io.to(roomId).emit('storySelected', { storyIndex });
+  } else {
+    console.warn(`[SERVER] storySelected ignored — no room found for socket ${socket.id}`);
   }
-  });
+});
+
 
 //  socket.on('castVote', ({ vote }) => {
   //  if (currentRoom) {
