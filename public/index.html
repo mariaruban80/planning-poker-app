@@ -232,12 +232,17 @@
 
     .vote-badge {
       background-color: transparent;
-      color: #ccc; /* Blend with background */
-      font-size: 14px; /* Matches the username font-size */
+      color: transparent; /* Make the text transparent instead of #ccc */
+      font-size: 14px;
       padding: 2px 10px;
       font-weight: bold;
       min-width: 28px;
       text-align: center;
+    }
+    
+    /* When votes are revealed, show the content */
+    .votes-revealed .vote-badge {
+      color: #333; /* Show with dark color when revealed */
     }
     
     /* New poker table layout */
@@ -311,7 +316,7 @@
       margin-top: 5px;
       text-align: center;
       white-space: nowrap;
-      overflow: hidden;
+      overflow: hidden;  
       text-overflow: ellipsis;
       max-width: 100%;
       font-weight: 500;
@@ -343,7 +348,12 @@
     .vote-card-space .vote-badge {
       font-size: 22px;
       font-weight: bold;
-      color: #ccc; /* Blend with background */
+      color: transparent; /* Hide the ? mark */
+    }
+    
+    /* Make vote numbers visible when votes are revealed */
+    .votes-revealed .vote-card-space .vote-badge {
+      color: #333;
     }
     
     .reveal-button-container {
@@ -393,8 +403,8 @@
     }
     
     .card {
-      width: 40px;
-      height: 60px;
+      width: 30px; /* Reduced from 40px */
+      height: 50px; /* Reduced from 60px for proportional look */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -402,7 +412,7 @@
       border-radius: 8px;
       cursor: grab;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px; /* Reduced from 18px */
       text-align: center;
       transition: transform 0.2s;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -517,10 +527,8 @@
   <script>
     // This script will run after the document is loaded but before other scripts
     document.addEventListener('DOMContentLoaded', function() {
-      // Check URL for guest parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
-                      urlParams.has('invite') || urlParams.has('id');
+      // Check for guest status
+      const isGuest = checkGuestStatus();
       
       // If user is a guest, hide control buttons
       if (isGuest) {
@@ -546,16 +554,64 @@
       if (inviteButton) {
         inviteButton.addEventListener('click', showInviteModal);
       }
+      
+      // Add a MutationObserver to monitor for any votes being revealed
+      setupVoteRevealMonitoring();
     });
+
+    // Check if the user is a guest
+    function checkGuestStatus() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.has('join') || urlParams.has('guest') || 
+             urlParams.has('room') || urlParams.has('invite') || 
+             urlParams.has('id');
+    }
+    
+    // Set up monitoring for vote reveal events
+    function setupVoteRevealMonitoring() {
+      // Monitor for vote reveal through class changes or attribute changes
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          // Check if any class related to vote revealing was added
+          if (mutation.type === 'attributes' && 
+              (mutation.target.classList.contains('votes-revealed') || 
+               mutation.target.hasAttribute('data-votes-revealed'))) {
+            // Make sure vote badges become visible
+            document.querySelectorAll('.vote-badge').forEach(badge => {
+              badge.style.color = '#333';
+            });
+          }
+        });
+      });
+      
+      // Start observing the document body for configuration
+      observer.observe(document.body, { 
+        attributes: true,
+        attributeFilter: ['class', 'data-votes-revealed'],
+        subtree: true
+      });
+      
+      // Patch the original revealVotes function if it exists
+      if (window.revealVotes) {
+        const originalRevealVotes = window.revealVotes;
+        window.revealVotes = function() {
+          // Call the original function
+          originalRevealVotes.apply(this, arguments);
+          
+          // Make vote badges visible
+          document.querySelectorAll('.vote-badge').forEach(badge => {
+            badge.style.color = '#333';
+          });
+        };
+      }
+    }
 
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
-      // Make sure the link has a join parameter
-      const currentUrl = window.location.href;
-      const inviteUrl = currentUrl.includes('?') ? 
-                      currentUrl + '&join=true' : 
-                      currentUrl + '?join=true';
-      document.getElementById('inviteLink').value = inviteUrl;
+      const baseUrl = window.location.protocol + "//" + 
+                     window.location.host + 
+                     window.location.pathname;
+      document.getElementById('inviteLink').value = baseUrl + "?join=true";
     }
 
     function hideInviteModal() {
