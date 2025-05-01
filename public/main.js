@@ -1,116 +1,136 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; 
+
+// Global state variables
 let pendingStoryIndex = null;
 let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
-let socket = null; // Keep reference for reuse
+let socket = null;
+let csvDataLoaded = false;  // New flag to track CSV data state
 
+/**
+ * Extract room ID from URL parameters
+ */
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('roomId');
 }
 
+/**
+ * Add room ID to URL for sharing
+ */
 function appendRoomIdToURL(roomId) {
   const currentUrl = new URL(window.location.href);
   currentUrl.searchParams.set('roomId', roomId);
   window.history.pushState(null, '', currentUrl.toString());
 }
 
+/**
+ * Handle all incoming socket messages
+ */
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
-     csvData = message.csvData;
-      console.log('[SOCKET] Received syncCSVData:', message.csvData);
+      csvData = message.csvData;
+      console.log('[SOCKET] Received syncCSVData:', csvData.length, 'rows');
       displayCSVData(csvData);
       
-      // If we have a pending story selection, apply it after displaying CSV data
+      // Mark CSV data as loaded and notify server
+      csvDataLoaded = true;
+      if (socket) socket.emit('csvDataLoaded');
+      
+      // Apply any pending story selection after displaying CSV data
       if (pendingStoryIndex !== null) {
         console.log('[APPLY] Applying pending story index after CSV load:', pendingStoryIndex);
         currentStoryIndex = pendingStoryIndex;
         pendingStoryIndex = null;
         
-        // Make sure to explicitly trigger highlighting
+        // Apply highlighting with a slight delay to ensure DOM is updated
         setTimeout(() => {
-          console.log('[HIGHLIGHT] Delayed highlight for:', currentStoryIndex);
           highlightSelectedStory(currentStoryIndex);
           renderCurrentStory();
-        }, 100); // Small delay to ensure DOM is ready
+        }, 100);
       } else {
         currentStoryIndex = 0;
         highlightSelectedStory(currentStoryIndex);
         renderCurrentStory();
       }
-      
       break;
+      
     case 'userList':
       updateUserList(message.users);
       break;
+      
     case 'storyChange':
       updateStory(message.story);
       break;
-      case 'storySelected':
-     console.log('[SOCKET] Received storySelected:', message.storyIndex);
-      if (csvData.length === 0) {
+      
+    case 'storySelected':
+      console.log('[SOCKET] Processing storySelected event:', message.storyIndex);
+      
+      // If CSV data isn't loaded yet, save the selection for later
+      if (!csvDataLoaded) {
         console.log('[DELAY] CSV not ready, saving pendingStoryIndex:', message.storyIndex);
-        pendingStoryIndex = message.storyIndex; // Delay if stories aren't ready
-      } else {
-        currentStoryIndex = message.storyIndex;
-        console.log('[APPLY] Highlighting immediately:', currentStoryIndex);
-        
-        // Force a re-render of all story cards to ensure proper highlighting
-        const storyListContainer = document.getElementById('storyList');
-        if (storyListContainer) {
-          // Re-display all stories to ensure correct DOM state
-          displayCSVData(csvData); 
-          
-          // Then apply highlighting with slight delay
-          setTimeout(() => {
-            highlightSelectedStory(currentStoryIndex);
-            renderCurrentStory();
-          }, 50);
-        }
+        pendingStoryIndex = message.storyIndex;
+        return;
       }
-  break;
-
- 
+      
+      // Update the current index
+      currentStoryIndex = message.storyIndex;
+      console.log('[APPLY] Setting currentStoryIndex to:', currentStoryIndex);
+      
+      // Apply highlighting with a slight delay
+      setTimeout(() => {
+        highlightSelectedStory(currentStoryIndex);
+        renderCurrentStory();
+      }, 50);
+      break;
+      
     case 'voteUpdate':
       if (message.storyIndex === currentStoryIndex) {
-      updateVoteVisuals(message.userId, message.vote);
+        updateVoteVisuals(message.userId, message.vote);
       }
       break;
+      
     default:
       console.warn('Unhandled message:', message);
   }
 }
 
+/**
+ * Highlight the currently selected story
+ */
 function highlightSelectedStory(index) {
   console.log('[HIGHLIGHT] Applying highlight to story:', index);
   
-  // First, remove all highlights
+  // Clear all highlights first
   const storyCards = document.querySelectorAll('.story-card');
-  console.log('[HIGHLIGHT] Total story cards:', storyCards.length);
-  storyCards.forEach(card => {
-    card.classList.remove('selected', 'active');
-  });
-
-  // Apply new highlight
-  if (storyCards.length > index && index >= 0) {
-    const selectedStory = storyCards[index];
-    if (selectedStory) {
-      console.log('[HIGHLIGHT] Found story to highlight:', selectedStory.textContent.substring(0, 30));
-      selectedStory.classList.add('selected');
-      selectedStory.classList.add('active');
-      
-      // Scroll the story into view if needed
-      selectedStory.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } else {
-      console.warn('[HIGHLIGHT] No story card found at index:', index);
-    }
+  console.log('[HIGHLIGHT] Total story cards found:', storyCards.length);
+  storyCards.forEach(card => card.classList.remove('selected', 'active'));
+  
+  // Find the specific card by data-index attribute (more reliable than array index)
+  const selectedStory = document.querySelector(`.story-card[data-index="${index}"]`);
+  
+  if (selectedStory) {
+    console.log('[HIGHLIGHT] Found story to highlight:', selectedStory.textContent.substring(0, 30));
+    selectedStory.classList.add('selected', 'active');
+    
+    // Scroll the story into view if needed
+    selectedStory.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } else {
-    console.warn('[HIGHLIGHT] Index out of range:', index, 'for', storyCards.length, 'stories');
+    console.warn('[HIGHLIGHT] No story card found with data-index:', index);
+    
+    // Fallback to position-based selection if data-index fails
+    if (storyCards[index]) {
+      console.log('[HIGHLIGHT] Falling back to position-based selection');
+      storyCards[index].classList.add('selected', 'active');
+    }
   }
 }
 
+/**
+ * Initialize the application
+ */
 function initializeApp(roomId) {
   let userName = '';
   while (!userName) {
@@ -118,12 +138,17 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
+  console.log('[INIT] Initializing app for room:', roomId);
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
+  setupVoteCardsDrag();
 }
 
+/**
+ * Setup CSV file uploader
+ */
 function setupCSVUploader() {
   const csvInput = document.getElementById('csvInput');
   if (!csvInput) return;
@@ -137,6 +162,7 @@ function setupCSVUploader() {
       const parsedData = parseCSV(e.target.result);
       emitCSVData(parsedData);
       csvData = parsedData;
+      csvDataLoaded = true;
       displayCSVData(csvData);
       renderCurrentStory();
     };
@@ -144,14 +170,22 @@ function setupCSVUploader() {
   });
 }
 
+/**
+ * Parse CSV text into array structure
+ */
 function parseCSV(data) {
   const rows = data.trim().split('\n');
   return rows.map(row => row.split(','));
 }
+
+/**
+ * Display CSV data in the story list
+ */
 function displayCSVData(data) {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer) return;
 
+  console.log('[UI] Displaying CSV data, rows:', data.length);
   storyListContainer.innerHTML = '';
 
   data.forEach((row, index) => {
@@ -161,45 +195,59 @@ function displayCSVData(data) {
     storyItem.dataset.index = index;
 
     storyItem.addEventListener('click', () => {
-      // Clear all selections first
-      document.querySelectorAll('.story-card').forEach(card => {
-        card.classList.remove('selected', 'active');
-      });
-      
-      // Apply new selection
-      storyItem.classList.add('selected');
-      storyItem.classList.add('active');
-      
-      currentStoryIndex = index;
-      renderCurrentStory();
-
-      console.log('[EMIT] Selecting story:', index);
-      if (socket) {
-        socket.emit('storySelected', { storyIndex: currentStoryIndex });
-      }
+      selectStory(index);
     });
 
     storyListContainer.appendChild(storyItem);
   });
+}
+
+/**
+ * Select a story both locally and remotely
+ */
+function selectStory(index) {
+  console.log('[UI] Story selected by user:', index);
   
-  // If we have a current index, make sure it's highlighted
-  if (currentStoryIndex !== null && currentStoryIndex >= 0) {
-    highlightSelectedStory(currentStoryIndex);
+  // Update UI first for responsiveness
+  document.querySelectorAll('.story-card').forEach(card => {
+    card.classList.remove('selected', 'active');
+  });
+  
+  const storyCard = document.querySelector(`.story-card[data-index="${index}"]`);
+  if (storyCard) {
+    storyCard.classList.add('selected', 'active');
+  }
+  
+  // Update local state
+  currentStoryIndex = index;
+  renderCurrentStory();
+  
+  // Notify server about selection
+  if (socket) {
+    console.log('[EMIT] Broadcasting story selection:', index);
+    socket.emit('storySelected', { storyIndex: index });
   }
 }
 
-
+/**
+ * Update the current story display
+ */
 function renderCurrentStory() {
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer || csvData.length === 0) return;
+  const storyDisplay = document.getElementById('currentStory');
+  if (!storyDisplay || csvData.length === 0) return;
 
-  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
-  allStoryItems.forEach(card => card.classList.remove('active'));
-
-  const current = allStoryItems[currentStoryIndex];
-  if (current) current.classList.add('active');
+  const story = csvData[currentStoryIndex];
+  if (story) {
+    storyDisplay.textContent = story.join(' | ');
+  }
+  
+  // Also highlight in sidebar
+  highlightSelectedStory(currentStoryIndex);
 }
 
+/**
+ * Update the user list display
+ */
 function updateUserList(users) {
   const userListContainer = document.getElementById('userList');
   const userCircleContainer = document.getElementById('userCircle');
@@ -216,6 +264,7 @@ function updateUserList(users) {
     const x = centerX + radius * Math.cos(angle) - 30;
     const y = centerY + radius * Math.sin(angle) - 30;
 
+    // Create user entry in the side list
     const userEntry = document.createElement('div');
     userEntry.classList.add('user-entry');
     userEntry.id = `user-${user.id}`;
@@ -226,6 +275,7 @@ function updateUserList(users) {
     `;
     userListContainer.appendChild(userEntry);
 
+    // Create user entry in the circle
     const circleEntry = document.createElement('div');
     circleEntry.classList.add('user-circle-entry');
     circleEntry.id = `user-circle-${user.id}`;
@@ -256,6 +306,7 @@ function updateUserList(users) {
     userCircleContainer.appendChild(circleEntry);
   });
 
+  // Add reveal button
   const revealBtn = document.createElement('button');
   revealBtn.textContent = 'Reveal Cards';
   revealBtn.id = 'revealBtn';
@@ -277,19 +328,32 @@ function updateUserList(users) {
   userCircleContainer.appendChild(revealBtn);
 }
 
+/**
+ * Update vote visuals for a user
+ */
 function updateVoteVisuals(userId, vote) {
-  const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
-                document.querySelector(`#user-circle-${userId} .vote-badge`);
-  if (badge) badge.textContent = vote;
+  // Update badges in both list and circle
+  const badges = document.querySelectorAll(`#user-${userId} .vote-badge, #user-circle-${userId} .vote-badge`);
+  badges.forEach(badge => {
+    if (badge) badge.textContent = vote;
+  });
 
+  // Update avatar background to show they've voted
   const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
   if (avatar) avatar.style.backgroundColor = '#c1e1c1';
 }
 
+/**
+ * Update story title
+ */
 function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) storyTitle.textContent = story;
 }
+
+/**
+ * Setup story navigation buttons
+ */
 function setupStoryNavigation() {
   const nextButton = document.getElementById('nextStory');
   const prevButton = document.getElementById('prevStory');
@@ -297,37 +361,32 @@ function setupStoryNavigation() {
   if (nextButton) {
     nextButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
-      console.log('[NAV] Next Story Clicked:', currentStoryIndex);
-      highlightSelectedStory(currentStoryIndex);
-      renderCurrentStory();
-      if (socket) {
-        console.log('[EMIT] storySelected:', currentStoryIndex);
-        socket.emit('storySelected', { storyIndex: currentStoryIndex });
-      }
+      const newIndex = (currentStoryIndex + 1) % csvData.length;
+      console.log('[NAV] Next Story Clicked, new index:', newIndex);
+      selectStory(newIndex);
     });
   }
 
   if (prevButton) {
     prevButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
-      currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
-      console.log('[NAV] Previous Story Clicked:', currentStoryIndex);
-      highlightSelectedStory(currentStoryIndex);
-      renderCurrentStory();
-      if (socket) {
-        console.log('[EMIT] storySelected:', currentStoryIndex);
-        socket.emit('storySelected', { storyIndex: currentStoryIndex });
-      }
+      const newIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+      console.log('[NAV] Previous Story Clicked, new index:', newIndex);
+      selectStory(newIndex);
     });
   }
 }
 
-
+/**
+ * Generate avatar URL
+ */
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
 
+/**
+ * Setup invite button functionality
+ */
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
@@ -350,6 +409,9 @@ function setupInviteButton() {
   };
 }
 
+/**
+ * Setup vote card drag functionality
+ */
 function setupVoteCardsDrag() {
   document.querySelectorAll('.card').forEach(card => {
     card.addEventListener('dragstart', (e) => {
@@ -358,6 +420,9 @@ function setupVoteCardsDrag() {
   });
 }
 
+/**
+ * Initialize on page load
+ */
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
   if (!roomId) {
@@ -365,5 +430,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
-  setupVoteCardsDrag();
 });
