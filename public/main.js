@@ -19,11 +19,13 @@ function appendRoomIdToURL(roomId) {
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
+      console.log('[SOCKET] Received syncCSVData:', message.csvData);
       csvData = message.csvData;
       currentStoryIndex = 0;
       displayCSVData(csvData);
     //  renderCurrentStory();
       if (pendingStoryIndex !== null) {
+        console.log('[APPLY] Pending story index after CSV load:', pendingStoryIndex);
       currentStoryIndex = pendingStoryIndex;
       highlightSelectedStory(currentStoryIndex);
       renderCurrentStory();
@@ -66,13 +68,18 @@ function handleSocketMessage(message) {
 }
 
 function highlightSelectedStory(index) {
+    console.log('[HIGHLIGHT] Applying highlight to story:', index);
   const storyCards = document.querySelectorAll('.story-card');
+  console.log('[HIGHLIGHT] Total story cards:', storyCards.length);
   storyCards.forEach(card => card.classList.remove('selected', 'active'));
 
   const selectedStory = storyCards[index];
   if (selectedStory) {
     selectedStory.classList.add('selected');
     selectedStory.classList.add('active');
+  }
+  else{
+    console.warn('[HIGHLIGHT] No story card found at index:', index);
   }
 }
 
