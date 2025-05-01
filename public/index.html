@@ -232,17 +232,12 @@
 
     .vote-badge {
       background-color: transparent;
-      color: transparent; /* Make the text transparent instead of #ccc */
-      font-size: 14px;
+      color: transparent; /* Hide the question marks by making text transparent */
+      font-size: 14px; /* Matches the username font-size */
       padding: 2px 10px;
       font-weight: bold;
       min-width: 28px;
       text-align: center;
-    }
-    
-    /* When votes are revealed, show the content */
-    .votes-revealed .vote-badge {
-      color: #333; /* Show with dark color when revealed */
     }
     
     /* New poker table layout */
@@ -316,7 +311,7 @@
       margin-top: 5px;
       text-align: center;
       white-space: nowrap;
-      overflow: hidden;  
+      overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
       font-weight: 500;
@@ -348,12 +343,7 @@
     .vote-card-space .vote-badge {
       font-size: 22px;
       font-weight: bold;
-      color: transparent; /* Hide the ? mark */
-    }
-    
-    /* Make vote numbers visible when votes are revealed */
-    .votes-revealed .vote-card-space .vote-badge {
-      color: #333;
+      color: transparent; /* Hide the question marks by making text transparent */
     }
     
     .reveal-button-container {
@@ -447,11 +437,6 @@
         border-bottom: 1px solid #e0e0e0;
       }
     }
-
-    /* Hide elements for guests */
-    .hidden-control {
-      display: none !important;
-    }
   </style>
 </head>
 
@@ -525,93 +510,9 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    // This script will run after the document is loaded but before other scripts
-    document.addEventListener('DOMContentLoaded', function() {
-      // Check for guest status
-      const isGuest = checkGuestStatus();
-      
-      // If user is a guest, hide control buttons
-      if (isGuest) {
-        // Just hide the buttons individually to avoid breaking any functionality
-        const controlButtons = [
-          document.getElementById('revealVotesBtn'),
-          document.getElementById('resetVotesBtn'),
-          document.getElementById('exportCsvBtn'),
-          document.getElementById('fileInputContainer'),
-          document.getElementById('inviteButton')
-        ];
-        
-        // Hide each button if it exists
-        controlButtons.forEach(button => {
-          if (button) {
-            button.style.display = 'none';
-          }
-        });
-      }
-      
-      // Set up invite button (only visible to host)
-      const inviteButton = document.getElementById('inviteButton');
-      if (inviteButton) {
-        inviteButton.addEventListener('click', showInviteModal);
-      }
-      
-      // Add a MutationObserver to monitor for any votes being revealed
-      setupVoteRevealMonitoring();
-    });
-
-    // Check if the user is a guest
-    function checkGuestStatus() {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.has('join') || urlParams.has('guest') || 
-             urlParams.has('room') || urlParams.has('invite') || 
-             urlParams.has('id');
-    }
-    
-    // Set up monitoring for vote reveal events
-    function setupVoteRevealMonitoring() {
-      // Monitor for vote reveal through class changes or attribute changes
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          // Check if any class related to vote revealing was added
-          if (mutation.type === 'attributes' && 
-              (mutation.target.classList.contains('votes-revealed') || 
-               mutation.target.hasAttribute('data-votes-revealed'))) {
-            // Make sure vote badges become visible
-            document.querySelectorAll('.vote-badge').forEach(badge => {
-              badge.style.color = '#333';
-            });
-          }
-        });
-      });
-      
-      // Start observing the document body for configuration
-      observer.observe(document.body, { 
-        attributes: true,
-        attributeFilter: ['class', 'data-votes-revealed'],
-        subtree: true
-      });
-      
-      // Patch the original revealVotes function if it exists
-      if (window.revealVotes) {
-        const originalRevealVotes = window.revealVotes;
-        window.revealVotes = function() {
-          // Call the original function
-          originalRevealVotes.apply(this, arguments);
-          
-          // Make vote badges visible
-          document.querySelectorAll('.vote-badge').forEach(badge => {
-            badge.style.color = '#333';
-          });
-        };
-      }
-    }
-
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
-      const baseUrl = window.location.protocol + "//" + 
-                     window.location.host + 
-                     window.location.pathname;
-      document.getElementById('inviteLink').value = baseUrl + "?join=true";
+      document.getElementById('inviteLink').value = window.location.href;
     }
 
     function hideInviteModal() {
@@ -624,6 +525,28 @@
       document.execCommand('copy');
       alert('Invite link copied!');
     }
+    
+    // Connect invite button to modal
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add this minimal check for guest status based on URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
+      
+      // Only hide the buttons if user is a guest
+      if (isGuest) {
+        document.getElementById('fileInputContainer').style.display = 'none';
+        document.getElementById('inviteButton').style.display = 'none';
+        document.getElementById('revealVotesBtn').style.display = 'none';
+        document.getElementById('resetVotesBtn').style.display = 'none';
+        document.getElementById('exportCsvBtn').style.display = 'none';
+      }
+      
+      // Only setup invite button if it's visible
+      const inviteButton = document.getElementById('inviteButton');
+      if (inviteButton && !isGuest) {
+        inviteButton.addEventListener('click', showInviteModal);
+      }
+    });
   </script>
 </body>
 </html>
