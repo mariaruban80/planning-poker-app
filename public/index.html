@@ -6,31 +6,193 @@
   <title>Planning Poker Interactive</title>
 
   <style>
-    body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fafafa; }
-    .container { display: flex; height: 100vh; }
-    .sidebar, .rightbar { width: 20%; background: #f4f4f8; padding: 20px; overflow-y: auto; }
-    .main { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .banner { background-color: #003366; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; }
-    .story-card { margin-bottom: 10px; padding: 10px; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: background-color 0.3s; }
-    .story-card.selected { background-color: #e0e7ff; border: 2px solid #6c63ff; }
-    .story-card.active { background-color: #f0f0f0; border: 2px solid #4CAF50; }
-    .story-card.voted { background-color: #c8f7c5; }
-    .button { margin: 10px 0; padding: 8px 12px; background-color: #6c63ff; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
-    .button:hover { background-color: #574fdd; }
-    .invite-button { padding: 5px 10px; background-color: #ff9800; border-radius: 6px; color: white; font-size: 12px; border: none; cursor: pointer; }
-    .upload-section { display: flex; justify-content: flex-end; padding: 10px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); gap: 10px; }
-    .upload-right { display: flex; align-items: center; gap: 10px; }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 9999; }
-    .modal { background: white; padding: 20px; border-radius: 10px; width: 300px; text-align: center; }
-    .modal input { width: 100%; padding: 6px; margin-top: 10px; font-size: 14px; }
-    .modal button { margin-top: 10px; background-color: #6c63ff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    body { 
+      font-family: 'Arial', sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background: #f5f6fa; /* Pearl white background */
+    }
+    
+    .container { 
+      display: flex; 
+      min-height: calc(100vh - 140px);
+    }
+    
+    .sidebar, .rightbar { 
+      width: 20%; 
+      background: #f5f6fa; 
+      padding: 20px; 
+      overflow-y: auto;
+      border-right: 1px solid #e0e0e0;
+    }
+    
+    .rightbar {
+      border-right: none;
+      border-left: 1px solid #e0e0e0;
+    }
+    
+    .main { 
+      flex: 1; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      background: white;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    }
+    
+    .banner { 
+      background-color: #003366; 
+      color: white; 
+      padding: 15px; 
+      text-align: center; 
+      font-size: 24px; 
+      font-weight: bold;
+    }
+    
+    .story-card { 
+      margin-bottom: 10px; 
+      padding: 10px; 
+      background-color: #fff; 
+      border-radius: 8px; 
+      border: 1px solid #e0e0e0;
+      cursor: pointer; 
+      transition: all 0.2s ease;
+    }
+    
+    .story-card.selected { 
+      background-color: #e8f4fd; 
+      border: 1px solid #60a5fa;
+    }
+    
+    .story-card.active { 
+      background-color: #f0f0f0; 
+      border: 1px solid #4CAF50;
+    }
+    
+    .button { 
+      margin: 10px 0; 
+      padding: 12px; 
+      background-color: #6c63ff; 
+      color: white; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      width: 100%;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+    
+    .button:hover { 
+      background-color: #574fdd; 
+    }
+    
+    .upload-section { 
+      display: flex; 
+      justify-content: flex-end; 
+      padding: 10px 20px; 
+      background: white; 
+      border-bottom: 1px solid #e0e0e0;
+      gap: 10px;
+    }
+    
+    .upload-right { 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+    }
+    
+    .invite-button { 
+      padding: 8px 16px; 
+      background-color: #ff9800; 
+      border-radius: 6px; 
+      color: white; 
+      font-size: 14px; 
+      border: none; 
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .invite-button:hover {
+      background-color: #f57c00;
+    }
+    
+    .file-input {
+      display: inline-block;
+      position: relative;
+    }
+
+    .file-input input[type="file"] {
+      opacity: 0;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .file-button {
+      padding: 8px 16px;
+      background-color: #f5f6fa;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      color: #333;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    
+    .modal-overlay { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100vw; 
+      height: 100vh; 
+      background-color: rgba(0,0,0,0.5); 
+      display: none; 
+      align-items: center; 
+      justify-content: center; 
+      z-index: 9999;
+    }
+    
+    .modal { 
+      background: white; 
+      padding: 20px; 
+      border-radius: 10px; 
+      width: 300px; 
+      text-align: center;
+    }
+    
+    .modal input { 
+      width: 100%; 
+      padding: 6px; 
+      margin-top: 10px; 
+      font-size: 14px;
+    }
+    
+    .modal button { 
+      margin-top: 10px; 
+      background-color: #6c63ff; 
+      color: white; 
+      border: none; 
+      padding: 6px 12px; 
+      border-radius: 6px; 
+      cursor: pointer;
+    }
     
     /* User list styling */
+    .sidebar h3, .rightbar h3 {
+      color: #333;
+      margin-top: 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
     #userList {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 1rem;
+      padding: 0.5rem 0;
       width: 100%;
     }
 
@@ -38,10 +200,10 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(to right, #fafafa, #f5f5f5);
-      border-radius: 999px;
-      padding: 6px 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      background: white;
+      border-radius: 30px;
+      padding: 8px 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .user-entry.voted {
@@ -54,6 +216,11 @@
       border-radius: 50%;
       object-fit: cover;
       margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
     }
 
     .username {
@@ -64,11 +231,10 @@
     }
 
     .vote-badge {
-      background-color: #fff;
-      color: #673ab7;
+      background-color: transparent;
+      color: #ccc; /* Blend with background */
       font-size: 14px;
       padding: 2px 10px;
-      border-radius: 50%;
       font-weight: bold;
       min-width: 28px;
       text-align: center;
@@ -80,17 +246,30 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
-      gap: 15px;
+      gap: 20px;
       padding: 20px 0;
+    }
+    
+    .current-story-display {
+      width: 100%;
+      max-width: 700px;
+      padding: 15px;
+      background-color: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 600;
+      color: #333;
     }
     
     .avatar-row {
       display: flex;
       justify-content: center;
       width: 100%;
-      gap: 20px;
+      gap: 30px;
       flex-wrap: wrap;
     }
     
@@ -98,7 +277,7 @@
       display: flex;
       justify-content: center;
       width: 100%;
-      gap: 20px;
+      gap: 30px;
       flex-wrap: wrap;
     }
     
@@ -106,27 +285,25 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 80px;
-      transition: transform 0.2s;
-    }
-    
-    .avatar-container:hover {
-      transform: translateY(-3px);
+      width: 70px;
     }
     
     .avatar-circle {
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #ccc;
-      background-color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      font-size: 18px;
+      background-color: #673ab7;
       transition: all 0.3s ease;
     }
     
     .has-voted .avatar-circle {
-      border-color: #4CAF50;
-      background-color: #c1e1c1;
+      border: 2px solid #4CAF50;
     }
     
     .user-name {
@@ -137,29 +314,36 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+      font-weight: 500;
     }
     
     .vote-card-space {
       width: 60px;
       height: 90px;
-      border: 2px dashed #ccc;
-      border-radius: 10px;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: #f9f9f9;
+      background-color: white;
       transition: all 0.2s ease;
     }
     
     .vote-card-space:hover {
       border-color: #999;
-      background-color: #f0f0f0;
+      background-color: #f9f9f9;
     }
     
     .vote-card-space.has-vote {
       border-style: solid;
       border-color: #673ab7;
       background-color: #f0e6ff;
+    }
+    
+    .vote-card-space .vote-badge {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ccc; /* Blend with background */
     }
     
     .reveal-button-container {
@@ -173,7 +357,7 @@
       padding: 12px 24px;
       font-size: 16px;
       font-weight: bold;
-      background-color: #ffffff;
+      background-color: white;
       color: #673ab7;
       border: 2px solid #673ab7;
       border-radius: 8px;
@@ -181,6 +365,7 @@
       transition: all 0.2s ease;
       letter-spacing: 1px;
       min-width: 200px;
+      text-transform: uppercase;
     }
     
     .reveal-votes-button:hover {
@@ -189,8 +374,18 @@
     }
     
     /* Vote cards styling */
+    .planning-cards-section {
+      width: 100%;
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .planning-cards-section h3 {
+      color: #333;
+      margin-bottom: 15px;
+    }
+    
     .cards {
-      margin-top: 30px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
@@ -198,16 +393,20 @@
     }
     
     .card {
-      padding: 10px 20px;
+      width: 40px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: #cfc6f7;
       border-radius: 8px;
       cursor: grab;
       font-weight: bold;
       font-size: 18px;
-      min-width: 40px;
       text-align: center;
       transition: transform 0.2s;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      color: #333;
     }
     
     .card:hover {
@@ -219,24 +418,10 @@
     .section-heading {
       font-size: 16px;
       font-weight: bold;
-      color: #673ab7;
-      margin: 15px 0 10px 0;
+      color: #333;
+      margin: 20px 0 10px 0;
       padding-bottom: 5px;
-      border-bottom: 2px solid #e0e0e0;
-    }
-
-    /* CurrentStory styling */
-    #currentStory {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 20px 0;
-      padding: 15px;
-      background-color: #f5f5f5;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 800px;
-      text-align: center;
+      border-bottom: 1px solid #e0e0e0;
     }
 
     /* User-friendly UI tweaks */
@@ -248,6 +433,8 @@
       .sidebar, .rightbar {
         width: 100%;
         max-width: 100%;
+        border: none;
+        border-bottom: 1px solid #e0e0e0;
       }
     }
   </style>
@@ -269,16 +456,17 @@
   <!-- Upload Section -->
   <div class="upload-section">
     <div class="upload-right">
-      <input type="file" id="csvInput" accept=".csv" />
+      <div class="file-input">
+        <label class="file-button">Choose File</label>
+        <input type="file" id="csvInput" accept=".csv" />
+      </div>
       <button class="invite-button" id="inviteButton">Invite Others</button>
-      <span id="storyCount"></span>
-      <div id="story-info"></div>
     </div>
   </div>
 
   <div class="container">
     <div class="sidebar">
-      <h3 class="section-heading">Current Members</h3>
+      <h3>Current Members</h3>
       <div id="userList"></div> 
       
       <h3 class="section-heading">Voting Controls</h3>
@@ -288,27 +476,28 @@
     </div>
 
     <div class="main">
-      <!-- Current story display -->
-      <div id="currentStory" class="story-card"></div>
+      <!-- Story will be displayed in the poker-table-layout instead of here -->
       
       <!-- New poker table layout will be rendered here -->
       <div id="userCircle" class="user-circle-container"></div>
       
       <!-- Planning cards -->
-      <h3>Planning Cards</h3>
-      <div class="cards">
-        <div class="card" draggable="true">0</div>
-        <div class="card" draggable="true">1</div>
-        <div class="card" draggable="true">3</div>
-        <div class="card" draggable="true">5</div>
-        <div class="card" draggable="true">8</div>
-        <div class="card" draggable="true">13</div>
-        <div class="card" draggable="true">21</div>
+      <div class="planning-cards-section">
+        <h3>Planning Cards</h3>
+        <div class="cards">
+          <div class="card" draggable="true">0</div>
+          <div class="card" draggable="true">1</div>
+          <div class="card" draggable="true">3</div>
+          <div class="card" draggable="true">5</div>
+          <div class="card" draggable="true">8</div>
+          <div class="card" draggable="true">13</div>
+          <div class="card" draggable="true">21</div>
+        </div>
       </div>
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <h3 class="section-heading">User Stories</h3>
+      <h3>User Stories</h3>
       <div id="storyList"></div>
       <div style="margin-top: 20px;">
         <button class="button" id="prevStory">Previous Story</button>
