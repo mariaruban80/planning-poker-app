@@ -1,5 +1,5 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; 
-
+let pendingStoryIndex = null;
 let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
@@ -22,7 +22,18 @@ function handleSocketMessage(message) {
       csvData = message.csvData;
       currentStoryIndex = 0;
       displayCSVData(csvData);
+    //  renderCurrentStory();
+      if (pendingStoryIndex !== null) {
+      currentStoryIndex = pendingStoryIndex;
+      highlightSelectedStory(currentStoryIndex);
       renderCurrentStory();
+      pendingStoryIndex = null;
+      }
+      else {
+      currentStoryIndex = 0;
+      highlightSelectedStory(currentStoryIndex);
+      renderCurrentStory();
+      }
       break;
     case 'userList':
       updateUserList(message.users);
@@ -30,11 +41,17 @@ function handleSocketMessage(message) {
     case 'storyChange':
       updateStory(message.story);
       break;
-    case 'storySelected':
-      currentStoryIndex = message.storyIndex;
-      highlightSelectedStory(currentStoryIndex);
-      renderCurrentStory();  // <-- Ensure visual state is in sync
-      break;  
+      case 'storySelected':
+        if (csvData.length === 0) {
+        pendingStoryIndex = message.storyIndex; // Delay if stories aren't ready
+        } else {
+        currentStoryIndex = message.storyIndex;
+        highlightSelectedStory(currentStoryIndex);
+        renderCurrentStory();
+        }
+  break;
+
+ 
     case 'voteUpdate':
       if (message.storyIndex === currentStoryIndex) {
       updateVoteVisuals(message.userId, message.vote);
