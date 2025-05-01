@@ -17,7 +17,7 @@ function appendRoomIdToURL(roomId) {
 }
 
 function handleSocketMessage(message) {
-  console.log('[Socket Message]', message); // 🔍 Debug all messages
+  console.log('[Socket Message]', message);
   switch (message.type) {
     case 'syncCSVData':
       csvData = message.csvData;
