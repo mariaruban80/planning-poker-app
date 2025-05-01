@@ -439,7 +439,7 @@
     }
 
     /* Hide elements for guests */
-    .guest-hidden {
+    .hidden {
       display: none !important;
     }
   </style>
@@ -474,10 +474,12 @@
       <h3>Current Members</h3>
       <div id="userList"></div> 
       
-      <h3 class="section-heading">Voting Controls</h3>
-      <button class="button" id="revealVotesBtn">Reveal Votes</button>
-      <button class="button" id="resetVotesBtn">Reset Votes</button>
-      <button class="button" id="exportCsvBtn">Export All Votes</button>
+      <div id="votingControls">
+        <h3 class="section-heading">Voting Controls</h3>
+        <button class="button" id="revealVotesBtn">Reveal Votes</button>
+        <button class="button" id="resetVotesBtn">Reset Votes</button>
+        <button class="button" id="exportCsvBtn">Export All Votes</button>
+      </div>
     </div>
 
     <div class="main">
@@ -515,42 +517,62 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Check if user is a guest (via URL parameter)
-      const isGuest = checkIfUserIsGuest();
-      
-      // Apply visibility controls for guests
-      if (isGuest) {
-        // Hide control buttons for guests
-        document.getElementById('revealVotesBtn').classList.add('guest-hidden');
-        document.getElementById('resetVotesBtn').classList.add('guest-hidden');
-        document.getElementById('exportCsvBtn').classList.add('guest-hidden');
-        
-        // Hide file input and invite button
-        document.getElementById('fileInputContainer').classList.add('guest-hidden');
-        document.getElementById('inviteButton').classList.add('guest-hidden');
+    // Store the user role in localStorage to persist across refreshes
+    function initializeUserRole() {
+      // If role is already set, don't override it
+      if (localStorage.getItem('userRole')) {
+        return;
       }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      // Check for common parameters that might indicate a shared/invite link
+      if (urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
+          urlParams.has('invite') || urlParams.has('id')) {
+        localStorage.setItem('userRole', 'guest');
+      } else {
+        // First user to create the room is the host
+        localStorage.setItem('userRole', 'host');
+      }
+    }
+
+    function isUserGuest() {
+      return localStorage.getItem('userRole') === 'guest';
+    }
+
+    // Apply visibility based on user role
+    function applyRoleBasedVisibility() {
+      const isGuest = isUserGuest();
+
+      if (isGuest) {
+        // Hide elements for guests
+        document.getElementById('fileInputContainer').style.display = 'none';
+        document.getElementById('inviteButton').style.display = 'none';
+        document.getElementById('votingControls').style.display = 'none';
+      }
+    }
+
+    // Initialize everything when the DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up user role
+      initializeUserRole();
       
-      // Connect invite button to modal
+      // Apply visibility settings
+      applyRoleBasedVisibility();
+      
+      // Connect invite button to modal (only works for host)
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton) {
         inviteButton.addEventListener('click', showInviteModal);
       }
-    });
 
-    // Function to determine if user is a guest
-    function checkIfUserIsGuest() {
-      // Check URL parameters to determine if user is joining as a guest
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.has('guest') || urlParams.has('join');
-      
-      // Alternative implementation could use session storage or localStorage
-      // return localStorage.getItem('userRole') === 'guest';
-    }
+      // Add URL parameter for guests when sharing the link
+      document.getElementById('inviteLink').value = window.location.origin + 
+                                                   window.location.pathname + 
+                                                   '?join=true';
+    });
 
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
-      document.getElementById('inviteLink').value = window.location.href;
     }
 
     function hideInviteModal() {
