@@ -1,4 +1,4 @@
-import { initializeWebSocket, emitCSVData } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes } from './socket.js'; 
 
 // Global state variables
 let pendingStoryIndex = null;
@@ -6,7 +6,8 @@ let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
 let socket = null;
-let csvDataLoaded = false;  // New flag to track CSV data state
+let csvDataLoaded = false;  // Track CSV data loading state
+let votesPerStory = {};     // Track votes for each story { storyIndex: { userId: vote, ... }, ... }
 
 /**
  * Extract room ID from URL parameters
@@ -26,18 +27,17 @@ function appendRoomIdToURL(roomId) {
 }
 
 /**
- * Handle all incoming socket messages
+ * Handle incoming socket messages
  */
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
       csvData = message.csvData;
-      console.log('[SOCKET] Received syncCSVData:', csvData.length, 'rows');
+      console.log('[SOCKET] Received syncCSVData:', message.csvData.length, 'rows');
       displayCSVData(csvData);
       
-      // Mark CSV data as loaded and notify server
+      // Mark CSV data as loaded
       csvDataLoaded = true;
-      if (socket) socket.emit('csvDataLoaded');
       
       // Apply any pending story selection after displaying CSV data
       if (pendingStoryIndex !== null) {
@@ -49,6 +49,11 @@ function handleSocketMessage(message) {
         setTimeout(() => {
           highlightSelectedStory(currentStoryIndex);
           renderCurrentStory();
+          
+          // Request votes for this story
+          if (typeof requestStoryVotes === 'function') {
+            requestStoryVotes(currentStoryIndex);
+          }
         }, 100);
       } else {
         currentStoryIndex = 0;
@@ -79,16 +84,45 @@ function handleSocketMessage(message) {
       currentStoryIndex = message.storyIndex;
       console.log('[APPLY] Setting currentStoryIndex to:', currentStoryIndex);
       
-      // Apply highlighting with a slight delay
-      setTimeout(() => {
-        highlightSelectedStory(currentStoryIndex);
-        renderCurrentStory();
-      }, 50);
+      // Apply highlighting and reset votes
+      highlightSelectedStory(currentStoryIndex);
+      renderCurrentStory();
+      resetOrRestoreVotes(currentStoryIndex);
+      
+      // Request votes for this story
+      if (typeof requestStoryVotes === 'function') {
+        requestStoryVotes(currentStoryIndex);
+      }
       break;
       
     case 'voteUpdate':
+      // Store vote in our local state
+      if (!votesPerStory[message.storyIndex]) {
+        votesPerStory[message.storyIndex] = {};
+      }
+      votesPerStory[message.storyIndex][message.userId] = message.vote;
+      
+      // Update UI if this is for the current story
       if (message.storyIndex === currentStoryIndex) {
         updateVoteVisuals(message.userId, message.vote);
+      }
+      break;
+      
+    case 'storyVotes':
+      console.log('[VOTES] Received votes for story', message.storyIndex, ':', message.votes);
+      votesPerStory[message.storyIndex] = message.votes;
+      
+      if (message.storyIndex === currentStoryIndex) {
+        applyVotesToUI(message.votes);
+      }
+      break;
+      
+    case 'votesReset':
+      if (message.storyIndex === currentStoryIndex) {
+        resetAllVoteVisuals();
+      }
+      if (votesPerStory[message.storyIndex]) {
+        votesPerStory[message.storyIndex] = {};
       }
       break;
       
@@ -98,33 +132,78 @@ function handleSocketMessage(message) {
 }
 
 /**
- * Highlight the currently selected story
+ * Apply votes from server to the UI
+ */
+function applyVotesToUI(votes) {
+  // Reset all votes first
+  resetAllVoteVisuals();
+  
+  // Apply each vote
+  Object.entries(votes).forEach(([userId, vote]) => {
+    updateVoteVisuals(userId, vote);
+  });
+}
+
+/**
+ * Reset all vote visuals to default state
+ */
+function resetAllVoteVisuals() {
+  // Reset all vote badges to "?"
+  const badges = document.querySelectorAll('.vote-badge');
+  badges.forEach(badge => {
+    badge.textContent = '?';
+  });
+  
+  // Reset avatar backgrounds
+  const avatars = document.querySelectorAll('img.avatar');
+  avatars.forEach(avatar => {
+    avatar.style.backgroundColor = 'white';
+  });
+}
+
+/**
+ * Reset or restore votes when switching stories
+ */
+function resetOrRestoreVotes(storyIndex) {
+  // Reset all visuals first
+  resetAllVoteVisuals();
+  
+  // Restore saved votes if any
+  const savedVotes = votesPerStory[storyIndex] || {};
+  if (Object.keys(savedVotes).length > 0) {
+    console.log('[VOTES] Restoring votes for story', storyIndex, ':', savedVotes);
+    
+    Object.entries(savedVotes).forEach(([userId, vote]) => {
+      updateVoteVisuals(userId, vote);
+    });
+  }
+}
+
+/**
+ * Highlight the selected story
  */
 function highlightSelectedStory(index) {
   console.log('[HIGHLIGHT] Applying highlight to story:', index);
   
-  // Clear all highlights first
+  // Clear all highlights
   const storyCards = document.querySelectorAll('.story-card');
-  console.log('[HIGHLIGHT] Total story cards found:', storyCards.length);
+  console.log('[HIGHLIGHT] Total story cards:', storyCards.length);
   storyCards.forEach(card => card.classList.remove('selected', 'active'));
   
-  // Find the specific card by data-index attribute (more reliable than array index)
-  const selectedStory = document.querySelector(`.story-card[data-index="${index}"]`);
-  
-  if (selectedStory) {
-    console.log('[HIGHLIGHT] Found story to highlight:', selectedStory.textContent.substring(0, 30));
-    selectedStory.classList.add('selected', 'active');
-    
-    // Scroll the story into view if needed
-    selectedStory.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } else {
-    console.warn('[HIGHLIGHT] No story card found with data-index:', index);
-    
-    // Fallback to position-based selection if data-index fails
-    if (storyCards[index]) {
-      console.log('[HIGHLIGHT] Falling back to position-based selection');
-      storyCards[index].classList.add('selected', 'active');
+  // Find the card by index
+  if (index >= 0 && index < storyCards.length) {
+    const selectedStory = storyCards[index];
+    if (selectedStory) {
+      console.log('[HIGHLIGHT] Found story to highlight:', selectedStory.textContent.substring(0, 30));
+      selectedStory.classList.add('selected', 'active');
+      
+      // Scroll into view if needed
+      selectedStory.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      console.warn('[HIGHLIGHT] No story card found at index:', index);
     }
+  } else {
+    console.warn('[HIGHLIGHT] Index out of range:', index, 'for', storyCards.length, 'stories');
   }
 }
 
@@ -138,7 +217,6 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-  console.log('[INIT] Initializing app for room:', roomId);
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
@@ -162,8 +240,12 @@ function setupCSVUploader() {
       const parsedData = parseCSV(e.target.result);
       emitCSVData(parsedData);
       csvData = parsedData;
-      csvDataLoaded = true;
       displayCSVData(csvData);
+      
+      // Reset voting state when new CSV is loaded
+      votesPerStory = {};
+      currentStoryIndex = 0;
+      
       renderCurrentStory();
     };
     reader.readAsText(file);
@@ -185,7 +267,6 @@ function displayCSVData(data) {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer) return;
 
-  console.log('[UI] Displaying CSV data, rows:', data.length);
   storyListContainer.innerHTML = '';
 
   data.forEach((row, index) => {
@@ -203,7 +284,7 @@ function displayCSVData(data) {
 }
 
 /**
- * Select a story both locally and remotely
+ * Select a story by index
  */
 function selectStory(index) {
   console.log('[UI] Story selected by user:', index);
@@ -222,27 +303,41 @@ function selectStory(index) {
   currentStoryIndex = index;
   renderCurrentStory();
   
+  // Reset or restore vote badges for the current story
+  resetOrRestoreVotes(index);
+  
   // Notify server about selection
   if (socket) {
     console.log('[EMIT] Broadcasting story selection:', index);
     socket.emit('storySelected', { storyIndex: index });
+    
+    // Request votes for this story
+    if (typeof requestStoryVotes === 'function') {
+      requestStoryVotes(index);
+    } else {
+      socket.emit('requestStoryVotes', { storyIndex: index });
+    }
   }
 }
 
 /**
- * Update the current story display
+ * Render the current story
  */
 function renderCurrentStory() {
-  const storyDisplay = document.getElementById('currentStory');
-  if (!storyDisplay || csvData.length === 0) return;
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer || csvData.length === 0) return;
 
-  const story = csvData[currentStoryIndex];
-  if (story) {
-    storyDisplay.textContent = story.join(' | ');
-  }
+  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
+  allStoryItems.forEach(card => card.classList.remove('active'));
+
+  const current = allStoryItems[currentStoryIndex];
+  if (current) current.classList.add('active');
   
-  // Also highlight in sidebar
-  highlightSelectedStory(currentStoryIndex);
+  // Update the current story display, if present
+  const currentStoryDisplay = document.getElementById('currentStory');
+  if (currentStoryDisplay && csvData[currentStoryIndex]) {
+    currentStoryDisplay.textContent = csvData[currentStoryIndex].join(' | ');
+  }
 }
 
 /**
@@ -264,7 +359,7 @@ function updateUserList(users) {
     const x = centerX + radius * Math.cos(angle) - 30;
     const y = centerY + radius * Math.sin(angle) - 30;
 
-    // Create user entry in the side list
+    // Create user entry in side list
     const userEntry = document.createElement('div');
     userEntry.classList.add('user-entry');
     userEntry.id = `user-${user.id}`;
@@ -275,7 +370,7 @@ function updateUserList(users) {
     `;
     userListContainer.appendChild(userEntry);
 
-    // Create user entry in the circle
+    // Create user entry in circle
     const circleEntry = document.createElement('div');
     circleEntry.classList.add('user-circle-entry');
     circleEntry.id = `user-circle-${user.id}`;
@@ -300,6 +395,13 @@ function updateUserList(users) {
         socket.emit('castVote', { vote, targetUserId: userId });
       }
 
+      // Store vote locally
+      if (!votesPerStory[currentStoryIndex]) {
+        votesPerStory[currentStoryIndex] = {};
+      }
+      votesPerStory[currentStoryIndex][userId] = vote;
+      
+      // Update UI
       updateVoteVisuals(userId, vote);
     });
 
@@ -352,7 +454,7 @@ function updateStory(story) {
 }
 
 /**
- * Setup story navigation buttons
+ * Setup story navigation
  */
 function setupStoryNavigation() {
   const nextButton = document.getElementById('nextStory');
@@ -362,7 +464,7 @@ function setupStoryNavigation() {
     nextButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
       const newIndex = (currentStoryIndex + 1) % csvData.length;
-      console.log('[NAV] Next Story Clicked, new index:', newIndex);
+      console.log('[NAV] Next Story Clicked:', newIndex);
       selectStory(newIndex);
     });
   }
@@ -371,7 +473,7 @@ function setupStoryNavigation() {
     prevButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
       const newIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
-      console.log('[NAV] Previous Story Clicked, new index:', newIndex);
+      console.log('[NAV] Previous Story Clicked:', newIndex);
       selectStory(newIndex);
     });
   }
@@ -385,7 +487,7 @@ function generateAvatarUrl(name) {
 }
 
 /**
- * Setup invite button functionality
+ * Setup invite button
  */
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
@@ -410,7 +512,7 @@ function setupInviteButton() {
 }
 
 /**
- * Setup vote card drag functionality
+ * Setup vote cards drag functionality
  */
 function setupVoteCardsDrag() {
   document.querySelectorAll('.card').forEach(card => {
