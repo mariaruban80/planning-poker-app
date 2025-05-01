@@ -20,6 +20,7 @@ app.use(express.static(join(__dirname, 'public')));
 const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex }
 
 io.on('connection', (socket) => {
+   console.log(`[SERVER] New client connected: ${socket.id}`);
   socket.on('joinRoom', ({ roomId, userName }) => {
     socket.data.roomId = roomId;
     socket.data.userName = userName;
