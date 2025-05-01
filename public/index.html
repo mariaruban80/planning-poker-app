@@ -233,7 +233,7 @@
     .vote-badge {
       background-color: transparent;
       color: #ccc; /* Blend with background */
-      font-size: 14px;
+      font-size: 14px; /* Matches the username font-size */
       padding: 2px 10px;
       font-weight: bold;
       min-width: 28px;
@@ -437,6 +437,11 @@
         border-bottom: 1px solid #e0e0e0;
       }
     }
+
+    /* Hide elements for guests */
+    .guest-hidden {
+      display: none !important;
+    }
   </style>
 </head>
 
@@ -456,7 +461,7 @@
   <!-- Upload Section -->
   <div class="upload-section">
     <div class="upload-right">
-      <div class="file-input">
+      <div class="file-input" id="fileInputContainer">
         <label class="file-button">Choose File</label>
         <input type="file" id="csvInput" accept=".csv" />
       </div>
@@ -510,6 +515,39 @@
   <script type="module" src="main.js"></script>
 
   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check if user is a guest (via URL parameter)
+      const isGuest = checkIfUserIsGuest();
+      
+      // Apply visibility controls for guests
+      if (isGuest) {
+        // Hide control buttons for guests
+        document.getElementById('revealVotesBtn').classList.add('guest-hidden');
+        document.getElementById('resetVotesBtn').classList.add('guest-hidden');
+        document.getElementById('exportCsvBtn').classList.add('guest-hidden');
+        
+        // Hide file input and invite button
+        document.getElementById('fileInputContainer').classList.add('guest-hidden');
+        document.getElementById('inviteButton').classList.add('guest-hidden');
+      }
+      
+      // Connect invite button to modal
+      const inviteButton = document.getElementById('inviteButton');
+      if (inviteButton) {
+        inviteButton.addEventListener('click', showInviteModal);
+      }
+    });
+
+    // Function to determine if user is a guest
+    function checkIfUserIsGuest() {
+      // Check URL parameters to determine if user is joining as a guest
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.has('guest') || urlParams.has('join');
+      
+      // Alternative implementation could use session storage or localStorage
+      // return localStorage.getItem('userRole') === 'guest';
+    }
+
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
       document.getElementById('inviteLink').value = window.location.href;
@@ -525,14 +563,6 @@
       document.execCommand('copy');
       alert('Invite link copied!');
     }
-    
-    // Connect invite button to modal
-    document.addEventListener('DOMContentLoaded', function() {
-      const inviteButton = document.getElementById('inviteButton');
-      if (inviteButton) {
-        inviteButton.addEventListener('click', showInviteModal);
-      }
-    });
   </script>
 </body>
 </html>
