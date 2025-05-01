@@ -73,9 +73,12 @@ io.on('connection', (socket) => {
 
   socket.on('storySelected', ({ storyIndex }) => {
     if (currentRoom) {
+      console.log(`[SERVER] storySelected received from ${socket.id} in room ${currentRoom}, storyIndex: ${storyIndex}`);
       rooms[currentRoom].selectedIndex = storyIndex;
       io.to(currentRoom).emit('storySelected', { storyIndex });
-    }
+    }else {
+    console.warn(`[SERVER] storySelected received but currentRoom is null for socket ${socket.id}`);
+  }
   });
 
 //  socket.on('castVote', ({ vote }) => {
