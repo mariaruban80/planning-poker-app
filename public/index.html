@@ -37,8 +37,8 @@
       display: flex; 
       flex-direction: column; 
       align-items: center;
-      background: white;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+      background: #f5f6fa;
+      box-shadow: none;
     }
     
     .banner { 
@@ -231,18 +231,19 @@
     }
 
     .vote-badge {
-      background-color: transparent;
-      color: transparent; /* Hide the question marks by making text transparent */
-      font-size: 14px; /* Matches the username font-size */
-      padding: 2px 10px;
-      font-weight: bold;
-      min-width: 28px;
-      text-align: center;
+    background-color: transparent;
+     color: transparent; /* Hide initially */
+     font-size: 14px; /* Exactly match username font size */
+     font-weight: 600; /* Match username font weight */
+     padding: 2px 8px;
+     min-width: 28px;
+     text-align: center;
+     color: #3b444b; /* Same color as username when revealed */;
     }
     
     /* Show vote values when votes are revealed */
     .votes-revealed .vote-badge {
-      color: #333 !important; /* Override transparent color */
+       color: #3b444b !important; /* Match username color */
     }
     
     /* New poker table layout */
@@ -388,6 +389,10 @@
       width: 100%;
       text-align: center;
       margin-top: 20px;
+       padding: 15px;
+     background-color: white; /* Added white background for this section */
+     border-radius: 8px;
+     box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Light shadow for depth */
     }
     
     .planning-cards-section h3 {
@@ -574,7 +579,7 @@
           
           // Make each vote-badge visible
           document.querySelectorAll('.vote-badge').forEach(badge => {
-            badge.style.color = '#333';
+            badge.style.color = '#3b444b';
           });
           
           // Make each vote card space show its content
