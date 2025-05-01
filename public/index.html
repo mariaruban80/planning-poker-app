@@ -439,7 +439,7 @@
     }
 
     /* Hide elements for guests */
-    .hidden {
+    .hidden-control {
       display: none !important;
     }
   </style>
@@ -474,12 +474,10 @@
       <h3>Current Members</h3>
       <div id="userList"></div> 
       
-      <div id="votingControls">
-        <h3 class="section-heading">Voting Controls</h3>
-        <button class="button" id="revealVotesBtn">Reveal Votes</button>
-        <button class="button" id="resetVotesBtn">Reset Votes</button>
-        <button class="button" id="exportCsvBtn">Export All Votes</button>
-      </div>
+      <h3 class="section-heading">Voting Controls</h3>
+      <button class="button" id="revealVotesBtn">Reveal Votes</button>
+      <button class="button" id="resetVotesBtn">Reset Votes</button>
+      <button class="button" id="exportCsvBtn">Export All Votes</button>
     </div>
 
     <div class="main">
@@ -517,62 +515,47 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    // Store the user role in localStorage to persist across refreshes
-    function initializeUserRole() {
-      // If role is already set, don't override it
-      if (localStorage.getItem('userRole')) {
-        return;
-      }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      // Check for common parameters that might indicate a shared/invite link
-      if (urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
-          urlParams.has('invite') || urlParams.has('id')) {
-        localStorage.setItem('userRole', 'guest');
-      } else {
-        // First user to create the room is the host
-        localStorage.setItem('userRole', 'host');
-      }
-    }
-
-    function isUserGuest() {
-      return localStorage.getItem('userRole') === 'guest';
-    }
-
-    // Apply visibility based on user role
-    function applyRoleBasedVisibility() {
-      const isGuest = isUserGuest();
-
-      if (isGuest) {
-        // Hide elements for guests
-        document.getElementById('fileInputContainer').style.display = 'none';
-        document.getElementById('inviteButton').style.display = 'none';
-        document.getElementById('votingControls').style.display = 'none';
-      }
-    }
-
-    // Initialize everything when the DOM is ready
+    // This script will run after the document is loaded but before other scripts
     document.addEventListener('DOMContentLoaded', function() {
-      // Set up user role
-      initializeUserRole();
+      // Check URL for guest parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
+                      urlParams.has('invite') || urlParams.has('id');
       
-      // Apply visibility settings
-      applyRoleBasedVisibility();
+      // If user is a guest, hide control buttons
+      if (isGuest) {
+        // Just hide the buttons individually to avoid breaking any functionality
+        const controlButtons = [
+          document.getElementById('revealVotesBtn'),
+          document.getElementById('resetVotesBtn'),
+          document.getElementById('exportCsvBtn'),
+          document.getElementById('fileInputContainer'),
+          document.getElementById('inviteButton')
+        ];
+        
+        // Hide each button if it exists
+        controlButtons.forEach(button => {
+          if (button) {
+            button.style.display = 'none';
+          }
+        });
+      }
       
-      // Connect invite button to modal (only works for host)
+      // Set up invite button (only visible to host)
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton) {
         inviteButton.addEventListener('click', showInviteModal);
       }
-
-      // Add URL parameter for guests when sharing the link
-      document.getElementById('inviteLink').value = window.location.origin + 
-                                                   window.location.pathname + 
-                                                   '?join=true';
     });
 
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
+      // Make sure the link has a join parameter
+      const currentUrl = window.location.href;
+      const inviteUrl = currentUrl.includes('?') ? 
+                      currentUrl + '&join=true' : 
+                      currentUrl + '?join=true';
+      document.getElementById('inviteLink').value = inviteUrl;
     }
 
     function hideInviteModal() {
