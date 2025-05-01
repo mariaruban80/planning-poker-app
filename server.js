@@ -47,16 +47,21 @@ io.on('connection', (socket) => {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
 
+// Inside the joinRoom event handler:
 if (typeof rooms[roomId].selectedIndex === 'number') {
   const storyIndex = rooms[roomId].selectedIndex;
   console.log(`[SERVER] Re-sending storySelected to joining user: ${storyIndex}`);
 
-  // Delay emit to ensure client has time to render stories
+  // First send the CSV data to ensure it's loaded
+  if (rooms[roomId].csvData?.length > 0) {
+    socket.emit('syncCSVData', { csvData: rooms[roomId].csvData });
+  }
+
+  // Delay the storySelected event to ensure client has rendered the stories first
   setTimeout(() => {
-      console.log(`[SERVER] Emitting storySelected to socket ${socket.id} for room ${roomId}`);
+    console.log(`[SERVER] Emitting storySelected to socket ${socket.id} for room ${roomId}`);
     socket.emit('storySelected', { storyIndex });
-  //  socket.emit('storySelected', { storyIndex: currentStoryIndex });
-  }, 500);
+  }, 1000); // Increased delay to ensure CSV is processed first
 
   const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
   if (existingVotes) {
