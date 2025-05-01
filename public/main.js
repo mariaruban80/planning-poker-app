@@ -33,7 +33,8 @@ function handleSocketMessage(message) {
     case 'storySelected':
       currentStoryIndex = message.storyIndex;
       highlightSelectedStory(currentStoryIndex);
-      break;
+      renderCurrentStory();  // <-- Ensure visual state is in sync
+      break;  
     case 'voteUpdate':
       if (message.storyIndex === currentStoryIndex) {
       updateVoteVisuals(message.userId, message.vote);
