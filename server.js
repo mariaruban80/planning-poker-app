@@ -46,19 +46,23 @@ io.on('connection', (socket) => {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
 
-    if (typeof rooms[roomId].selectedIndex === 'number') {
-      const storyIndex = rooms[roomId].selectedIndex;
-      console.log(`[SERVER] Re-sending storySelected to joining user: ${storyIndex}`);
-    //  socket.emit('storySelected', { storyIndex });
-      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
+if (typeof rooms[roomId].selectedIndex === 'number') {
+  const storyIndex = rooms[roomId].selectedIndex;
+  console.log(`[SERVER] Re-sending storySelected to joining user: ${storyIndex}`);
 
-      const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
-      if (existingVotes) {
-        for (const [userId, vote] of Object.entries(existingVotes)) {
-          socket.emit('voteUpdate', { userId, vote, storyIndex });
-        }
-      }
+  // Delay emit to ensure client has time to render stories
+  setTimeout(() => {
+    socket.emit('storySelected', { storyIndex });
+  }, 500);
+
+  const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
+  if (existingVotes) {
+    for (const [userId, vote] of Object.entries(existingVotes)) {
+      socket.emit('voteUpdate', { userId, vote, storyIndex });
     }
+  }
+}
+
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
