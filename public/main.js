@@ -42,10 +42,13 @@ function handleSocketMessage(message) {
       updateStory(message.story);
       break;
       case 'storySelected':
+      console.log('[SOCKET] Received storySelected:', message.storyIndex);
         if (csvData.length === 0) {
+        console.log('[DELAY] CSV not ready, saving pendingStoryIndex:', message.storyIndex);
         pendingStoryIndex = message.storyIndex; // Delay if stories aren't ready
         } else {
         currentStoryIndex = message.storyIndex;
+           console.log('[APPLY] Highlighting immediately:', currentStoryIndex);
         highlightSelectedStory(currentStoryIndex);
         renderCurrentStory();
         }
