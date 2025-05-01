@@ -159,54 +159,7 @@
 //  <script type="module" src="./main.js"></script>
 
   <script>
-    // Clear localStorage on page reload
-    if (performance.getEntriesByType("navigation")[0].type === "reload") {
-      localStorage.clear();
-    }
-
-    document.addEventListener("DOMContentLoaded", function () {
-      const csvInput = document.getElementById('csvInput');
-      const storyListContainer = document.getElementById('storyList');
-
-      // Handle CSV upload
-      csvInput.addEventListener('change', function (event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const fileContent = e.target.result;
-          const parsedData = parseCSV(fileContent);
-          displayCSVData(parsedData);
-        };
-        reader.readAsText(file);
-      });
-
-      function parseCSV(data) {
-        const rows = data.split('\n').filter(row => row.trim() !== '');
-        return rows.map(row => row.split(','));
-      }
-
-      function displayCSVData(data) {
-        storyListContainer.innerHTML = '';
-
-        data.forEach((row, index) => {
-          const storyItem = document.createElement('div');
-          storyItem.classList.add('story-card');
-          storyItem.textContent = row.join(' | ');
-          storyItem.dataset.index = index;
-
-          storyItem.addEventListener('click', function() {
-            document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
-            storyItem.classList.add('selected');
-            // You can trigger your story load/activation logic here
-          });
-
-          storyListContainer.appendChild(storyItem);
-        });
-      }
-    });
-
+    
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
       document.getElementById('inviteLink').value = window.location.href;
@@ -223,21 +176,7 @@
       alert('Invite link copied!');
     }
 
-    function navigateStory(direction) {
-      const selected = document.querySelector('.story-card.selected');
-      const stories = [...document.querySelectorAll('.story-card')];
-
-      if (stories.length === 0) return;
-      let idx = selected ? stories.indexOf(selected) : -1;
-
-      if (direction === 'next') idx = (idx + 1) % stories.length;
-      if (direction === 'prev') idx = (idx - 1 + stories.length) % stories.length;
-
-      if (idx >= 0) {
-        stories.forEach(card => card.classList.remove('selected'));
-        stories[idx].classList.add('selected');
-      }
-    }
+    
   </script>
 </body>
 </html>
