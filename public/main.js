@@ -288,3 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp(roomId);
   setupVoteCardsDrag();
 });
+export function getCurrentStoryIndex() {
+  return currentStoryIndex;
+}
