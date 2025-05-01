@@ -56,21 +56,28 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
+    console.log('[SOCKET] Vote update received for user', userId, 'on story', storyIndex);
     handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
   });
 
   socket.on('storyVotes', ({ storyIndex, votes }) => {
-    console.log('[SOCKET] Received votes for story', storyIndex, ':', votes);
+    console.log('[SOCKET] Received votes for story', storyIndex, ':', Object.keys(votes).length, 'votes');
     handleMessage({ type: 'storyVotes', storyIndex, votes });
   });
 
-  socket.on('revealVotes', (votes) => {
-    handleMessage({ type: 'revealVotes', votes });
+  socket.on('votesRevealed', ({ storyIndex }) => {
+    console.log('[SOCKET] Votes revealed for story', storyIndex);
+    handleMessage({ type: 'votesRevealed', storyIndex });
   });
 
   socket.on('votesReset', ({ storyIndex }) => {
-    console.log('[SOCKET] Votes reset for story:', storyIndex);
+    console.log('[SOCKET] Votes reset for story', storyIndex);
     handleMessage({ type: 'votesReset', storyIndex });
+  });
+
+  socket.on('revealVotes', (votes) => {
+    console.log('[SOCKET] Reveal votes event received (legacy)');
+    handleMessage({ type: 'revealVotes', votes });
   });
 
   socket.on('storyChange', ({ story }) => {
@@ -82,6 +89,9 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('exportData', (data) => {
+    console.log('[SOCKET] Received export data with', 
+      data.stories ? data.stories.length : 0, 'stories and',
+      data.votes ? Object.keys(data.votes).length : 0, 'vote sets');
     handleMessage({ type: 'exportData', data });
   });
 
@@ -104,7 +114,10 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
  * @param {Array} data - CSV data to synchronize
  */
 export function emitCSVData(data) {
-  if (socket) socket.emit('syncCSVData', data);
+  if (socket) {
+    console.log('[SOCKET] Sending CSV data:', data.length, 'rows');
+    socket.emit('syncCSVData', data);
+  }
 }
 
 /**
@@ -125,7 +138,10 @@ export function emitStorySelected(index) {
  * @param {string} targetUserId - The user ID receiving the vote
  */
 export function emitVote(vote, targetUserId) {
-  if (socket) socket.emit('castVote', { vote, targetUserId });
+  if (socket) {
+    console.log('[SOCKET] Casting vote for user', targetUserId);
+    socket.emit('castVote', { vote, targetUserId });
+  }
 }
 
 /**
@@ -140,24 +156,35 @@ export function requestStoryVotes(storyIndex) {
 }
 
 /**
- * Notify server to reveal all votes
+ * Reveal votes for the current story
+ * Triggers server to broadcast vote values to all clients
  */
 export function revealVotes() {
-  if (socket) socket.emit('revealVotes');
+  if (socket) {
+    console.log('[SOCKET] Requesting to reveal votes');
+    socket.emit('revealVotes');
+  }
 }
 
 /**
  * Reset votes for the current story
+ * Clears all votes and resets the reveal state
  */
 export function resetVotes() {
-  if (socket) socket.emit('resetVotes');
+  if (socket) {
+    console.log('[SOCKET] Requesting to reset votes');
+    socket.emit('resetVotes');
+  }
 }
 
 /**
  * Request export of all votes data
  */
 export function requestExport() {
-  if (socket) socket.emit('exportVotes');
+  if (socket) {
+    console.log('[SOCKET] Requesting vote data export');
+    socket.emit('exportVotes');
+  }
 }
 
 /**
@@ -174,4 +201,23 @@ export function getCurrentStoryIndex() {
  */
 export function isConnected() {
   return socket && socket.connected;
+}
+
+/**
+ * Force reconnection if disconnected
+ * @returns {boolean} - Whether reconnection was attempted
+ */
+export function reconnect() {
+  if (!socket) {
+    console.warn('[SOCKET] Cannot reconnect: no socket instance');
+    return false;
+  }
+  
+  if (!socket.connected && roomId && userName) {
+    console.log('[SOCKET] Attempting to reconnect...');
+    socket.connect();
+    return true;
+  }
+  
+  return false;
 }
