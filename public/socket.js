@@ -43,7 +43,8 @@ export function initializeWebSocket(roomId, userName, handleMessage) {
    // handleMessage({ type: 'voteUpdate', userId, vote });
   //});
   socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
-    if (storyIndex !== selectedStoryIndex) return; // Ignore if not the current story
+    //if (storyIndex !== selectedStoryIndex) return; // Ignore if not the current story
+handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
 
     const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
                   document.querySelector(`#user-circle-${userId} .vote-badge`);
