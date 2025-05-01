@@ -53,23 +53,25 @@ io.on('connection', (socket) => {
     // Send CSV data if available
     if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
-      
-      // Listen for CSV data loaded confirmation
-      socket.once('csvDataLoaded', () => {
-        if (typeof rooms[roomId].selectedIndex === 'number') {
-          const storyIndex = rooms[roomId].selectedIndex;
-          console.log(`[SERVER] Sending storySelected (${storyIndex}) to new user ${socket.id}`);
-          socket.emit('storySelected', { storyIndex });
-          
-          // Send any existing votes for the current story
-          const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
-          if (existingVotes) {
-            for (const [userId, vote] of Object.entries(existingVotes)) {
-              socket.emit('voteUpdate', { userId, vote, storyIndex });
-            }
-          }
+    }
+  });
+
+  // Handle CSV data loaded confirmation
+  socket.on('csvDataLoaded', () => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      // Now that CSV is loaded, send the current story selection
+      if (typeof rooms[roomId].selectedIndex === 'number') {
+        const storyIndex = rooms[roomId].selectedIndex;
+        console.log(`[SERVER] Client ${socket.id} confirmed CSV loaded, sending current story: ${storyIndex}`);
+        socket.emit('storySelected', { storyIndex });
+        
+        // Send votes for the current story if any exist
+        const existingVotes = rooms[roomId].votesPerStory[storyIndex] || {};
+        if (Object.keys(existingVotes).length > 0) {
+          socket.emit('storyVotes', { storyIndex, votes: existingVotes });
         }
-      });
+      }
     }
   });
 
@@ -110,12 +112,41 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle requests for votes for a specific story
+  socket.on('requestStoryVotes', ({ storyIndex }) => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      const votes = rooms[roomId].votesPerStory[storyIndex] || {};
+      console.log(`[SERVER] Sending votes for story ${storyIndex} to client ${socket.id}`);
+      socket.emit('storyVotes', { storyIndex, votes });
+    }
+  });
+
   // Handle vote revealing
   socket.on('revealVotes', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
-      io.to(roomId).emit('revealVotes', rooms[roomId].votes);
+      const currentStoryIndex = rooms[roomId].selectedIndex;
+      const storyVotes = rooms[roomId].votesPerStory[currentStoryIndex] || {};
+      
+      // Send the current story's votes to all clients
+      io.to(roomId).emit('revealVotes', storyVotes);
       rooms[roomId].revealed = true;
+    }
+  });
+
+  // Handle vote reset for current story
+  socket.on('resetVotes', () => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      const currentStoryIndex = rooms[roomId].selectedIndex;
+      
+      // Clear votes for the current story
+      if (rooms[roomId].votesPerStory[currentStoryIndex]) {
+        rooms[roomId].votesPerStory[currentStoryIndex] = {};
+        console.log(`[SERVER] Votes reset for story ${currentStoryIndex} in room ${roomId}`);
+        io.to(roomId).emit('votesReset', { storyIndex: currentStoryIndex });
+      }
     }
   });
 
@@ -141,17 +172,24 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       rooms[roomId].csvData = csvData;
+      rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
+      rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
       io.to(roomId).emit('syncCSVData', csvData);
     }
   });
 
-  // Handle CSV data loaded confirmation
-  socket.on('csvDataLoaded', () => {
+  // Export votes data (optional feature)
+  socket.on('exportVotes', () => {
     const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId] && typeof rooms[roomId].selectedIndex === 'number') {
-      const storyIndex = rooms[roomId].selectedIndex;
-      console.log(`[SERVER] Client ${socket.id} confirmed CSV loaded, sending current story: ${storyIndex}`);
-      socket.emit('storySelected', { storyIndex });
+    if (roomId && rooms[roomId]) {
+      const exportData = {
+        room: roomId,
+        stories: rooms[roomId].csvData,
+        votes: rooms[roomId].votesPerStory,
+        timestamp: new Date().toISOString()
+      };
+      
+      socket.emit('exportData', exportData);
     }
   });
 
@@ -163,7 +201,6 @@ io.on('connection', (socket) => {
       
       // Remove user from room
       rooms[roomId].users = rooms[roomId].users.filter(user => user.id !== socket.id);
-      delete rooms[roomId].votes[socket.id];
       
       // Notify remaining users
       io.to(roomId).emit('userList', rooms[roomId].users);
