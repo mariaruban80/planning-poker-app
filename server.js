@@ -52,7 +52,9 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
 
   // Delay emit to ensure client has time to render stories
   setTimeout(() => {
-    socket.emit('storySelected', { storyIndex });
+      console.log(`[SERVER] Emitting storySelected to socket ${socket.id} for room ${roomId}`);
+    //socket.emit('storySelected', { storyIndex });
+    socket.emit('storySelected', { storyIndex: currentStoryIndex });
   }, 500);
 
   const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
