@@ -6,8 +6,9 @@ let csvData = [];
 let currentStoryIndex = 0;
 let userVotes = {};
 let socket = null;
-let csvDataLoaded = false;  // Track CSV data loading state
+let csvDataLoaded = false;
 let votesPerStory = {};     // Track votes for each story { storyIndex: { userId: vote, ... }, ... }
+let votesRevealed = {};     // Track which stories have revealed votes { storyIndex: boolean }
 
 /**
  * Extract room ID from URL parameters
@@ -104,7 +105,8 @@ function handleSocketMessage(message) {
       
       // Update UI if this is for the current story
       if (message.storyIndex === currentStoryIndex) {
-        updateVoteVisuals(message.userId, message.vote);
+        // Show a checkmark instead of the actual vote
+        updateVoteVisuals(message.userId, '✓', true);
       }
       break;
       
@@ -113,7 +115,17 @@ function handleSocketMessage(message) {
       votesPerStory[message.storyIndex] = message.votes;
       
       if (message.storyIndex === currentStoryIndex) {
-        applyVotesToUI(message.votes);
+        // Apply votes but mask them
+        applyVotesToUI(message.votes, !votesRevealed[message.storyIndex]);
+      }
+      break;
+      
+    case 'votesRevealed':
+      votesRevealed[message.storyIndex] = true;
+      
+      // If this is the current story, update UI to show actual values
+      if (message.storyIndex === currentStoryIndex && votesPerStory[message.storyIndex]) {
+        applyVotesToUI(votesPerStory[message.storyIndex], false);
       }
       break;
       
@@ -124,6 +136,7 @@ function handleSocketMessage(message) {
       if (votesPerStory[message.storyIndex]) {
         votesPerStory[message.storyIndex] = {};
       }
+      votesRevealed[message.storyIndex] = false;
       break;
       
     default:
@@ -133,14 +146,16 @@ function handleSocketMessage(message) {
 
 /**
  * Apply votes from server to the UI
+ * @param {Object} votes - The votes to apply
+ * @param {boolean} masked - Whether to mask votes with "✓" instead of showing actual values
  */
-function applyVotesToUI(votes) {
+function applyVotesToUI(votes, masked = true) {
   // Reset all votes first
   resetAllVoteVisuals();
   
   // Apply each vote
   Object.entries(votes).forEach(([userId, vote]) => {
-    updateVoteVisuals(userId, vote);
+    updateVoteVisuals(userId, masked ? '✓' : vote, true);
   });
 }
 
@@ -173,8 +188,11 @@ function resetOrRestoreVotes(storyIndex) {
   if (Object.keys(savedVotes).length > 0) {
     console.log('[VOTES] Restoring votes for story', storyIndex, ':', savedVotes);
     
+    // Check if votes for this story are revealed
+    const isRevealed = votesRevealed[storyIndex] === true;
+    
     Object.entries(savedVotes).forEach(([userId, vote]) => {
-      updateVoteVisuals(userId, vote);
+      updateVoteVisuals(userId, isRevealed ? vote : '✓', true);
     });
   }
 }
@@ -222,6 +240,47 @@ function initializeApp(roomId) {
   setupInviteButton();
   setupStoryNavigation();
   setupVoteCardsDrag();
+  setupRevealResetButtons();
+}
+
+/**
+ * Setup reveal and reset buttons
+ */
+function setupRevealResetButtons() {
+  // Set up reveal votes button
+  const revealVotesBtn = document.getElementById('revealVotesBtn');
+  if (revealVotesBtn) {
+    revealVotesBtn.addEventListener('click', () => {
+      if (socket) {
+        socket.emit('revealVotes');
+        votesRevealed[currentStoryIndex] = true;
+        
+        // Update UI if we have votes for this story
+        if (votesPerStory[currentStoryIndex]) {
+          applyVotesToUI(votesPerStory[currentStoryIndex], false);
+        }
+      }
+    });
+  }
+  
+  // Set up reset votes button
+  const resetVotesBtn = document.getElementById('resetVotesBtn');
+  if (resetVotesBtn) {
+    resetVotesBtn.addEventListener('click', () => {
+      if (socket) {
+        socket.emit('resetVotes');
+        
+        // Reset local state
+        if (votesPerStory[currentStoryIndex]) {
+          votesPerStory[currentStoryIndex] = {};
+        }
+        votesRevealed[currentStoryIndex] = false;
+        
+        // Update UI
+        resetAllVoteVisuals();
+      }
+    });
+  }
 }
 
 /**
@@ -244,6 +303,7 @@ function setupCSVUploader() {
       
       // Reset voting state when new CSV is loaded
       votesPerStory = {};
+      votesRevealed = {};
       currentStoryIndex = 0;
       
       renderCurrentStory();
@@ -401,14 +461,14 @@ function updateUserList(users) {
       }
       votesPerStory[currentStoryIndex][userId] = vote;
       
-      // Update UI
-      updateVoteVisuals(userId, vote);
+      // Update UI - show checkmark if votes aren't revealed
+      updateVoteVisuals(userId, votesRevealed[currentStoryIndex] ? vote : '✓', true);
     });
 
     userCircleContainer.appendChild(circleEntry);
   });
 
-  // Add reveal button
+  // Add reveal button to circle
   const revealBtn = document.createElement('button');
   revealBtn.textContent = 'Reveal Cards';
   revealBtn.id = 'revealBtn';
@@ -425,15 +485,26 @@ function updateUserList(users) {
     cursor: 'pointer'
   });
   revealBtn.onclick = () => {
-    if (socket) socket.emit('revealVotes');
+    if (socket) {
+      socket.emit('revealVotes');
+      votesRevealed[currentStoryIndex] = true;
+      
+      // Update UI if we have votes for this story
+      if (votesPerStory[currentStoryIndex]) {
+        applyVotesToUI(votesPerStory[currentStoryIndex], false);
+      }
+    }
   };
   userCircleContainer.appendChild(revealBtn);
 }
 
 /**
  * Update vote visuals for a user
+ * @param {string} userId - The user ID
+ * @param {string} vote - The vote value ("✓" for masked votes)
+ * @param {boolean} hasVoted - Whether the user has voted (for green background)
  */
-function updateVoteVisuals(userId, vote) {
+function updateVoteVisuals(userId, vote, hasVoted = false) {
   // Update badges in both list and circle
   const badges = document.querySelectorAll(`#user-${userId} .vote-badge, #user-circle-${userId} .vote-badge`);
   badges.forEach(badge => {
@@ -441,8 +512,12 @@ function updateVoteVisuals(userId, vote) {
   });
 
   // Update avatar background to show they've voted
-  const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
-  if (avatar) avatar.style.backgroundColor = '#c1e1c1';
+  if (hasVoted) {
+    const avatars = document.querySelectorAll(`#user-${userId} img.avatar, #user-circle-${userId} img.avatar`);
+    avatars.forEach(avatar => {
+      if (avatar) avatar.style.backgroundColor = '#c1e1c1'; // Green background
+    });
+  }
 }
 
 /**
