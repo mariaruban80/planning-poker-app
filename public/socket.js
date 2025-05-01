@@ -34,13 +34,6 @@ export function initializeWebSocket(roomId, userName, handleMessage) {
   socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
     console.log('[socket] voteUpdate:', { userId, vote, storyIndex });
     handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
-
-    const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
-                  document.querySelector(`#user-circle-${userId} .vote-badge`);
-    if (badge) badge.textContent = vote;
-
-    const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
-    if (avatar) avatar.style.backgroundColor = '#c1e1c1';
   });
 
   socket.on('revealVotes', (votes) => {
