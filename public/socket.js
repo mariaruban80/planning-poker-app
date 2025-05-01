@@ -16,35 +16,24 @@ export function initializeWebSocket(roomId, userName, handleMessage) {
   });
 
   socket.on('userList', (users) => {
+    console.log('[socket] userList:', users);
     handleMessage({ type: 'userList', users });
   });
 
   socket.on('syncCSVData', (csvData) => {
+    console.log('[socket] syncCSVData');
     handleMessage({ type: 'syncCSVData', csvData });
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
+    console.log('[socket] storySelected:', storyIndex);
     selectedStoryIndex = storyIndex;
     handleMessage({ type: 'storySelected', storyIndex });
   });
 
-  //socket.on('voteUpdate', (payload) => {
-   // handleMessage({ type: 'voteUpdate', ...payload });
-  //});
-//socket.on('voteUpdate', ({ userId, vote }) => {
-    // Update UI badges directly
-  //  const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
-    //              document.querySelector(`#user-circle-${userId} .vote-badge`);
-    //if (badge) {
-     // badge.textContent = vote;
-    //}
-
-    // Also forward to handler if needed
-   // handleMessage({ type: 'voteUpdate', userId, vote });
-  //});
   socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
-    //if (storyIndex !== selectedStoryIndex) return; // Ignore if not the current story
-handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
+    console.log('[socket] voteUpdate:', { userId, vote, storyIndex });
+    handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
 
     const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
                   document.querySelector(`#user-circle-${userId} .vote-badge`);
@@ -52,30 +41,34 @@ handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
 
     const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
     if (avatar) avatar.style.backgroundColor = '#c1e1c1';
-
-    handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
   });
 
   socket.on('revealVotes', (votes) => {
-    handleMessage({ type: 'revealVotes', votes });
-  });
-  socket.on('revealVotes', (votes) => {
+    console.log('[socket] revealVotes:', votes);
     handleMessage({ type: 'revealVotes', votes });
   });
 
   socket.on('storyChange', ({ story }) => {
+    console.log('[socket] storyChange:', story);
     handleMessage({ type: 'storyChange', story });
   });
 
   socket.on('storyNavigation', ({ index }) => {
+    console.log('[socket] storyNavigation:', index);
     handleMessage({ type: 'storyNavigation', index });
   });
 }
 
 export function emitCSVData(data) {
-  if (socket) socket.emit('syncCSVData', data);
+  if (socket) {
+    console.log('[emit] syncCSVData');
+    socket.emit('syncCSVData', data);
+  }
 }
 
 export function emitStorySelected(index) {
-  if (socket) socket.emit('storySelected', { storyIndex: index });
+  if (socket) {
+    console.log('[emit] storySelected:', index);
+    socket.emit('storySelected', { storyIndex: index });
+  }
 }
