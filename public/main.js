@@ -1,7 +1,7 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; 
 
 let csvData = [];
-let currentStoryIndex = 0;
+let currentStoryIndex = null;
 let userVotes = {};
 let socket = null; // Keep reference for reuse
 
@@ -35,9 +35,19 @@ function handleSocketMessage(message) {
       highlightSelectedStory(currentStoryIndex);
       break;
     case 'voteUpdate':
+      if (currentStoryIndex == null) {
+      setTimeout(() => {
       if (message.storyIndex === currentStoryIndex) {
-      updateVoteVisuals(message.userId, message.vote);
+        updateVoteVisuals(message.userId, message.vote);
       }
+        }, 100);
+          } else if (message.storyIndex === currentStoryIndex) {
+    updateVoteVisuals(message.userId, message.vote);
+    }
+      
+    //  if (message.storyIndex === currentStoryIndex) {
+     // updateVoteVisuals(message.userId, message.vote);
+     // }
       break;
     default:
       console.warn('Unhandled message:', message);
