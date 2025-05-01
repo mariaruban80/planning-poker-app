@@ -1,9 +1,9 @@
 import { initializeWebSocket, emitCSVData } from './socket.js'; 
 
 let csvData = [];
-let currentStoryIndex = null;
+let currentStoryIndex = 0;
 let userVotes = {};
-let socket = null;
+let socket = null; // Keep reference for reuse
 
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -17,7 +17,6 @@ function appendRoomIdToURL(roomId) {
 }
 
 function handleSocketMessage(message) {
-  console.log('[Socket Message]', message);
   switch (message.type) {
     case 'syncCSVData':
       csvData = message.csvData;
@@ -32,30 +31,12 @@ function handleSocketMessage(message) {
       updateStory(message.story);
       break;
     case 'storySelected':
-      console.log('[storySelected] storyIndex:', message.storyIndex);
       currentStoryIndex = message.storyIndex;
       highlightSelectedStory(currentStoryIndex);
       break;
     case 'voteUpdate':
-      console.log('[voteUpdate]', {
-        storyIndex: message.storyIndex,
-        currentStoryIndex,
-        userId: message.userId,
-        vote: message.vote
-      });
-
-      if (currentStoryIndex == null) {
-        setTimeout(() => {
-          if (message.storyIndex === currentStoryIndex) {
-            console.log('Applying delayed vote:', message.userId, message.vote);
-            updateVoteVisuals(message.userId, message.vote);
-          }
-        }, 100);
-      } else if (message.storyIndex === currentStoryIndex) {
-        console.log('Applying immediate vote:', message.userId, message.vote);
-        updateVoteVisuals(message.userId, message.vote);
-      } else {
-        console.log('Vote ignored: story mismatch');
+      if (message.storyIndex === currentStoryIndex) {
+      updateVoteVisuals(message.userId, message.vote);
       }
       break;
     default:
@@ -81,7 +62,6 @@ function initializeApp(roomId) {
     if (!userName) alert("Username is required!");
   }
 
-  console.log('[initializeApp] Room:', roomId, 'User:', userName);
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
@@ -198,7 +178,6 @@ function updateUserList(users) {
       const userId = user.id;
 
       if (socket && vote) {
-        console.log('[emit] castVote');
         socket.emit('castVote', { vote, targetUserId: userId });
       }
 
@@ -309,6 +288,3 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp(roomId);
   setupVoteCardsDrag();
 });
-export function getCurrentStoryIndex() {
-  return currentStoryIndex;
-}
