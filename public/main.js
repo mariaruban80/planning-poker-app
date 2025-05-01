@@ -198,6 +198,7 @@ function updateUserList(users) {
       const userId = user.id;
 
       if (socket && vote) {
+        console.log('[emit] castVote');
         socket.emit('castVote', { vote, targetUserId: userId });
       }
 
