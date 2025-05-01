@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
       }
 
       rooms[currentRoom].votesPerStory[currentStoryIndex][targetUserId] = vote;
-
+ console.log('[server] castVote:', vote, '->', targetUserId); 
       io.to(currentRoom).emit('voteUpdate', {
         userId: targetUserId,
         vote,
