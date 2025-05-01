@@ -48,7 +48,9 @@ io.on('connection', (socket) => {
 
     if (typeof rooms[roomId].selectedIndex === 'number') {
       const storyIndex = rooms[roomId].selectedIndex;
-      socket.emit('storySelected', { storyIndex });
+      console.log(`[SERVER] Re-sending storySelected to joining user: ${storyIndex}`);
+    //  socket.emit('storySelected', { storyIndex });
+      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
 
       const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
       if (existingVotes) {
