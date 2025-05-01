@@ -19,22 +19,27 @@ function appendRoomIdToURL(roomId) {
 function handleSocketMessage(message) {
   switch (message.type) {
     case 'syncCSVData':
-     
-      csvData = message.csvData;
-     // currentStoryIndex = 0;
-       console.log('[SOCKET] Received syncCSVData:', message.csvData);
+     csvData = message.csvData;
+      console.log('[SOCKET] Received syncCSVData:', message.csvData);
       displayCSVData(csvData);
-    //  renderCurrentStory();
+      
+      // If we have a pending story selection, apply it after displaying CSV data
       if (pendingStoryIndex !== null) {
-        console.log('[APPLY] Pending story index after CSV load:', pendingStoryIndex);
-      currentStoryIndex = pendingStoryIndex;
-        pendingStoryIndex = null;      
+        console.log('[APPLY] Applying pending story index after CSV load:', pendingStoryIndex);
+        currentStoryIndex = pendingStoryIndex;
+        pendingStoryIndex = null;
+        
+        // Make sure to explicitly trigger highlighting
+        setTimeout(() => {
+          console.log('[HIGHLIGHT] Delayed highlight for:', currentStoryIndex);
+          highlightSelectedStory(currentStoryIndex);
+          renderCurrentStory();
+        }, 100); // Small delay to ensure DOM is ready
+      } else {
+        currentStoryIndex = 0;
+        highlightSelectedStory(currentStoryIndex);
+        renderCurrentStory();
       }
-      else {
-      currentStoryIndex = 0;
-      }
-      highlightSelectedStory(currentStoryIndex);
-      renderCurrentStory();
       
       break;
     case 'userList':
@@ -44,16 +49,27 @@ function handleSocketMessage(message) {
       updateStory(message.story);
       break;
       case 'storySelected':
-      console.log('[SOCKET] Received storySelected:', message.storyIndex);
-        if (csvData.length === 0) {
+     console.log('[SOCKET] Received storySelected:', message.storyIndex);
+      if (csvData.length === 0) {
         console.log('[DELAY] CSV not ready, saving pendingStoryIndex:', message.storyIndex);
         pendingStoryIndex = message.storyIndex; // Delay if stories aren't ready
-        } else {
+      } else {
         currentStoryIndex = message.storyIndex;
-           console.log('[APPLY] Highlighting immediately:', currentStoryIndex);
-        highlightSelectedStory(currentStoryIndex);
-        renderCurrentStory();
+        console.log('[APPLY] Highlighting immediately:', currentStoryIndex);
+        
+        // Force a re-render of all story cards to ensure proper highlighting
+        const storyListContainer = document.getElementById('storyList');
+        if (storyListContainer) {
+          // Re-display all stories to ensure correct DOM state
+          displayCSVData(csvData); 
+          
+          // Then apply highlighting with slight delay
+          setTimeout(() => {
+            highlightSelectedStory(currentStoryIndex);
+            renderCurrentStory();
+          }, 50);
         }
+      }
   break;
 
  
@@ -68,18 +84,30 @@ function handleSocketMessage(message) {
 }
 
 function highlightSelectedStory(index) {
-    console.log('[HIGHLIGHT] Applying highlight to story:', index);
+  console.log('[HIGHLIGHT] Applying highlight to story:', index);
+  
+  // First, remove all highlights
   const storyCards = document.querySelectorAll('.story-card');
   console.log('[HIGHLIGHT] Total story cards:', storyCards.length);
-  storyCards.forEach(card => card.classList.remove('selected', 'active'));
+  storyCards.forEach(card => {
+    card.classList.remove('selected', 'active');
+  });
 
-  const selectedStory = storyCards[index];
-  if (selectedStory) {
-    selectedStory.classList.add('selected');
-    selectedStory.classList.add('active');
-  }
-  else{
-    console.warn('[HIGHLIGHT] No story card found at index:', index);
+  // Apply new highlight
+  if (storyCards.length > index && index >= 0) {
+    const selectedStory = storyCards[index];
+    if (selectedStory) {
+      console.log('[HIGHLIGHT] Found story to highlight:', selectedStory.textContent.substring(0, 30));
+      selectedStory.classList.add('selected');
+      selectedStory.classList.add('active');
+      
+      // Scroll the story into view if needed
+      selectedStory.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      console.warn('[HIGHLIGHT] No story card found at index:', index);
+    }
+  } else {
+    console.warn('[HIGHLIGHT] Index out of range:', index, 'for', storyCards.length, 'stories');
   }
 }
 
@@ -120,7 +148,6 @@ function parseCSV(data) {
   const rows = data.trim().split('\n');
   return rows.map(row => row.split(','));
 }
-
 function displayCSVData(data) {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer) return;
@@ -134,11 +161,19 @@ function displayCSVData(data) {
     storyItem.dataset.index = index;
 
     storyItem.addEventListener('click', () => {
-      document.querySelectorAll('.story-card').forEach(card => card.classList.remove('selected'));
+      // Clear all selections first
+      document.querySelectorAll('.story-card').forEach(card => {
+        card.classList.remove('selected', 'active');
+      });
+      
+      // Apply new selection
       storyItem.classList.add('selected');
+      storyItem.classList.add('active');
+      
       currentStoryIndex = index;
       renderCurrentStory();
 
+      console.log('[EMIT] Selecting story:', index);
       if (socket) {
         socket.emit('storySelected', { storyIndex: currentStoryIndex });
       }
@@ -146,7 +181,13 @@ function displayCSVData(data) {
 
     storyListContainer.appendChild(storyItem);
   });
+  
+  // If we have a current index, make sure it's highlighted
+  if (currentStoryIndex !== null && currentStoryIndex >= 0) {
+    highlightSelectedStory(currentStoryIndex);
+  }
 }
+
 
 function renderCurrentStory() {
   const storyListContainer = document.getElementById('storyList');
