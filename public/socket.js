@@ -34,17 +34,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('[SOCKET] Connection error:', error);
-  });
-
-  socket.on('reconnect', (attemptNumber) => {
-    console.log('[SOCKET] Reconnected after', attemptNumber, 'attempts');
-    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
-  });
-
   socket.on('userList', (users) => {
-    console.log('[SOCKET] User list updated:', users.length, 'users');
     handleMessage({ type: 'userList', users });
   });
 
@@ -66,40 +56,43 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
-    console.log('[SOCKET] Vote update received:', userId, vote, 'for story', storyIndex);
-    
-    // Only process votes for the current story
-    if (storyIndex === selectedStoryIndex || storyIndex === null) {
-      // Update UI elements directly for immediate feedback
-      const badge = document.querySelector(`#user-${userId} .vote-badge`) ||
-                    document.querySelector(`#user-circle-${userId} .vote-badge`);
-      if (badge) badge.textContent = vote;
+    handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
+  });
 
-      const avatar = document.querySelector(`#user-circle-${userId} img.avatar`);
-      if (avatar) avatar.style.backgroundColor = '#c1e1c1';
-
-      // Also forward to general handler
-      handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
-    }
+  socket.on('storyVotes', ({ storyIndex, votes }) => {
+    console.log('[SOCKET] Received votes for story', storyIndex, ':', votes);
+    handleMessage({ type: 'storyVotes', storyIndex, votes });
   });
 
   socket.on('revealVotes', (votes) => {
-    console.log('[SOCKET] Revealing votes');
     handleMessage({ type: 'revealVotes', votes });
   });
 
+  socket.on('votesReset', ({ storyIndex }) => {
+    console.log('[SOCKET] Votes reset for story:', storyIndex);
+    handleMessage({ type: 'votesReset', storyIndex });
+  });
+
   socket.on('storyChange', ({ story }) => {
-    console.log('[SOCKET] Story content changed');
     handleMessage({ type: 'storyChange', story });
   });
 
   socket.on('storyNavigation', ({ index }) => {
-    console.log('[SOCKET] Story navigation event received:', index);
     handleMessage({ type: 'storyNavigation', index });
+  });
+
+  socket.on('exportData', (data) => {
+    handleMessage({ type: 'exportData', data });
   });
 
   socket.on('disconnect', () => {
     console.log('[SOCKET] Disconnected from server');
+    handleMessage({ type: 'disconnect' });
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('[SOCKET] Connection error:', error);
+    handleMessage({ type: 'error', error });
   });
 
   // Return socket for external operations if needed
@@ -109,64 +102,62 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 /**
  * Send CSV data to server for synchronization
  * @param {Array} data - CSV data to synchronize
- * @returns {boolean} - Success status
  */
 export function emitCSVData(data) {
-  if (!socket || !socket.connected) {
-    console.warn('[SOCKET] Cannot emit CSV data: not connected');
-    return false;
-  }
-  
-  console.log('[SOCKET] Sending CSV data:', data.length, 'rows');
-  socket.emit('syncCSVData', data);
-  return true;
+  if (socket) socket.emit('syncCSVData', data);
 }
 
 /**
  * Emit story selection to server
  * @param {number} index - Index of the selected story
- * @returns {boolean} - Success status
  */
 export function emitStorySelected(index) {
-  if (!socket || !socket.connected) {
-    console.warn('[SOCKET] Cannot emit story selection: not connected');
-    return false;
+  if (socket) {
+    console.log('[SOCKET] Emitting storySelected:', index);
+    socket.emit('storySelected', { storyIndex: index });
+    selectedStoryIndex = index;
   }
-  
-  console.log('[SOCKET] Emitting storySelected:', index);
-  socket.emit('storySelected', { storyIndex: index });
-  selectedStoryIndex = index;
-  return true;
 }
 
 /**
  * Cast a vote for a story
  * @param {string} vote - The vote value
  * @param {string} targetUserId - The user ID receiving the vote
- * @returns {boolean} - Success status
  */
 export function emitVote(vote, targetUserId) {
-  if (!socket || !socket.connected) {
-    console.warn('[SOCKET] Cannot emit vote: not connected');
-    return false;
+  if (socket) socket.emit('castVote', { vote, targetUserId });
+}
+
+/**
+ * Request votes for a specific story
+ * @param {number} storyIndex - Index of the story
+ */
+export function requestStoryVotes(storyIndex) {
+  if (socket) {
+    console.log('[SOCKET] Requesting votes for story:', storyIndex);
+    socket.emit('requestStoryVotes', { storyIndex });
   }
-  
-  socket.emit('castVote', { vote, targetUserId });
-  return true;
 }
 
 /**
  * Notify server to reveal all votes
- * @returns {boolean} - Success status
  */
 export function revealVotes() {
-  if (!socket || !socket.connected) {
-    console.warn('[SOCKET] Cannot reveal votes: not connected');
-    return false;
-  }
-  
-  socket.emit('revealVotes');
-  return true;
+  if (socket) socket.emit('revealVotes');
+}
+
+/**
+ * Reset votes for the current story
+ */
+export function resetVotes() {
+  if (socket) socket.emit('resetVotes');
+}
+
+/**
+ * Request export of all votes data
+ */
+export function requestExport() {
+  if (socket) socket.emit('exportVotes');
 }
 
 /**
@@ -183,22 +174,4 @@ export function getCurrentStoryIndex() {
  */
 export function isConnected() {
   return socket && socket.connected;
-}
-
-/**
- * Force reconnection if disconnected
- * @returns {boolean} - Whether reconnection was attempted
- */
-export function reconnect() {
-  if (!socket) {
-    console.warn('[SOCKET] Cannot reconnect: no socket instance');
-    return false;
-  }
-  
-  if (!socket.connected && roomId && userName) {
-    socket.connect();
-    return true;
-  }
-  
-  return false;
 }
