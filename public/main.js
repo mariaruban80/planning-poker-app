@@ -249,7 +249,6 @@ function updateStory(story) {
   const storyTitle = document.getElementById('currentStory');
   if (storyTitle) storyTitle.textContent = story;
 }
-
 function setupStoryNavigation() {
   const nextButton = document.getElementById('nextStory');
   const prevButton = document.getElementById('prevStory');
@@ -258,8 +257,13 @@ function setupStoryNavigation() {
     nextButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex + 1) % csvData.length;
+      console.log('[NAV] Next Story Clicked:', currentStoryIndex);
+      highlightSelectedStory(currentStoryIndex);
       renderCurrentStory();
-      if (socket) socket.emit('storySelected', { storyIndex: currentStoryIndex });
+      if (socket) {
+        console.log('[EMIT] storySelected:', currentStoryIndex);
+        socket.emit('storySelected', { storyIndex: currentStoryIndex });
+      }
     });
   }
 
@@ -267,11 +271,17 @@ function setupStoryNavigation() {
     prevButton.addEventListener('click', () => {
       if (csvData.length === 0) return;
       currentStoryIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+      console.log('[NAV] Previous Story Clicked:', currentStoryIndex);
+      highlightSelectedStory(currentStoryIndex);
       renderCurrentStory();
-      if (socket) socket.emit('storySelected', { storyIndex: currentStoryIndex });
+      if (socket) {
+        console.log('[EMIT] storySelected:', currentStoryIndex);
+        socket.emit('storySelected', { storyIndex: currentStoryIndex });
+      }
     });
   }
 }
+
 
 function generateAvatarUrl(name) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
