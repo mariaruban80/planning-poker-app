@@ -17,7 +17,7 @@ const __dirname = dirname(__filename);
 app.use(express.static(join(__dirname, 'public')));
 
 // Room structure
-const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory }
+const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex }
 
 io.on('connection', (socket) => {
   let currentRoom = null;
@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
         revealed: false,
         csvData: [],
         selectedIndex: null,
-        votesPerStory: {}
+        votesPerStory: {} // Added for per-story vote tracking
       };
     }
 
@@ -44,8 +44,7 @@ io.on('connection', (socket) => {
     socket.join(currentRoom);
 
     io.to(currentRoom).emit('userList', rooms[currentRoom].users);
-
-    if (rooms[currentRoom].csvData?.length > 0) {
+ if (rooms[currentRoom].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[currentRoom].csvData);
     }
 
@@ -53,7 +52,7 @@ io.on('connection', (socket) => {
       const storyIndex = rooms[currentRoom].selectedIndex;
       socket.emit('storySelected', { storyIndex });
 
-      // ✅ Send existing votes for the current story to the joining user
+      // Send existing votes for the selected story to the new user
       const existingVotes = rooms[currentRoom].votesPerStory?.[storyIndex];
       if (existingVotes) {
         for (const [userId, vote] of Object.entries(existingVotes)) {
@@ -63,6 +62,15 @@ io.on('connection', (socket) => {
     }
   });
 
+    //if (rooms[currentRoom].csvData?.length > 0) {
+    //  socket.emit('syncCSVData', rooms[currentRoom].csvData);
+  //  }
+
+//    if (typeof rooms[currentRoom].selectedIndex === 'number') {
+  //    socket.emit('storySelected', { storyIndex: rooms[currentRoom].selectedIndex });
+   // }
+  //});
+
   socket.on('storySelected', ({ storyIndex }) => {
     if (currentRoom) {
       rooms[currentRoom].selectedIndex = storyIndex;
@@ -70,6 +78,19 @@ io.on('connection', (socket) => {
     }
   });
 
+//  socket.on('castVote', ({ vote }) => {
+  //  if (currentRoom) {
+    //  rooms[currentRoom].votes[socket.id] = vote;
+     // io.to(currentRoom).emit('voteUpdate', { userId: socket.id, vote: '✔️' });
+   // }
+  //});
+
+  //socket.on('castVote', ({ vote, targetUserId }) => {
+  //if (currentRoom && targetUserId) {
+   // rooms[currentRoom].votes[targetUserId] = vote;
+   // io.to(currentRoom).emit('voteUpdate', { userId: targetUserId, vote: '✔️' });
+ // }
+//});
   socket.on('castVote', ({ vote, targetUserId }) => {
     if (currentRoom && targetUserId != null) {
       const currentStoryIndex = rooms[currentRoom].selectedIndex;
@@ -82,7 +103,7 @@ io.on('connection', (socket) => {
       }
 
       rooms[currentRoom].votesPerStory[currentStoryIndex][targetUserId] = vote;
- console.log('[server] castVote:', vote, '->', targetUserId); 
+
       io.to(currentRoom).emit('voteUpdate', {
         userId: targetUserId,
         vote,
@@ -93,9 +114,7 @@ io.on('connection', (socket) => {
 
   socket.on('revealVotes', () => {
     if (currentRoom) {
-      const currentStoryIndex = rooms[currentRoom].selectedIndex;
-      const votes = rooms[currentRoom].votesPerStory?.[currentStoryIndex] || {};
-      io.to(currentRoom).emit('revealVotes', votes);
+      io.to(currentRoom).emit('revealVotes', rooms[currentRoom].votes);
       rooms[currentRoom].revealed = true;
     }
   });
