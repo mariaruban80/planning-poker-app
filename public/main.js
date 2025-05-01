@@ -105,8 +105,9 @@ function handleSocketMessage(message) {
       
       // Update UI if this is for the current story
       if (message.storyIndex === currentStoryIndex) {
-        // Show a checkmark instead of the actual vote
-        updateVoteVisuals(message.userId, '✓', true);
+        // Show a checkmark instead of the actual vote unless revealed
+        const voteToShow = votesRevealed[currentStoryIndex] ? message.vote : '✓';
+        updateVoteVisuals(message.userId, voteToShow, true);
       }
       break;
       
@@ -115,7 +116,7 @@ function handleSocketMessage(message) {
       votesPerStory[message.storyIndex] = message.votes;
       
       if (message.storyIndex === currentStoryIndex) {
-        // Apply votes but mask them
+        // Apply votes but mask them if not revealed
         applyVotesToUI(message.votes, !votesRevealed[message.storyIndex]);
       }
       break;
@@ -170,9 +171,19 @@ function resetAllVoteVisuals() {
   });
   
   // Reset avatar backgrounds
-  const avatars = document.querySelectorAll('img.avatar');
+  const avatars = document.querySelectorAll('.avatar-circle, img.avatar');
   avatars.forEach(avatar => {
     avatar.style.backgroundColor = 'white';
+  });
+  
+  // Remove has-voted class
+  document.querySelectorAll('.avatar-container, .user-circle-entry').forEach(container => {
+    container.classList.remove('has-voted');
+  });
+  
+  // Reset vote card spaces
+  document.querySelectorAll('.vote-card-space').forEach(space => {
+    space.classList.remove('has-vote');
   });
 }
 
@@ -241,6 +252,161 @@ function initializeApp(roomId) {
   setupStoryNavigation();
   setupVoteCardsDrag();
   setupRevealResetButtons();
+  
+  // Add CSS for new layout
+  addNewLayoutStyles();
+}
+
+/**
+ * Add CSS styles for the new layout
+ */
+function addNewLayoutStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .poker-table-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      gap: 15px;
+      padding: 20px 0;
+    }
+    
+    .avatar-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .vote-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .avatar-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 80px;
+      transition: transform 0.2s;
+    }
+    
+    .avatar-container:hover {
+      transform: translateY(-3px);
+    }
+    
+    .avatar-circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #ccc;
+      background-color: white;
+      transition: all 0.3s ease;
+    }
+    
+    .has-voted .avatar-circle {
+      border-color: #4CAF50;
+      background-color: #c1e1c1;
+    }
+    
+    .user-name {
+      font-size: 12px;
+      margin-top: 5px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    
+    .vote-card-space {
+      width: 60px;
+      height: 90px;
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f9f9f9;
+      transition: all 0.2s ease;
+    }
+    
+    .vote-card-space:hover {
+      border-color: #999;
+      background-color: #f0f0f0;
+    }
+    
+    .vote-card-space.has-vote {
+      border-style: solid;
+      border-color: #673ab7;
+      background-color: #f0e6ff;
+    }
+    
+    .vote-badge {
+      font-size: 22px;
+      font-weight: bold;
+      color: #673ab7;
+    }
+    
+    .reveal-button-container {
+      margin: 10px 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .reveal-votes-button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      background-color: #ffffff;
+      color: #673ab7;
+      border: 2px solid #673ab7;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+    }
+    
+    .reveal-votes-button:hover {
+      background-color: #673ab7;
+      color: white;
+    }
+    
+    .cards {
+      margin-top: 30px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .card {
+      padding: 10px 20px;
+      background: #cfc6f7;
+      border-radius: 8px;
+      cursor: grab;
+      font-weight: bold;
+      font-size: 18px;
+      min-width: 40px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 /**
@@ -401,25 +567,20 @@ function renderCurrentStory() {
 }
 
 /**
- * Update the user list display
+ * Update the user list display with the new layout
  */
 function updateUserList(users) {
   const userListContainer = document.getElementById('userList');
   const userCircleContainer = document.getElementById('userCircle');
+  
   if (!userListContainer || !userCircleContainer) return;
 
+  // Clear existing content
   userListContainer.innerHTML = '';
   userCircleContainer.innerHTML = '';
 
-  const radius = 150, centerX = 200, centerY = 200;
-  const angleStep = (2 * Math.PI) / users.length;
-
-  users.forEach((user, index) => {
-    const angle = index * angleStep;
-    const x = centerX + radius * Math.cos(angle) - 30;
-    const y = centerY + radius * Math.sin(angle) - 30;
-
-    // Create user entry in side list
+  // Create left sidebar user list
+  users.forEach(user => {
     const userEntry = document.createElement('div');
     userEntry.classList.add('user-entry');
     userEntry.id = `user-${user.id}`;
@@ -429,61 +590,42 @@ function updateUserList(users) {
       <span class="vote-badge">?</span>
     `;
     userListContainer.appendChild(userEntry);
-
-    // Create user entry in circle
-    const circleEntry = document.createElement('div');
-    circleEntry.classList.add('user-circle-entry');
-    circleEntry.id = `user-circle-${user.id}`;
-    circleEntry.style.position = 'absolute';
-    circleEntry.style.left = `${x}px`;
-    circleEntry.style.top = `${y}px`;
-    circleEntry.style.textAlign = 'center';
-
-    circleEntry.innerHTML = `
-      <img src="${generateAvatarUrl(user.name)}" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; background-color: white;" />
-      <span class="vote-badge" style="display:block; margin-top:5px;">?</span>
-    `;
-
-    circleEntry.setAttribute('draggable', 'false');
-    circleEntry.addEventListener('dragover', (e) => e.preventDefault());
-    circleEntry.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const vote = e.dataTransfer.getData('text/plain');
-      const userId = user.id;
-
-      if (socket && vote) {
-        socket.emit('castVote', { vote, targetUserId: userId });
-      }
-
-      // Store vote locally
-      if (!votesPerStory[currentStoryIndex]) {
-        votesPerStory[currentStoryIndex] = {};
-      }
-      votesPerStory[currentStoryIndex][userId] = vote;
-      
-      // Update UI - show checkmark if votes aren't revealed
-      updateVoteVisuals(userId, votesRevealed[currentStoryIndex] ? vote : '✓', true);
-    });
-
-    userCircleContainer.appendChild(circleEntry);
   });
 
-  // Add reveal button to circle
+  // Create new grid layout for center area
+  const gridLayout = document.createElement('div');
+  gridLayout.classList.add('poker-table-layout');
+
+  // Split users into two rows
+  const halfPoint = Math.ceil(users.length / 2);
+  const topUsers = users.slice(0, halfPoint);
+  const bottomUsers = users.slice(halfPoint);
+
+  // Create top row of avatars
+  const topAvatarRow = document.createElement('div');
+  topAvatarRow.classList.add('avatar-row');
+  
+  topUsers.forEach(user => {
+    const avatarContainer = createAvatarContainer(user);
+    topAvatarRow.appendChild(avatarContainer);
+  });
+  
+  // Create top row of vote cards
+  const topVoteRow = document.createElement('div');
+  topVoteRow.classList.add('vote-row');
+  
+  topUsers.forEach(user => {
+    const voteCard = createVoteCardSpace(user);
+    topVoteRow.appendChild(voteCard);
+  });
+
+  // Create reveal button
+  const revealButtonContainer = document.createElement('div');
+  revealButtonContainer.classList.add('reveal-button-container');
+  
   const revealBtn = document.createElement('button');
-  revealBtn.textContent = 'Reveal Cards';
-  revealBtn.id = 'revealBtn';
-  Object.assign(revealBtn.style, {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#007bff',
-    color: 'white',
-    cursor: 'pointer'
-  });
+  revealBtn.textContent = 'REVEAL VOTES';
+  revealBtn.classList.add('reveal-votes-button');
   revealBtn.onclick = () => {
     if (socket) {
       socket.emit('revealVotes');
@@ -495,28 +637,144 @@ function updateUserList(users) {
       }
     }
   };
-  userCircleContainer.appendChild(revealBtn);
+  
+  revealButtonContainer.appendChild(revealBtn);
+
+  // Create bottom row of vote cards
+  const bottomVoteRow = document.createElement('div');
+  bottomVoteRow.classList.add('vote-row');
+  
+  bottomUsers.forEach(user => {
+    const voteCard = createVoteCardSpace(user);
+    bottomVoteRow.appendChild(voteCard);
+  });
+
+  // Create bottom row of avatars
+  const bottomAvatarRow = document.createElement('div');
+  bottomAvatarRow.classList.add('avatar-row');
+  
+  bottomUsers.forEach(user => {
+    const avatarContainer = createAvatarContainer(user);
+    bottomAvatarRow.appendChild(avatarContainer);
+  });
+
+  // Assemble the grid
+  gridLayout.appendChild(topAvatarRow);
+  gridLayout.appendChild(topVoteRow);
+  gridLayout.appendChild(revealButtonContainer);
+  gridLayout.appendChild(bottomVoteRow);
+  gridLayout.appendChild(bottomAvatarRow);
+  
+  userCircleContainer.appendChild(gridLayout);
+}
+
+/**
+ * Create avatar container for a user
+ */
+function createAvatarContainer(user) {
+  const avatarContainer = document.createElement('div');
+  avatarContainer.classList.add('avatar-container');
+  avatarContainer.id = `user-circle-${user.id}`;
+  
+  avatarContainer.innerHTML = `
+    <img src="${generateAvatarUrl(user.name)}" class="avatar-circle" alt="${user.name}" />
+    <div class="user-name">${user.name}</div>
+  `;
+  
+  avatarContainer.setAttribute('data-user-id', user.id);
+  
+  // Check if there's an existing vote for this user in the current story
+  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  if (existingVote) {
+    avatarContainer.classList.add('has-voted');
+  }
+  
+  return avatarContainer;
+}
+
+/**
+ * Create vote card space for a user
+ */
+function createVoteCardSpace(user) {
+  const voteCard = document.createElement('div');
+  voteCard.classList.add('vote-card-space');
+  voteCard.id = `vote-space-${user.id}`;
+  
+  // Add vote badge inside the card space
+  const voteBadge = document.createElement('span');
+  voteBadge.classList.add('vote-badge');
+  voteBadge.textContent = '?';
+  voteCard.appendChild(voteBadge);
+  
+  // Make it a drop target for vote cards
+  voteCard.addEventListener('dragover', (e) => e.preventDefault());
+  voteCard.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const vote = e.dataTransfer.getData('text/plain');
+    const userId = user.id;
+
+    if (socket && vote) {
+      socket.emit('castVote', { vote, targetUserId: userId });
+    }
+
+    // Store vote locally
+    if (!votesPerStory[currentStoryIndex]) {
+      votesPerStory[currentStoryIndex] = {};
+    }
+    votesPerStory[currentStoryIndex][userId] = vote;
+    
+    // Update UI - show checkmark if votes aren't revealed
+    updateVoteVisuals(userId, votesRevealed[currentStoryIndex] ? vote : '✓', true);
+  });
+  
+  // Check if there's an existing vote for this user in the current story
+  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  if (existingVote) {
+    voteCard.classList.add('has-vote');
+    voteBadge.textContent = votesRevealed[currentStoryIndex] ? existingVote : '✓';
+  }
+  
+  return voteCard;
 }
 
 /**
  * Update vote visuals for a user
- * @param {string} userId - The user ID
- * @param {string} vote - The vote value ("✓" for masked votes)
- * @param {boolean} hasVoted - Whether the user has voted (for green background)
  */
 function updateVoteVisuals(userId, vote, hasVoted = false) {
-  // Update badges in both list and circle
-  const badges = document.querySelectorAll(`#user-${userId} .vote-badge, #user-circle-${userId} .vote-badge`);
-  badges.forEach(badge => {
-    if (badge) badge.textContent = vote;
-  });
+  // Update badges in sidebar
+  const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
+  if (sidebarBadge) sidebarBadge.textContent = vote;
+  
+  // Update vote card space
+  const voteSpace = document.querySelector(`#vote-space-${userId}`);
+  if (voteSpace) {
+    const voteBadge = voteSpace.querySelector('.vote-badge');
+    if (voteBadge) voteBadge.textContent = vote;
+    
+    if (hasVoted) {
+      voteSpace.classList.add('has-vote');
+    } else {
+      voteSpace.classList.remove('has-vote');
+    }
+  }
 
-  // Update avatar background to show they've voted
+  // Update avatar to show they've voted
   if (hasVoted) {
-    const avatars = document.querySelectorAll(`#user-${userId} img.avatar, #user-circle-${userId} img.avatar`);
-    avatars.forEach(avatar => {
-      if (avatar) avatar.style.backgroundColor = '#c1e1c1'; // Green background
-    });
+    const avatarContainer = document.querySelector(`#user-circle-${userId}`);
+    if (avatarContainer) {
+      avatarContainer.classList.add('has-voted');
+      
+      const avatar = avatarContainer.querySelector('.avatar-circle');
+      if (avatar) {
+        avatar.style.backgroundColor = '#c1e1c1'; // Green background
+      }
+    }
+    
+    // Also update sidebar avatar
+    const sidebarAvatar = document.querySelector(`#user-${userId} img.avatar`);
+    if (sidebarAvatar) {
+      sidebarAvatar.style.backgroundColor = '#c1e1c1';
+    }
   }
 }
 
