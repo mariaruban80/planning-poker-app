@@ -17,14 +17,17 @@ const __dirname = dirname(__filename);
 app.use(express.static(join(__dirname, 'public')));
 
 // Room structure
-const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex }
+const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory }
 
 io.on('connection', (socket) => {
-   console.log(`[SERVER] New client connected: ${socket.id}`);
+  console.log(`[SERVER] New client connected: ${socket.id}`);
+  
+  // Handle room joining
   socket.on('joinRoom', ({ roomId, userName }) => {
     socket.data.roomId = roomId;
     socket.data.userName = userName;
 
+    // Create room if it doesn't exist
     if (!rooms[roomId]) {
       rooms[roomId] = {
         users: [],
@@ -32,67 +35,73 @@ io.on('connection', (socket) => {
         story: [],
         revealed: false,
         csvData: [],
-        selectedIndex: null,
+        selectedIndex: 0, // Default to first story
         votesPerStory: {}
       };
     }
 
+    // Update user list (remove if exists, then add)
     rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
     rooms[roomId].users.push({ id: socket.id, name: userName });
     socket.join(roomId);
 
+    console.log(`[SERVER] User ${userName} (${socket.id}) joined room ${roomId}`);
+    
+    // Send user list to everyone in the room
     io.to(roomId).emit('userList', rooms[roomId].users);
 
+    // Send CSV data if available
     if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
+      
+      // Listen for CSV data loaded confirmation
+      socket.once('csvDataLoaded', () => {
+        if (typeof rooms[roomId].selectedIndex === 'number') {
+          const storyIndex = rooms[roomId].selectedIndex;
+          console.log(`[SERVER] Sending storySelected (${storyIndex}) to new user ${socket.id}`);
+          socket.emit('storySelected', { storyIndex });
+          
+          // Send any existing votes for the current story
+          const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
+          if (existingVotes) {
+            for (const [userId, vote] of Object.entries(existingVotes)) {
+              socket.emit('voteUpdate', { userId, vote, storyIndex });
+            }
+          }
+        }
+      });
     }
-
-// Inside the joinRoom event handler:
-if (typeof rooms[roomId].selectedIndex === 'number') {
-  const storyIndex = rooms[roomId].selectedIndex;
-  console.log(`[SERVER] Re-sending storySelected to joining user: ${storyIndex}`);
-
-  // First send the CSV data to ensure it's loaded
-  if (rooms[roomId].csvData?.length > 0) {
-    socket.emit('syncCSVData', { csvData: rooms[roomId].csvData });
-  }
-
-  // Delay the storySelected event to ensure client has rendered the stories first
-  setTimeout(() => {
-    console.log(`[SERVER] Emitting storySelected to socket ${socket.id} for room ${roomId}`);
-    socket.emit('storySelected', { storyIndex });
-  }, 1000); // Increased delay to ensure CSV is processed first
-
-  const existingVotes = rooms[roomId].votesPerStory?.[storyIndex];
-  if (existingVotes) {
-    for (const [userId, vote] of Object.entries(existingVotes)) {
-      socket.emit('voteUpdate', { userId, vote, storyIndex });
-    }
-  }
-}
-
   });
 
+  // Handle story selection
   socket.on('storySelected', ({ storyIndex }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       console.log(`[SERVER] storySelected received from ${socket.id} in room ${roomId}, storyIndex: ${storyIndex}`);
+      
+      // Store the selected index in room state
       rooms[roomId].selectedIndex = storyIndex;
+      
+      // Broadcast to ALL clients in the room (including sender for confirmation)
       io.to(roomId).emit('storySelected', { storyIndex });
     }
   });
 
+  // Handle user votes
   socket.on('castVote', ({ vote, targetUserId }) => {
     const roomId = socket.data.roomId;
     if (roomId && targetUserId != null && rooms[roomId]) {
       const currentStoryIndex = rooms[roomId].selectedIndex;
 
+      // Initialize vote storage for this story if needed
       if (!rooms[roomId].votesPerStory[currentStoryIndex]) {
         rooms[roomId].votesPerStory[currentStoryIndex] = {};
       }
 
+      // Store the vote
       rooms[roomId].votesPerStory[currentStoryIndex][targetUserId] = vote;
 
+      // Broadcast vote to all clients in the room
       io.to(roomId).emit('voteUpdate', {
         userId: targetUserId,
         vote,
@@ -101,6 +110,7 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
     }
   });
 
+  // Handle vote revealing
   socket.on('revealVotes', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
@@ -109,6 +119,7 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
     }
   });
 
+  // Handle story changes
   socket.on('storyChange', ({ story }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
@@ -117,6 +128,7 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
     }
   });
 
+  // Handle story navigation
   socket.on('storyNavigation', ({ index }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
@@ -124,6 +136,7 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
     }
   });
 
+  // Handle CSV data synchronization
   socket.on('syncCSVData', (csvData) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
@@ -132,12 +145,34 @@ if (typeof rooms[roomId].selectedIndex === 'number') {
     }
   });
 
+  // Handle CSV data loaded confirmation
+  socket.on('csvDataLoaded', () => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId] && typeof rooms[roomId].selectedIndex === 'number') {
+      const storyIndex = rooms[roomId].selectedIndex;
+      console.log(`[SERVER] Client ${socket.id} confirmed CSV loaded, sending current story: ${storyIndex}`);
+      socket.emit('storySelected', { storyIndex });
+    }
+  });
+
+  // Handle disconnections
   socket.on('disconnect', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] Client disconnected: ${socket.id} from room ${roomId}`);
+      
+      // Remove user from room
       rooms[roomId].users = rooms[roomId].users.filter(user => user.id !== socket.id);
       delete rooms[roomId].votes[socket.id];
+      
+      // Notify remaining users
       io.to(roomId).emit('userList', rooms[roomId].users);
+      
+      // Clean up empty rooms
+      if (rooms[roomId].users.length === 0) {
+        console.log(`[SERVER] Removing empty room: ${roomId}`);
+        delete rooms[roomId];
+      }
     }
   });
 });
