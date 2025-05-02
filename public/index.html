@@ -236,13 +236,18 @@
     }
     
     .modal button { 
-      margin-top: 10px; 
+      margin: 10px 5px 0; 
       background-color: #6c63ff; 
       color: white; 
       border: none; 
-      padding: 6px 12px; 
+      padding: 8px 16px; 
       border-radius: 6px; 
       cursor: pointer;
+      font-weight: 600;
+    }
+
+    .modal button:hover {
+      background-color: #5753e4;
     }
     
     /* User list styling */
@@ -574,13 +579,15 @@
 <body>
   <div class="banner">Planning Poker</div>
 
-  <!-- Invite Modal -->
+  <!-- Invite Modal - Only use one modal -->
   <div class="modal-overlay" id="inviteModal">
     <div class="modal">
       <h3>Invite Link</h3>
       <input type="text" id="inviteLink" readonly />
-      <button onclick="copyInviteLink()">Copy Link</button>
-      <button onclick="hideInviteModal()">Close</button>
+      <div>
+        <button onclick="copyInviteLink()">Copy Link</button>
+        <button onclick="hideInviteModal()">Close</button>
+      </div>
     </div>
   </div>
 
@@ -649,7 +656,22 @@
   <script type="module" src="main.js"></script>
 
   <script>
+    // Check if there are any older invite modals from the previous version and remove them
+    function removeOldInviteModals() {
+      const oldModals = document.querySelectorAll('.modal-dialog');
+      if (oldModals.length > 0) {
+        oldModals.forEach(modal => {
+          if (modal.innerHTML.includes('Invite URL')) {
+            modal.parentNode.removeChild(modal);
+          }
+        });
+      }
+    }
+
     function showInviteModal() {
+      // Remove any older invite modals first
+      removeOldInviteModals();
+      
       document.getElementById('inviteModal').style.display = 'flex';
       document.getElementById('inviteLink').value = window.location.href;
     }
@@ -699,12 +721,25 @@
       }
     }
     
+    // Override any existing invite-related functions from the original app
+    window.showInviteModal = showInviteModal;
+    window.hideInviteModal = hideInviteModal;
+    window.copyInviteLink = copyInviteLink;
+    
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
+      // Remove any old invite modals immediately
+      removeOldInviteModals();
+      
       // Setup invite button click handler
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton) {
-        inviteButton.addEventListener('click', showInviteModal);
+        // Clear any existing event listeners
+        const newInviteButton = inviteButton.cloneNode(true);
+        inviteButton.parentNode.replaceChild(newInviteButton, inviteButton);
+        
+        // Add our event listener
+        newInviteButton.addEventListener('click', showInviteModal);
       }
       
       // Setup reveal button click handler
@@ -717,12 +752,16 @@
       hideButtonsForGuests();
       
       // Add a slight delay to ensure all elements are ready
-      setTimeout(hideButtonsForGuests, 100);
+      setTimeout(function() {
+        hideButtonsForGuests();
+        removeOldInviteModals();
+      }, 300);
     });
     
     // Also check when window is fully loaded (all assets)
     window.addEventListener('load', function() {
       hideButtonsForGuests();
+      removeOldInviteModals();
     });
   </script>
 </body>
