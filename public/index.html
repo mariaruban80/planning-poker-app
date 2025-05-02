@@ -74,28 +74,43 @@
       border: 1px solid #4CAF50;
     }
     
-    /* Updated button styling to match the image */
+    /* Updated button styling to match the ADD TICKET reference */
     .button { 
       margin: 10px 0; 
-      padding: 12px; 
+      padding: 12px 20px; 
       background-color: white; 
       color: #673ab7; 
-      border: 2px solid #673ab7; 
-      border-radius: 8px; 
+      border: 1px solid #673ab7; 
+      border-radius: 25px; /* More rounded corners like ADD TICKET */
       cursor: pointer; 
       width: 100%;
       font-weight: 600;
-      transition: background-color 0.2s, color 0.2s;
+      transition: all 0.2s;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      height: 42px; /* Fixed height for all buttons */
+      min-width: 140px; /* Minimum width to ensure buttons look good */
+      box-shadow: none;
     }
     
     .button:hover { 
-      background-color: #673ab7; 
-      color: white;
+      background-color: #f0e6ff; /* Lighter purple background on hover */
+      color: #673ab7;
+    }
+    
+    /* Controls section with fixed height buttons */
+    .controls-section {
+      display: flex;
+      flex-direction: column;
+      margin-top: 15px;
+    }
+    
+    .controls-section .button {
+      margin: 5px 0;
     }
     
     /* Navigation button container for parallel display */
@@ -490,6 +505,33 @@
       margin-bottom: 20px;
       width: 100%;
     }
+    
+    /* Add Ticket button styling */
+    .add-ticket-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      background-color: white;
+      color: #673ab7;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin: 20px 0;
+    }
+    
+    .add-ticket-btn:hover {
+      background-color: #f0e6ff;
+    }
+    
+    .add-ticket-btn span {
+      margin-right: 5px;
+      font-size: 18px;
+    }
   </style>
 </head>
 
@@ -523,9 +565,12 @@
       <div id="userList"></div> 
       
       <h3 class="section-heading">Voting Controls</h3>
-      <button class="button" id="revealVotesBtn">Reveal Votes</button>
-      <button class="button" id="resetVotesBtn">Reset Votes</button>
-      <button class="button" id="exportCsvBtn">Export All Votes</button>
+      <!-- Added controls-section for better styling of control buttons -->
+      <div class="controls-section">
+        <button class="button" id="revealVotesBtn">Reveal Votes</button>
+        <button class="button" id="resetVotesBtn">Reset Votes</button>
+        <button class="button" id="exportCsvBtn">Export All Votes</button>
+      </div>
     </div>
 
     <div class="main">
@@ -547,6 +592,9 @@
           <div class="card" draggable="true">21</div>
         </div>
       </div>
+      
+      <!-- Add Ticket button example -->
+      <button class="add-ticket-btn"><span>+</span> ADD TICKET</button>
     </div>
 
     <div class="rightbar" id="storyListContainer">
@@ -580,6 +628,24 @@
       alert('Invite link copied!');
     }
     
+    // Fixed function to reveal votes - optimized to prevent infinite loops and hanging
+    function revealVotes() {
+      // Mark votes as revealed by adding class to body
+      document.body.classList.add('votes-revealed');
+      
+      // Make vote badges visible in a performance-optimized way
+      const voteBadges = document.querySelectorAll('.vote-badge');
+      for (let i = 0; i < voteBadges.length; i++) {
+        voteBadges[i].style.color = '#673ab7';
+      }
+      
+      // Make vote card spaces show their content
+      const voteCards = document.querySelectorAll('.vote-card-space');
+      for (let i = 0; i < voteCards.length; i++) {
+        voteCards[i].classList.add('revealed');
+      }
+    }
+    
     // Connect invite button to modal and handle guest status
     document.addEventListener('DOMContentLoaded', function() {
       // Add this minimal check for guest status based on URL
@@ -601,83 +667,15 @@
         inviteButton.addEventListener('click', showInviteModal);
       }
       
-      // Set up the reveal votes button modification
+      // Set up the reveal votes button with direct function call
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
-        // Save the original onclick handler
-        const originalOnClick = revealBtn.onclick;
-        
-        revealBtn.onclick = function(event) {
-          // Call the original handler first
-          if (originalOnClick) {
-            originalOnClick.call(this, event);
-          }
-          
-          // Then show all votes by adding a class to the body
-          document.body.classList.add('votes-revealed');
-          
-          // Make each vote-badge visible
-          document.querySelectorAll('.vote-badge').forEach(badge => {
-            badge.style.color = '#673ab7'; // Purple color for revealed votes
-          });
-          
-          // Make each vote card space show its content
-          document.querySelectorAll('.vote-card-space').forEach(card => {
-            card.classList.add('revealed');
-          });
-        };
+        revealBtn.addEventListener('click', revealVotes);
       }
       
-      // Set up a mutation observer to detect when votes are revealed
-      observeVoteReveal();
+      // Disconnect the mutation observer that was causing the hanging
+      // We're using direct event handling instead
     });
-    
-    // Function to observe changes that might indicate votes being revealed
-    function observeVoteReveal() {
-      // Create a mutation observer to watch for relevant DOM changes
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          // Look for specific changes that indicate votes being revealed
-          if (
-            // Either class changes
-            (mutation.type === 'attributes' && mutation.attributeName === 'class') ||
-            // Or a reveal button being clicked 
-            (mutation.type === 'childList' && document.body.classList.contains('votes-revealed'))
-          ) {
-            // Check for common indicators that votes are revealed
-            const hasRevealedClass = document.body.classList.contains('votes-revealed');
-            const hasRevealedCards = document.querySelectorAll('.vote-card-space.revealed').length > 0;
-            const hasVisibleVotes = document.querySelectorAll('.vote-badge[style*="color: rgb(51, 51, 51)"]').length > 0;
-            
-            // If any indicator suggests votes are revealed
-            if (hasRevealedClass || hasRevealedCards || hasVisibleVotes) {
-              // Make all vote badges visible
-              document.querySelectorAll('.vote-badge').forEach(badge => {
-                badge.style.color = '#673ab7'; // Purple color for revealed votes
-              });
-              
-              // Add revealed class to vote card spaces
-              document.querySelectorAll('.vote-card-space').forEach(card => {
-                card.classList.add('revealed');
-              });
-              
-              // Add votes-revealed class to body if not already there
-              if (!hasRevealedClass) {
-                document.body.classList.add('votes-revealed');
-              }
-            }
-          }
-        });
-      });
-      
-      // Start observing the entire document
-      observer.observe(document.body, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-        attributeFilter: ['class', 'style']
-      });
-    }
   </script>
 </body>
 </html>
