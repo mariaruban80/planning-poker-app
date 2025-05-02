@@ -11,32 +11,35 @@
     }
     
     .container { 
-      display: flex; 
+   //   display: flex; 
       background: white;
-      min-height: calc(100vh - 140px);
+     // min-height: calc(100vh - 140px);
     }
     
     .sidebar, .rightbar { 
-      width: 20%; 
+      //width: 20%; 
       background: white; 
-      padding: 20px; 
-      overflow-y: auto;
-      border-right: 1px solid white;
+      //padding: 20px; 
+      //overflow-y: auto;
+      border-right: white;
+       border-left-color: white;
     }
     
     .rightbar {
-      border-right: none;
+    //  border-right: none;
       border-left: 1px solid white;
     }
     
     .main { 
-      flex: 1; 
-      padding: 20px; 
-      display: flex; 
-      flex-direction: column; 
+      //flex: 1; 
+      //padding: 20px; 
+      //display: flex; 
+     // flex-direction: column; 
       align-items: center;
-      background: #f5f6fa; /* Match sidebar/rightbar */
-      box-shadow: none;
+      background: white;
+      border-right: white;
+      border-left-color: white;
+     // box-shadow: none;
     }
     
     .banner { 
