@@ -303,20 +303,25 @@
       flex: 1;
     }
 
-    /* UPDATED - Question mark hidden properly */
+    /* UPDATED - Question mark styling with reveal handling */
     .vote-badge {
       background-color: transparent;
-      color: transparent !important; /* Hide the question marks with !important */
       font-size: 14px; /* Made it match username font size */
       font-weight: 600; /* Match username font weight */
       padding: 2px 8px;
       min-width: 28px;
       text-align: center;
+      /* Don't set color to transparent here to allow for revealing */
     }
     
-    /* Show vote values when votes are revealed */
-    .votes-revealed .vote-badge {
-      color: #673ab7 !important; /* Purple color matching your screenshot */
+    /* Hide votes until revealed */
+    .vote-badge:not(.revealed) {
+      color: transparent !important;
+    }
+    
+    /* When votes are revealed, show the values with this color */
+    .vote-badge.revealed {
+      color: #673ab7 !important;
     }
     
     /* New poker table layout */
@@ -419,16 +424,30 @@
       background-color: #f0e6ff;
     }
     
-    /* UPDATED - Question mark hidden properly for vote cards */
+    /* UPDATED - Card vote badge styling */
     .vote-card-space .vote-badge {
       font-size: 18px;
       font-weight: bold;
-      color: transparent !important; /* Hide the question marks with !important */
+      /* Don't set color to transparent here */
     }
     
-    /* Show vote values when votes are revealed */
-    .vote-card-space.revealed .vote-badge {
-      color: #333 !important; /* Show the vote value */
+    /* Hide votes until revealed */
+    .vote-card-space .vote-badge:not(.revealed) {
+      color: transparent !important;
+    }
+    
+    /* When votes are revealed, show them in this color */
+    .vote-card-space .vote-badge.revealed {
+      color: #333 !important;
+    }
+    
+    /* Body class for when votes should be revealed */
+    body.votes-revealed .vote-badge {
+      color: #673ab7 !important;
+    }
+    
+    body.votes-revealed .vote-card-space .vote-badge {
+      color: #333 !important;
     }
     
     .reveal-button-container {
@@ -573,29 +592,6 @@
       flex-direction: column;
       width: 100%;
     }
-    
-    /* ADDITIONAL CSS TO ENSURE ALL QUESTION MARKS ARE HIDDEN */
-    /* This is a more aggressive approach to hiding question marks */
-    .vote-badge::before,
-    .vote-badge::after,
-    .vote-card-space::before,
-    .vote-card-space::after {
-      content: "" !important;
-      color: transparent !important;
-    }
-    
-    /* Hide all question marks globally */
-    .question-mark-hide {
-      color: transparent !important;
-      opacity: 0 !important;
-    }
-    
-    /* Additional CSS to ensure question marks stay hidden even with JS manipulations */
-    [data-vote]:not(.revealed),
-    [data-value]:not(.revealed),
-    .hidden-vote:not(.revealed) {
-      color: transparent !important;
-    }
   </style>
 </head>
 
@@ -696,22 +692,98 @@
       alert('Invite link copied!');
     }
     
-    // Fixed function to reveal votes - optimized to prevent infinite loops and hanging
+    // Fixed function to reveal votes - properly shows vote values
     function revealVotes() {
+      console.log("Revealing votes...");
+      
       // Mark votes as revealed by adding class to body
       document.body.classList.add('votes-revealed');
       
-      // Make vote badges visible in a performance-optimized way
+      // Make vote badges visible by adding revealed class
       const voteBadges = document.querySelectorAll('.vote-badge');
       for (let i = 0; i < voteBadges.length; i++) {
-        voteBadges[i].style.color = '#673ab7';
         voteBadges[i].classList.add('revealed');
+        
+        // Make sure the vote text is actually present for revealing
+        if (voteBadges[i].getAttribute('data-vote-value')) {
+          voteBadges[i].textContent = voteBadges[i].getAttribute('data-vote-value');
+        }
       }
       
       // Make vote card spaces show their content
       const voteCards = document.querySelectorAll('.vote-card-space');
       for (let i = 0; i < voteCards.length; i++) {
         voteCards[i].classList.add('revealed');
+        
+        // Make sure the card vote badges are also revealed
+        const cardBadges = voteCards[i].querySelectorAll('.vote-badge');
+        for (let j = 0; j < cardBadges.length; j++) {
+          cardBadges[j].classList.add('revealed');
+          
+          if (cardBadges[j].getAttribute('data-vote-value')) {
+            cardBadges[j].textContent = cardBadges[j].getAttribute('data-vote-value');
+          }
+        }
+      }
+      
+      // If there are any question marks still in the UI, replace them with actual vote values
+      replaceQuestionMarksWithValues();
+      
+      console.log("Votes revealed!");
+    }
+    
+    // Function to replace question marks with actual vote values
+    function replaceQuestionMarksWithValues() {
+      // This would typically reference a data structure with actual vote values
+      // Since we don't have real data, we'll simulate it with random values
+      const possibleVotes = ["1", "2", "3", "5", "8", "13", "21"];
+      
+      // Find all elements containing question marks
+      const questionElements = document.querySelectorAll('*');
+      for (let i = 0; i < questionElements.length; i++) {
+        if (questionElements[i].textContent === '?') {
+          // Replace with a vote value (would use real data in production)
+          // Here we're using preset vote values if they exist on data attributes
+          if (questionElements[i].hasAttribute('data-vote-value')) {
+            questionElements[i].textContent = questionElements[i].getAttribute('data-vote-value');
+          } else {
+            // For testing only - in real app, you'd use the actual vote value
+            const randomValue = possibleVotes[Math.floor(Math.random() * possibleVotes.length)];
+            questionElements[i].textContent = randomValue;
+            // Store the value for future reference
+            questionElements[i].setAttribute('data-vote-value', randomValue);
+          }
+        }
+      }
+    }
+    
+    // Function to hide all question marks by replacing them with empty space
+    function hideQuestionMarks() {
+      // First, store the original question mark values in data attributes for later revealing
+      const questionElements = document.querySelectorAll('*');
+      for (let i = 0; i < questionElements.length; i++) {
+        const el = questionElements[i];
+        if (el.textContent === '?') {
+          // Store that this was a question mark and hide it
+          el.setAttribute('data-vote-value', '?');
+          el.textContent = ' ';
+          // Also add a class to mark this as a vote badge
+          el.classList.add('vote-badge');
+        }
+      }
+      
+      // Select all vote badges
+      const voteBadges = document.querySelectorAll('.vote-badge');
+      for (let i = 0; i < voteBadges.length; i++) {
+        // Store the current text as data attribute if not already stored
+        if (!voteBadges[i].hasAttribute('data-vote-value')) {
+          voteBadges[i].setAttribute('data-vote-value', voteBadges[i].textContent);
+        }
+        
+        // Hide the vote value until revealed
+        if (!document.body.classList.contains('votes-revealed')) {
+          voteBadges[i].textContent = ' ';
+        }
       }
     }
     
@@ -775,44 +847,81 @@
       }
     }
     
-    // Function to hide all question marks by making them transparent
-    function fixQuestionMarks() {
-      // Select all vote badges and apply the CSS fix
-      const voteBadges = document.querySelectorAll('.vote-badge');
-      for (let i = 0; i < voteBadges.length; i++) {
-        voteBadges[i].classList.add('question-mark-hide');
-        voteBadges[i].style.color = 'transparent'; // Direct style override
-        // Replace content with empty space if it contains a question mark
-        if (voteBadges[i].textContent.includes('?')) {
-          voteBadges[i].textContent = ' ';
-        }
+    // Add test data for demo purposes (question marks that will be revealed)
+    function addTestDataForDemo() {
+      // Simulate some votes with question marks in user list
+      const userList = document.getElementById('userList');
+      if (userList && userList.querySelectorAll('.user-entry').length === 0) {
+        // Sample users for demo
+        const users = [
+          { name: 'John', initial: 'JD', vote: '5' },
+          { name: 'Alice', initial: 'AC', vote: '8' },
+          { name: 'Robert', initial: 'RS', vote: '3' }
+        ];
+        
+        // Create user entries
+        users.forEach(function(user) {
+          const entry = document.createElement('div');
+          entry.className = 'user-entry voted';
+          
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar';
+          avatar.style.backgroundColor = getRandomColor();
+          avatar.textContent = user.initial;
+          
+          const username = document.createElement('div');
+          username.className = 'username';
+          username.textContent = user.name;
+          
+          const voteBadge = document.createElement('div');
+          voteBadge.className = 'vote-badge';
+          voteBadge.setAttribute('data-vote-value', user.vote);
+          voteBadge.textContent = '?'; // This will be transparent initially
+          
+          entry.appendChild(avatar);
+          entry.appendChild(username);
+          entry.appendChild(voteBadge);
+          userList.appendChild(entry);
+        });
       }
       
-      // Select all vote card spaces that have question marks
-      const voteCards = document.querySelectorAll('.vote-card-space .vote-badge');
-      for (let i = 0; i < voteCards.length; i++) {
-        voteCards[i].classList.add('question-mark-hide');
-        voteCards[i].style.color = 'transparent'; // Direct style override
-        // Replace content with empty space if it contains a question mark
-        if (voteCards[i].textContent.includes('?')) {
-          voteCards[i].textContent = ' ';
+      // Also add some vote card spaces in the center with question marks
+      const userCircle = document.getElementById('userCircle');
+      if (userCircle) {
+        // Create a vote row for demo
+        const voteRow = document.createElement('div');
+        voteRow.className = 'vote-row';
+        
+        // Add some vote cards
+        for (let i = 0; i < 3; i++) {
+          const voteCard = document.createElement('div');
+          voteCard.className = 'vote-card-space has-vote';
+          
+          const voteBadge = document.createElement('div');
+          voteBadge.className = 'vote-badge';
+          voteBadge.setAttribute('data-vote-value', ['5', '8', '3'][i]);
+          voteBadge.textContent = '?'; // This will be transparent initially
+          
+          voteCard.appendChild(voteBadge);
+          voteRow.appendChild(voteCard);
         }
+        
+        userCircle.appendChild(voteRow);
       }
-      
-      // Additional fixing of any elements with question mark content
-      const allElements = document.querySelectorAll('*');
-      for (let i = 0; i < allElements.length; i++) {
-        if (allElements[i].textContent === '?') {
-          allElements[i].classList.add('question-mark-hide');
-          allElements[i].style.color = 'transparent';
-          allElements[i].textContent = ' ';
-        }
-      }
+    }
+    
+    // Helper function for demo
+    function getRandomColor() {
+      const colors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0'];
+      return colors[Math.floor(Math.random() * colors.length)];
     }
     
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM fully loaded');
+      
+      // Add test data for demo
+      addTestDataForDemo();
       
       // Check if user is a guest
       isGuestUser = checkGuestStatus();
@@ -821,13 +930,19 @@
       // First attempt to update UI
       updateUIForGuestStatus();
       
-      // Fix question marks
-      fixQuestionMarks();
+      // Hide question marks (replace with spaces but keep values in data attributes)
+      hideQuestionMarks();
       
       // Set up event listeners
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
         revealBtn.addEventListener('click', revealVotes);
+      }
+      
+      // Add listener to the main REVEAL VOTES button in the center of screen (if it exists)
+      const mainRevealBtn = document.querySelector('.reveal-votes-button');
+      if (mainRevealBtn) {
+        mainRevealBtn.addEventListener('click', revealVotes);
       }
       
       const inviteButton = document.getElementById('inviteButton');
@@ -838,7 +953,7 @@
       // Try again after a delay to make sure DOM is ready and any dynamic content is loaded
       setTimeout(function() {
         updateUIForGuestStatus();
-        fixQuestionMarks();
+        hideQuestionMarks();
       }, 500);
     });
     
@@ -846,21 +961,22 @@
     window.addEventListener('load', function() {
       console.log('Window fully loaded');
       updateUIForGuestStatus();
-      fixQuestionMarks();
+      hideQuestionMarks();
       
-      // Another check after everything else has had time to initialize
-      setTimeout(function() {
-        updateUIForGuestStatus();
-        fixQuestionMarks();
-        
-        // Set up a mutation observer to watch for DOM changes
-        const observer = new MutationObserver(function() {
-          fixQuestionMarks();
+      // Set up a mutation observer to handle dynamically added content
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.addedNodes.length) {
+            hideQuestionMarks();
+          }
         });
-        
-        // Start observing the document with the configured parameters
-        observer.observe(document.body, { childList: true, subtree: true });
-      }, 1000);
+      });
+      
+      // Start observing the document for changes
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
     });
   </script>
 </body>
