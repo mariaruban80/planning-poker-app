@@ -11,12 +11,16 @@
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
       color: #333;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
     }
     
     .container { 
      display: flex; 
      background: white;
-     min-height: calc(100vh - 140px);
+     height: calc(100vh - 100px); /* Adjusted for proper height calculations */
     }
     
     .sidebar, .rightbar { 
@@ -25,7 +29,7 @@
       padding: 20px; 
       overflow-y: auto;
       border-right: white;
-       border-left-color: white;
+      border-left-color: white;
     }
     
     .rightbar {
@@ -34,15 +38,17 @@
     }
     
     .main { 
-       flex: 1; 
-       padding: 20px; 
-       display: flex; 
-       flex-direction: column; 
-       align-items: center;
-       background: white;
+      flex: 1; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: space-between; /* Changed to space-between to push cards to bottom */
+      align-items: center;
+      background: white;
       border-right: white;
       border-left-color: white;
-     box-shadow: none;
+      box-shadow: none;
+      overflow-y: auto;
     }
     
     .banner { 
@@ -74,14 +80,13 @@
       border: 1px solid #4CAF50;
     }
     
-    /* Updated button styling to match the ADD TICKET reference */
     .button { 
       margin: 10px 0; 
       padding: 12px 20px; 
       background-color: white; 
       color: #673ab7; 
       border: 1px solid #673ab7; 
-      border-radius: 25px; /* More rounded corners like ADD TICKET */
+      border-radius: 25px;
       cursor: pointer; 
       width: 100%;
       font-weight: 600;
@@ -92,17 +97,16 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      height: 42px; /* Fixed height for all buttons */
-      min-width: 140px; /* Minimum width to ensure buttons look good */
+      height: 42px;
+      min-width: 140px;
       box-shadow: none;
     }
     
     .button:hover { 
-      background-color: #f0e6ff; /* Lighter purple background on hover */
+      background-color: #f0e6ff;
       color: #673ab7;
     }
     
-    /* Controls section with fixed height buttons */
     .controls-section {
       display: flex;
       flex-direction: column;
@@ -113,7 +117,6 @@
       margin: 5px 0;
     }
     
-    /* Navigation button container for parallel display */
     .navigation-buttons {
       display: flex;
       gap: 10px;
@@ -131,7 +134,7 @@
       justify-content: flex-end; 
       padding: 10px 20px; 
       background: white; 
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
       gap: 10px;
     }
     
@@ -141,25 +144,31 @@
       gap: 10px;
     }
     
+    /* Updated invite button to match ADD TICKET styling */
     .invite-button { 
-      padding: 8px 16px; 
-      background-color: #ff9800; 
-      border-radius: 6px; 
-      color: white; 
-      font-size: 14px; 
-      border: none; 
-      cursor: pointer;
+      padding: 10px 16px;
+      background-color: white;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      color: #673ab7;
+      font-size: 14px;
       font-weight: 600;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .invite-button:hover {
-      background-color: #f57c00;
+      background-color: #f0e6ff;
     }
     
     .file-input {
       display: inline-block;
       position: relative;
+      height: 42px;
     }
 
     .file-input input[type="file"] {
@@ -172,14 +181,25 @@
       cursor: pointer;
     }
 
+    /* Updated file button to match ADD TICKET styling */
     .file-button {
-      padding: 8px 16px;
-      background-color: #f5f6fa;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      color: #333;
+      padding: 10px 16px;
+      background-color: white;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      color: #673ab7;
       font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-button:hover {
+      background-color: #f0e6ff;
     }
     
     .modal-overlay { 
@@ -220,12 +240,11 @@
       cursor: pointer;
     }
     
-    /* User list styling */
     .sidebar h3, .rightbar h3 {
       color: #333;
       margin-top: 0;
       padding-bottom: 10px;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
       font-size: 18px;
       font-weight: 600;
       margin-bottom: 15px;
@@ -275,20 +294,18 @@
 
     .vote-badge {
       background-color: transparent;
-      color: transparent; /* Hide the question marks by making text transparent */
-      font-size: 12px; /* Match username font size exactly */
-      font-weight: 600; /* Match username font weight */
+      color: transparent;
+      font-size: 12px;
+      font-weight: 600;
       padding: 2px 8px;
       min-width: 28px;
       text-align: center;
     }
     
-    /* Show vote values when votes are revealed */
     .votes-revealed .vote-badge {
-      color: #673ab7 !important; /* Purple color matching your screenshot */
+      color: #673ab7 !important;
     }
     
-    /* New poker table layout */
     .poker-table-layout {
       display: flex;
       flex-direction: column;
@@ -391,12 +408,11 @@
     .vote-card-space .vote-badge {
       font-size: 18px;
       font-weight: bold;
-      color: transparent; /* Hide the question marks by making text transparent */
+      color: transparent;
     }
     
-    /* Show vote values when votes are revealed */
     .vote-card-space.revealed .vote-badge {
-      color: #333 !important; /* Show the vote value */
+      color: #333 !important;
     }
     
     .reveal-button-container {
@@ -427,13 +443,16 @@
       color: white;
     }
     
-    /* Vote cards styling */
+    /* Updated planning cards section styling */
     .planning-cards-section {
       width: 100%;
       text-align: center;
-      margin-top: 20px;
+      margin-top: auto; /* Push to the bottom */
       padding: 15px;
       background-color: white;
+      position: sticky; /* Keep visible at bottom */
+      bottom: 0;
+      box-shadow: 0px -2px 5px rgba(0,0,0,0.05);
     }
     
     .planning-cards-section h3 {
@@ -441,32 +460,35 @@
       margin-bottom: 15px;
       font-size: 18px;
       font-weight: 600;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
     }
     
     .cards {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       justify-content: center;
+      padding-bottom: 10px;
     }
     
+    /* Updated card styling to match image */
     .card {
-      width: 30px; /* Reduced from 40px */
-      height: 50px; /* Reduced from 60px for proportional look */
+      width: 40px; /* Smaller width as requested */
+      height: 60px; /* Taller height for card-like appearance */
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #cfc6f7;
+      background: white;
       border-radius: 8px;
-      cursor: grab;
+      cursor: pointer;
       font-weight: bold;
-      font-size: 16px; /* Reduced from 18px */
+      font-size: 16px;
       text-align: center;
-      transition: transform 0.2s;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      color: #333;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      color: #673ab7; /* Purple text color matching image */
+      margin: 3px;
+      border: none;
     }
     
     .card:hover {
@@ -474,17 +496,15 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
-    /* Voted heading in sidebar */
     .section-heading {
       font-size: 16px;
       font-weight: bold;
       color: #333;
       margin: 20px 0 10px 0;
       padding-bottom: 5px;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
     }
 
-    /* User-friendly UI tweaks */
     @media (max-width: 1200px) {
       .container {
         flex-direction: column;
@@ -494,11 +514,10 @@
         width: 100%;
         max-width: 100%;
         border: none;
-        border-bottom: 1px solid white; /* Changed to white */
+        border-bottom: 1px solid white;
       }
     }
 
-    /* User circle container styling */
     #userCircle {
       background-color: white;
       padding: 20px;
@@ -506,7 +525,6 @@
       width: 100%;
     }
     
-    /* Add Ticket button styling - Updated to match image */
     .add-ticket-btn {
       display: flex;
       align-items: center;
@@ -535,11 +553,20 @@
       color: #673ab7;
     }
     
-    /* Story list container - no top heading */
     .story-container {
       display: flex;
       flex-direction: column;
       width: 100%;
+    }
+    
+    /* Content wrapper to ensure proper scrolling with fixed cards at bottom */
+    .main-content {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
   </style>
 </head>
@@ -583,31 +610,35 @@
     </div>
 
     <div class="main">
-      <!-- Story will be displayed in the poker-table-layout instead of here -->
+      <!-- Main content wrapper -->
+      <div class="main-content">
+        <!-- User circle container -->
+        <div id="userCircle" class="user-circle-container"></div>
+      </div>
       
-      <!-- New poker table layout will be rendered here -->
-      <div id="userCircle" class="user-circle-container"></div>
-      
-      <!-- Planning cards -->
+      <!-- Planning cards section positioned at the bottom -->
       <div class="planning-cards-section">
         <h3>Planning Cards</h3>
         <div class="cards">
-          <div class="card" draggable="true">0</div>
           <div class="card" draggable="true">1</div>
+          <div class="card" draggable="true">2</div>
           <div class="card" draggable="true">3</div>
           <div class="card" draggable="true">5</div>
           <div class="card" draggable="true">8</div>
           <div class="card" draggable="true">13</div>
           <div class="card" draggable="true">21</div>
+          <div class="card" draggable="true">34</div>
+          <div class="card" draggable="true">55</div>
+          <div class="card" draggable="true">89</div>
         </div>
       </div>
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Removed "User Stories" heading and replaced with ADD TICKET button -->
+      <!-- Add ticket button -->
       <button class="add-ticket-btn"><span>+</span>ADD TICKET</button>
       
-      <!-- The story list remains -->
+      <!-- The story list -->
       <div id="storyList" class="story-container"></div>
       
       <!-- Navigation buttons -->
@@ -638,31 +669,24 @@
       alert('Invite link copied!');
     }
     
-    // Fixed function to reveal votes - optimized to prevent infinite loops and hanging
     function revealVotes() {
-      // Mark votes as revealed by adding class to body
       document.body.classList.add('votes-revealed');
       
-      // Make vote badges visible in a performance-optimized way
       const voteBadges = document.querySelectorAll('.vote-badge');
       for (let i = 0; i < voteBadges.length; i++) {
         voteBadges[i].style.color = '#673ab7';
       }
       
-      // Make vote card spaces show their content
       const voteCards = document.querySelectorAll('.vote-card-space');
       for (let i = 0; i < voteCards.length; i++) {
         voteCards[i].classList.add('revealed');
       }
     }
     
-    // Connect invite button to modal and handle guest status
     document.addEventListener('DOMContentLoaded', function() {
-      // Add this minimal check for guest status based on URL
       const urlParams = new URLSearchParams(window.location.search);
       const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
       
-      // Only hide the buttons if user is a guest
       if (isGuest) {
         document.getElementById('fileInputContainer').style.display = 'none';
         document.getElementById('inviteButton').style.display = 'none';
@@ -671,13 +695,11 @@
         document.getElementById('exportCsvBtn').style.display = 'none';
       }
       
-      // Only setup invite button if it's visible
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton && !isGuest) {
         inviteButton.addEventListener('click', showInviteModal);
       }
       
-      // Set up the reveal votes button with direct function call
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
         revealBtn.addEventListener('click', revealVotes);
