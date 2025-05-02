@@ -207,47 +207,65 @@
       z-index: 2;
     }
     
-    .modal-overlay { 
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      width: 100vw; 
-      height: 100vh; 
-      background-color: rgba(0,0,0,0.5); 
-      display: none; 
-      align-items: center; 
-      justify-content: center; 
-      z-index: 9999;
+    /* Updated modal styling with higher z-index to ensure it appears on top */
+    #inviteModalCustom {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
     }
     
-    .modal { 
-      background: white; 
-      padding: 20px; 
-      border-radius: 10px; 
-      width: 300px; 
+    .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
       text-align: center;
+      min-width: 300px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
-    .modal input { 
-      width: 100%; 
-      padding: 6px; 
-      margin-top: 10px; 
+    .modal-content h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .modal-content input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 15px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
       font-size: 14px;
     }
     
-    .modal button { 
-      margin: 10px 5px 0; 
-      background-color: #6c63ff; 
-      color: white; 
-      border: none; 
-      padding: 8px 16px; 
-      border-radius: 6px; 
+    .modal-content .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .modal-content button {
+      padding: 10px 15px;
+      background: #673ab7;
+      color: white;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
       font-weight: 600;
+      min-width: 80px;
+      transition: all 0.2s;
     }
-
-    .modal button:hover {
-      background-color: #5753e4;
+    
+    .modal-content button:hover {
+      background: #5c33a4;
     }
     
     /* User list styling */
@@ -573,20 +591,28 @@
       flex-direction: column;
       width: 100%;
     }
+    
+    /* Hide any modal coming from main.js */
+    .modal-dialog, .modal-overlay {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
   </style>
 </head>
 
 <body>
   <div class="banner">Planning Poker</div>
 
-  <!-- Invite Modal - Only use one modal -->
-  <div class="modal-overlay" id="inviteModal">
-    <div class="modal">
+  <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
+  <div id="inviteModalCustom">
+    <div class="modal-content">
       <h3>Invite Link</h3>
-      <input type="text" id="inviteLink" readonly />
-      <div>
-        <button onclick="copyInviteLink()">Copy Link</button>
-        <button onclick="hideInviteModal()">Close</button>
+      <input type="text" id="inviteLinkCustom" readonly />
+      <div class="button-group">
+        <button onclick="copyInviteLinkCustom()">Copy Link</button>
+        <button onclick="hideInviteModalCustom()">Close</button>
       </div>
     </div>
   </div>
@@ -656,32 +682,36 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    // Check if there are any older invite modals from the previous version and remove them
-    function removeOldInviteModals() {
-      const oldModals = document.querySelectorAll('.modal-dialog');
-      if (oldModals.length > 0) {
-        oldModals.forEach(modal => {
-          if (modal.innerHTML.includes('Invite URL')) {
-            modal.parentNode.removeChild(modal);
-          }
-        });
-      }
+    // Function to remove or hide any modals from the original app
+    function hideAllOriginalModals() {
+      // Find and hide all modal dialogs from the original app
+      const modalDialogs = document.querySelectorAll('.modal-dialog, .modal-overlay');
+      modalDialogs.forEach(modal => {
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+      });
     }
-
-    function showInviteModal() {
-      // Remove any older invite modals first
-      removeOldInviteModals();
+    
+    // Custom modal functions
+    function showInviteModalCustom() {
+      // First hide any existing modals from the original app
+      hideAllOriginalModals();
       
-      document.getElementById('inviteModal').style.display = 'flex';
-      document.getElementById('inviteLink').value = window.location.href;
+      // Set the link value
+      document.getElementById('inviteLinkCustom').value = window.location.href;
+      
+      // Show our custom modal
+      document.getElementById('inviteModalCustom').style.display = 'flex';
     }
 
-    function hideInviteModal() {
-      document.getElementById('inviteModal').style.display = 'none';
+    function hideInviteModalCustom() {
+      document.getElementById('inviteModalCustom').style.display = 'none';
     }
 
-    function copyInviteLink() {
-      const inviteInput = document.getElementById('inviteLink');
+    function copyInviteLinkCustom() {
+      const inviteInput = document.getElementById('inviteLinkCustom');
       inviteInput.select();
       document.execCommand('copy');
       alert('Invite link copied!');
@@ -721,26 +751,44 @@
       }
     }
     
-    // Override any existing invite-related functions from the original app
-    window.showInviteModal = showInviteModal;
-    window.hideInviteModal = hideInviteModal;
-    window.copyInviteLink = copyInviteLink;
+    // Function to intercept clicks on any invite buttons
+    function interceptInviteButtons() {
+      // Hide the original modals
+      hideAllOriginalModals();
+      
+      // Get all invite buttons
+      const inviteButtons = document.querySelectorAll('button');
+      inviteButtons.forEach(button => {
+        if (button.id === 'inviteButton' || 
+            button.innerText.includes('Invite') || 
+            button.textContent.includes('Invite')) {
+          // Replace click handler
+          button.removeEventListener('click', window.showInviteModal);
+          button.onclick = null;
+          
+          // Add our custom handler
+          button.addEventListener('click', function(e) {
+            // Stop event propagation to prevent original handler from running
+            e.stopPropagation();
+            e.preventDefault();
+            
+            // Show our custom modal
+            showInviteModalCustom();
+            
+            // Return false to prevent default action
+            return false;
+          });
+        }
+      });
+    }
     
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
-      // Remove any old invite modals immediately
-      removeOldInviteModals();
+      // Hide original modals immediately
+      hideAllOriginalModals();
       
-      // Setup invite button click handler
-      const inviteButton = document.getElementById('inviteButton');
-      if (inviteButton) {
-        // Clear any existing event listeners
-        const newInviteButton = inviteButton.cloneNode(true);
-        inviteButton.parentNode.replaceChild(newInviteButton, inviteButton);
-        
-        // Add our event listener
-        newInviteButton.addEventListener('click', showInviteModal);
-      }
+      // Setup our custom invite functionality
+      interceptInviteButtons();
       
       // Setup reveal button click handler
       const revealBtn = document.getElementById('revealVotesBtn');
@@ -751,18 +799,79 @@
       // Check if user is a guest and hide buttons accordingly
       hideButtonsForGuests();
       
-      // Add a slight delay to ensure all elements are ready
+      // Add a slight delay to ensure all elements are loaded
       setTimeout(function() {
+        // Hide any modals from the original app again
+        hideAllOriginalModals();
+        
+        // Re-intercept invite buttons
+        interceptInviteButtons();
+        
+        // Hide buttons for guests again
         hideButtonsForGuests();
-        removeOldInviteModals();
-      }, 300);
+      }, 500);
     });
     
-    // Also check when window is fully loaded (all assets)
+    // Automatically hide all modals when window is fully loaded
     window.addEventListener('load', function() {
+      hideAllOriginalModals();
+      interceptInviteButtons();
       hideButtonsForGuests();
-      removeOldInviteModals();
+      
+      // Use MutationObserver to watch for dynamically added modals
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            // Check if any modal dialog was added
+            for (let i = 0; i < mutation.addedNodes.length; i++) {
+              const node = mutation.addedNodes[i];
+              if (node.nodeType === 1 && 
+                 (node.classList.contains('modal-dialog') || 
+                  node.classList.contains('modal-overlay'))) {
+                // Hide this modal
+                node.style.display = 'none';
+                node.style.visibility = 'hidden';
+                node.style.opacity = '0';
+                node.style.pointerEvents = 'none';
+              }
+            }
+          }
+        });
+      });
+      
+      // Start observing the document with the configured parameters
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
+      
+      // Override any existing invite functions
+      window.showInviteModal = showInviteModalCustom;
+      window.hideInviteModal = hideInviteModalCustom;
+      window.copyInviteLink = copyInviteLinkCustom;
     });
+    
+    // Setup click interceptor for document body
+    document.body.addEventListener('click', function(e) {
+      // If the target or any parent is an invite button, intercept
+      let el = e.target;
+      while (el && el !== document.body) {
+        if (el.id === 'inviteButton' || 
+           (el.tagName === 'BUTTON' && 
+           (el.innerText.includes('Invite') || el.textContent.includes('Invite')))) {
+          // Stop event propagation
+          e.stopPropagation();
+          e.preventDefault();
+          
+          // Show our custom modal
+          showInviteModalCustom();
+          
+          // Break out of the loop
+          return false;
+        }
+        el = el.parentNode;
+      }
+    }, true);
   </script>
 </body>
 </html>
