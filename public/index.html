@@ -11,12 +11,14 @@
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
       color: #333;
+      margin: 0;
+      padding: 0;
     }
     
     .container { 
-     display: flex; 
-     background: white;
-     min-height: calc(100vh - 140px);
+      display: flex; 
+      background: white;
+      min-height: calc(100vh - 140px);
     }
     
     .sidebar, .rightbar { 
@@ -34,15 +36,15 @@
     }
     
     .main { 
-       flex: 1; 
-       padding: 20px; 
-       display: flex; 
-       flex-direction: column; 
-       align-items: center;
-       background: white;
+      flex: 1; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      background: white;
       border-right: white;
       border-left-color: white;
-     box-shadow: none;
+      box-shadow: none;
     }
     
     .banner { 
@@ -73,6 +75,8 @@
       height: 42px;
       width: 100%;
       box-sizing: border-box;
+      white-space: normal;
+      line-height: 1.2;
     }
     
     .story-card:hover {
@@ -144,23 +148,22 @@
       margin: 0;
     }
     
-    /* Updated upload section to match Add Ticket style */
+    /* Updated upload section to match reference screenshot */
     .upload-section { 
-      padding: 20px 20px 0 20px;
+      padding: 15px 20px;
       background: white;
       display: flex;
-      justify-content: center;
+      justify-content: flex-end; /* Align to right side */
+      border-bottom: 1px solid transparent;
     }
     
     .upload-right { 
       display: flex;
-      flex-wrap: wrap;
       gap: 10px;
-      width: 100%;
-      max-width: 300px;
+      width: auto; /* Not full width anymore */
     }
     
-    /* Fixed width buttons to match Add Ticket style */
+    /* Fixed width buttons to match reference screenshot */
     .invite-button { 
       display: inline-flex;
       align-items: center;
@@ -175,8 +178,7 @@
       cursor: pointer;
       transition: all 0.2s;
       height: 42px;
-      flex: 1;
-      min-width: 120px;
+      width: 140px; /* Fixed width */
       box-sizing: border-box;
       white-space: nowrap;
     }
@@ -185,16 +187,15 @@
       background-color: #f0e6ff;
     }
     
-    /* File input container to match Add Ticket style */
+    /* File input container to match reference screenshot */
     .file-input {
       display: inline-flex;
       position: relative;
       height: 42px;
-      flex: 1;
-      min-width: 120px;
+      width: 140px; /* Fixed width */
     }
 
-    /* Fixed file button styling to match Add Ticket */
+    /* Fixed file button styling */
     .file-button {
       display: inline-flex;
       align-items: center;
@@ -524,19 +525,18 @@
     }
     
     .card {
-      width: 30px; /* Reduced from 40px */
-      height: 50px; /* Reduced from 60px for proportional look */
+      width: 60px; /* Match reference screenshot */
+      height: 60px; /* Match reference screenshot */
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #cfc6f7;
-      border-radius: 8px;
+      background: #e6e6fa; /* Light purple background */
+      border-radius: 4px;
       cursor: grab;
       font-weight: bold;
-      font-size: 16px; /* Reduced from 18px */
+      font-size: 18px; /* Larger font */
       text-align: center;
       transition: transform 0.2s;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       color: #333;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     }
@@ -621,6 +621,17 @@
       opacity: 0 !important;
       pointer-events: none !important;
     }
+    
+    /* Updated story text to handle long content */
+    .story-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2; /* Show max of 2 lines */
+      -webkit-box-orient: vertical;
+      max-height: 38px;
+      width: 100%;
+    }
   </style>
 </head>
 
@@ -639,7 +650,7 @@
     </div>
   </div>
 
-  <!-- Updated Upload Section - now centered and styled like Add Ticket button -->
+  <!-- Updated Upload Section - moved to right side as per screenshot -->
   <div class="upload-section">
     <div class="upload-right">
       <div class="file-input" id="fileInputContainer">
@@ -689,8 +700,34 @@
       <!-- Added ID to the ADD TICKET button -->
       <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
       
-      <!-- The story list remains -->
-      <div id="storyList" class="story-container"></div>
+      <!-- The story list remains with example stories from screenshot -->
+      <div id="storyList" class="story-container">
+        <!-- Example stories from screenshot -->
+        <div class="story-card">
+          <div class="story-title">Story 1: Task | RIN-2270 | "PoC- Title name | URL & H1 alignment"</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 2: Story | RIN-2244 | CaseMgmt - SED - View S045 - Decision on entitlement section (For CDM v4.3)</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 3: Story | RIN-2172 | CaseMgmt - Rename the link 'Select' to 'Match' in the Search for an OH5 record' screen</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 4: Story | RIN-2156 | CaseMgmt - SED - Create X010- Section-2: Response to reminder section - Data validations</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 5: Story | RIN-2155 | CaseMgmt - SED - Create X010 - Section-1: Person details section - Data validations</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 6: Story | RIN-2144 | CaseMgmt - SED - Create X009 - Reminder request section - Data validations</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 7: Story | RIN-2133 | CaseMgmt - SED - Create X009 - Person details section - Data validations</div>
+        </div>
+        <div class="story-card">
+          <div class="story-title">Story 8: Story | RIN-2113 | CaseMgmt - Implementation of additional validations on the edit search screen</div>
+        </div>
+      </div>
       
       <!-- Navigation buttons -->
       <div class="navigation-buttons">
