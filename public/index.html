@@ -629,8 +629,8 @@
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Removed "User Stories" heading and replaced with ADD TICKET button -->
-      <button class="add-ticket-btn"><span>+</span>ADD TICKET</button>
+      <!-- Added ID to the ADD TICKET button -->
+      <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
       
       <!-- The story list remains -->
       <div id="storyList" class="story-container"></div>
@@ -681,32 +681,44 @@
       }
     }
     
-    // Connect invite button to modal and handle guest status
+    // Improved function to handle guest user interface
     document.addEventListener('DOMContentLoaded', function() {
-      // Add this minimal check for guest status based on URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
-      
-      // Only hide the buttons if user is a guest
-      if (isGuest) {
-        document.getElementById('fileInputContainer').style.display = 'none';
-        document.getElementById('inviteButton').style.display = 'none';
-        document.getElementById('revealVotesBtn').style.display = 'none';
-        document.getElementById('resetVotesBtn').style.display = 'none';
-        document.getElementById('exportCsvBtn').style.display = 'none';
-      }
-      
-      // Only setup invite button if it's visible
-      const inviteButton = document.getElementById('inviteButton');
-      if (inviteButton && !isGuest) {
-        inviteButton.addEventListener('click', showInviteModal);
-      }
-      
-      // Set up the reveal votes button with direct function call
-      const revealBtn = document.getElementById('revealVotesBtn');
-      if (revealBtn) {
-        revealBtn.addEventListener('click', revealVotes);
-      }
+      // Add a small delay to ensure all DOM elements are fully loaded
+      setTimeout(function() {
+        // Check for guest status based on URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
+        
+        // Only hide the buttons if user is a guest
+        if (isGuest) {
+          // Use a safer way to hide elements (check if they exist first)
+          const elementsToHide = [
+            'fileInputContainer', 'inviteButton', 'revealVotesBtn', 
+            'resetVotesBtn', 'exportCsvBtn', 'addTicketBtn'
+          ];
+          
+          elementsToHide.forEach(function(id) {
+            const element = document.getElementById(id);
+            if (element) {
+              element.style.display = 'none';
+            } else {
+              console.log('Element not found:', id);
+            }
+          });
+        }
+        
+        // Only setup invite button if it's visible
+        const inviteButton = document.getElementById('inviteButton');
+        if (inviteButton && !isGuest) {
+          inviteButton.addEventListener('click', showInviteModal);
+        }
+        
+        // Set up the reveal votes button with direct function call
+        const revealBtn = document.getElementById('revealVotesBtn');
+        if (revealBtn) {
+          revealBtn.addEventListener('click', revealVotes);
+        }
+      }, 100); // Short delay to ensure DOM is ready
     });
   </script>
 </body>
