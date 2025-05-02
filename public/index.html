@@ -506,7 +506,7 @@
       width: 100%;
     }
     
-    /* Add Ticket button styling */
+    /* Add Ticket button styling - Updated to match image */
     .add-ticket-btn {
       display: flex;
       align-items: center;
@@ -521,7 +521,8 @@
       cursor: pointer;
       transition: all 0.2s;
       width: 100%;
-      margin: 20px 0;
+      margin: 0 0 20px 0;
+      height: 42px;
     }
     
     .add-ticket-btn:hover {
@@ -531,6 +532,14 @@
     .add-ticket-btn span {
       margin-right: 5px;
       font-size: 18px;
+      color: #673ab7;
+    }
+    
+    /* Story list container - no top heading */
+    .story-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
     }
   </style>
 </head>
@@ -592,15 +601,16 @@
           <div class="card" draggable="true">21</div>
         </div>
       </div>
-      
-      <!-- Add Ticket button example -->
-      <button class="add-ticket-btn"><span>+</span> ADD TICKET</button>
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <h3>User Stories</h3>
-      <div id="storyList"></div>
-      <!-- Modified to display buttons in parallel -->
+      <!-- Removed "User Stories" heading and replaced with ADD TICKET button -->
+      <button class="add-ticket-btn"><span>+</span>ADD TICKET</button>
+      
+      <!-- The story list remains -->
+      <div id="storyList" class="story-container"></div>
+      
+      <!-- Navigation buttons -->
       <div class="navigation-buttons">
         <button class="button" id="prevStory">Previous Story</button>
         <button class="button" id="nextStory">Next Story</button>
@@ -672,9 +682,6 @@
       if (revealBtn) {
         revealBtn.addEventListener('click', revealVotes);
       }
-      
-      // Disconnect the mutation observer that was causing the hanging
-      // We're using direct event handling instead
     });
   </script>
 </body>
