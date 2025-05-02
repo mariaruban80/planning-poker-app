@@ -17,10 +17,20 @@
       overflow: hidden;
     }
     
+    /* Hide all scrollbars */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    
+    * {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    
     .container { 
      display: flex; 
      background: white;
-     height: calc(100vh - 100px); /* Adjusted for proper height calculations */
+     height: calc(100vh - 100px);
     }
     
     .sidebar, .rightbar { 
@@ -42,7 +52,7 @@
       padding: 20px; 
       display: flex; 
       flex-direction: column; 
-      justify-content: space-between; /* Changed to space-between to push cards to bottom */
+      justify-content: space-between;
       align-items: center;
       background: white;
       border-right: white;
@@ -144,9 +154,9 @@
       gap: 10px;
     }
     
-    /* Updated invite button to match ADD TICKET styling */
+    /* Updated invite button styling to match the image */
     .invite-button { 
-      padding: 10px 16px;
+      padding: 12px 20px;
       background-color: white;
       border: 1px solid #673ab7;
       border-radius: 25px;
@@ -156,19 +166,24 @@
       cursor: pointer;
       transition: all 0.2s;
       height: 42px;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      min-width: 120px;
+      box-sizing: border-box;
     }
 
     .invite-button:hover {
       background-color: #f0e6ff;
     }
     
+    /* Updated file input to exactly match invite button */
     .file-input {
       display: inline-block;
       position: relative;
       height: 42px;
+      box-sizing: border-box;
+      min-width: 120px;
     }
 
     .file-input input[type="file"] {
@@ -179,11 +194,15 @@
       width: 100%;
       height: 100%;
       cursor: pointer;
+      z-index: 2;
     }
 
-    /* Updated file button to match ADD TICKET styling */
+    /* Updated file button to exactly match invite button */
     .file-button {
-      padding: 10px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
       background-color: white;
       border: 1px solid #673ab7;
       border-radius: 25px;
@@ -193,9 +212,12 @@
       cursor: pointer;
       transition: all 0.2s;
       height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 100%;
+      box-sizing: border-box;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
     }
 
     .file-button:hover {
@@ -447,10 +469,10 @@
     .planning-cards-section {
       width: 100%;
       text-align: center;
-      margin-top: auto; /* Push to the bottom */
+      margin-top: auto;
       padding: 15px;
       background-color: white;
-      position: sticky; /* Keep visible at bottom */
+      position: sticky;
       bottom: 0;
       box-shadow: 0px -2px 5px rgba(0,0,0,0.05);
     }
@@ -473,20 +495,20 @@
     
     /* Updated card styling to match image */
     .card {
-      width: 40px; /* Smaller width as requested */
-      height: 60px; /* Taller height for card-like appearance */
+      width: 65px; /* Matching the image width */
+      height: 65px; /* Square as in the image */
       display: flex;
       align-items: center;
       justify-content: center;
-      background: white;
+      background: #e6e1f7; /* Light purple background as in the image */
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
       font-size: 16px;
       text-align: center;
       transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      color: #673ab7; /* Purple text color matching image */
+      box-shadow: none;
+      color: #673ab7;
       margin: 3px;
       border: none;
     }
@@ -525,11 +547,12 @@
       width: 100%;
     }
     
+    /* Updated add ticket button to match image */
     .add-ticket-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 16px;
+      padding: 12px 20px;
       background-color: white;
       color: #673ab7;
       border: 1px solid #673ab7;
