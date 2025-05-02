@@ -58,7 +58,6 @@
       border-right: white;
       border-left-color: white;
       box-shadow: none;
-      overflow-y: auto;
     }
     
     .banner { 
@@ -465,16 +464,14 @@
       color: white;
     }
     
-    /* Updated planning cards section styling */
+    /* Updated planning cards section styling to match the image exactly */
     .planning-cards-section {
       width: 100%;
       text-align: center;
-      margin-top: auto;
-      padding: 15px;
+      margin-top: 20px;
       background-color: white;
-      position: sticky;
-      bottom: 0;
-      box-shadow: 0px -2px 5px rgba(0,0,0,0.05);
+      padding: 0;
+      border-top: 1px solid #eee;
     }
     
     .planning-cards-section h3 {
@@ -482,40 +479,51 @@
       margin-bottom: 15px;
       font-size: 18px;
       font-weight: 600;
-      border-bottom: 1px solid white;
+      border-bottom: none;
+      text-align: center;
     }
     
+    /* Updated cards container to match image layout exactly */
     .cards {
       display: flex;
-      gap: 8px;
       flex-wrap: wrap;
       justify-content: center;
-      padding-bottom: 10px;
+      gap: 15px;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px 20px;
     }
     
-    /* Updated card styling to match image */
+    /* Second row of cards (55 and 89) */
+    .cards-row-2 {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    /* Updated card styling to match image exactly */
     .card {
-      width: 65px; /* Matching the image width */
-      height: 65px; /* Square as in the image */
+      width: 70px;
+      height: 70px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #e6e1f7; /* Light purple background as in the image */
+      background: #e1d9f6; /* Light purple matching the image exactly */
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 18px;
       text-align: center;
-      transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: none;
-      color: #673ab7;
-      margin: 3px;
+      color: #673ab7; /* Purple text matching image */
       border: none;
+      box-shadow: none;
     }
     
+    /* Add hover effect but keep it subtle */
     .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transform: translateY(-3px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .section-heading {
@@ -582,11 +590,9 @@
       width: 100%;
     }
     
-    /* Content wrapper to ensure proper scrolling with fixed cards at bottom */
+    /* Content wrapper without scroll */
     .main-content {
-      flex: 1;
       width: 100%;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -639,20 +645,24 @@
         <div id="userCircle" class="user-circle-container"></div>
       </div>
       
-      <!-- Planning cards section positioned at the bottom -->
+      <!-- Planning cards section exactly as in the image -->
       <div class="planning-cards-section">
         <h3>Planning Cards</h3>
+        <!-- First row of cards: 1, 2, 3, 5, 8, 13, 21, 34 -->
         <div class="cards">
-          <div class="card" draggable="true">1</div>
-          <div class="card" draggable="true">2</div>
-          <div class="card" draggable="true">3</div>
-          <div class="card" draggable="true">5</div>
-          <div class="card" draggable="true">8</div>
-          <div class="card" draggable="true">13</div>
-          <div class="card" draggable="true">21</div>
-          <div class="card" draggable="true">34</div>
-          <div class="card" draggable="true">55</div>
-          <div class="card" draggable="true">89</div>
+          <div class="card">1</div>
+          <div class="card">2</div>
+          <div class="card">3</div>
+          <div class="card">5</div>
+          <div class="card">8</div>
+          <div class="card">13</div>
+          <div class="card">21</div>
+          <div class="card">34</div>
+        </div>
+        <!-- Second row of cards: 55, 89 -->
+        <div class="cards-row-2">
+          <div class="card">55</div>
+          <div class="card">89</div>
         </div>
       </div>
     </div>
