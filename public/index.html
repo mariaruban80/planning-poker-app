@@ -451,16 +451,15 @@
       transition: all 0.2s ease;
     }
     
-    /* Style for vote card spaces that belong to other users */
-    .vote-card-space.not-yours {
-      border-color: #ddd;
-      background-color: #f5f5f5;
-      cursor: not-allowed;
-    }
-    
-    .vote-card-space:hover:not(.not-yours) {
+    .vote-card-space:hover {
       border-color: #999;
       background-color: #f9f9f9;
+    }
+    
+    /* Add specific styling for vote spaces that aren't the current user's when on a shared URL */
+    .shared-url-user .vote-card-space:not([data-current-user="true"]) {
+      cursor: not-allowed !important;
+      background-color: #f5f5f5;
     }
     
     .vote-card-space.has-vote {
@@ -676,23 +675,22 @@
       font-style: italic;
       max-width: 80%;
     }
-
-    /* Style for feedback tooltips */
+    
+    /* Tooltip for error messages */
     .tooltip {
-      position: absolute;
+      position: fixed;
       background: rgba(0,0,0,0.8);
       color: white;
       padding: 5px 10px;
       border-radius: 4px;
       font-size: 12px;
+      z-index: 9999;
       pointer-events: none;
       opacity: 0;
-      transition: opacity 0.3s;
-      z-index: 1000;
-      white-space: nowrap;
+      transition: opacity 0.3s ease;
     }
-
-    .tooltip.visible {
+    
+    .tooltip.showing {
       opacity: 1;
     }
   </style>
@@ -713,7 +711,7 @@
     </div>
   </div>
 
-  <!-- Tooltip for feedback messages -->
+  <!-- Tooltip for error messages -->
   <div id="tooltip" class="tooltip"></div>
 
   <!-- Updated Upload Section - moved to right side as per screenshot -->
@@ -788,61 +786,6 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    // Store current user information
-    let currentUser = {
-      id: null,
-      name: null,
-      isGuest: false
-    };
-    
-    // Function to generate a unique ID for this user
-    function generateUserId() {
-      return 'user_' + Math.random().toString(36).substr(2, 9);
-    }
-    
-    // Function to determine if user is a guest
-    function checkGuestStatus() {
-      // Check URL params for indicators that this is a guest session
-      const urlParams = new URLSearchParams(window.location.search);
-      const isFromInvite = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
-      
-      // Check for hash fragment
-      const hasHash = window.location.hash && window.location.hash.length > 1;
-      
-      // Check for URL patterns
-      const pathIncludesJoin = window.location.pathname.includes('/join/') || window.location.pathname.includes('/room/');
-      
-      return isFromInvite || hasHash || pathIncludesJoin;
-    }
-    
-    // Function to set up user information
-    function setupUser() {
-      // Check for stored user ID in localStorage
-      let userId = localStorage.getItem('planning_poker_user_id');
-      let userName = localStorage.getItem('planning_poker_user_name');
-      
-      // If no stored user ID, generate one and store it
-      if (!userId) {
-        userId = generateUserId();
-        localStorage.setItem('planning_poker_user_id', userId);
-      }
-      
-      // If no stored user name, generate one and store it
-      if (!userName) {
-        // Default names
-        const defaultNames = ['Guest', 'Visitor', 'Player', 'User'];
-        userName = defaultNames[Math.floor(Math.random() * defaultNames.length)] + ' ' + Math.floor(Math.random() * 1000);
-        localStorage.setItem('planning_poker_user_name', userName);
-      }
-      
-      // Set current user information
-      currentUser.id = userId;
-      currentUser.name = userName;
-      currentUser.isGuest = checkGuestStatus();
-      
-      console.log('Current user:', currentUser);
-    }
-    
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -878,390 +821,202 @@
       }
     }
     
-    // Function to show tooltip messages
+    // Function to display a tooltip
     function showTooltip(message, x, y) {
       const tooltip = document.getElementById('tooltip');
+      if (!tooltip) return;
+      
       tooltip.textContent = message;
       tooltip.style.left = x + 'px';
       tooltip.style.top = y + 'px';
-      tooltip.classList.add('visible');
+      tooltip.classList.add('showing');
       
-      // Hide after 2 seconds
       setTimeout(() => {
-        tooltip.classList.remove('visible');
+        tooltip.classList.remove('showing');
       }, 2000);
     }
     
-    // Function to set up the voting restrictions
-    function setupVotingRestrictions() {
-      // First, identify all user avatar vote spaces in the poker table
-      const voteSpaces = document.querySelectorAll('.vote-card-space');
+    // Function to check if this is a shared URL session
+    function isSharedUrlSession() {
+      // Check URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const isSharedUrl = urlParams.has('join') || 
+                          urlParams.has('guest') || 
+                          urlParams.has('room') || 
+                          window.location.hash || 
+                          window.location.pathname.includes('/join/') || 
+                          window.location.pathname.includes('/room/');
       
-      // Apply restrictions based on current user
-      voteSpaces.forEach(space => {
-        // Extract the user ID from the vote space
-        // Assuming each vote space has a data-user-id attribute
-        const userId = space.getAttribute('data-user-id');
-        
-        // If this isn't the current user's space, mark it and make it not droppable
-        if (userId && userId !== currentUser.id) {
-          space.classList.add('not-yours');
-          
-          // Add visual indicator and remove droppable functionality
-          space.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-          });
-          
-          space.addEventListener('drop', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Show a tooltip explaining why they can't drop here
-            showTooltip("You can only vote on your own card", e.clientX, e.clientY - 30);
-            
-            return false;
-          });
-        }
-      });
+      return isSharedUrl;
     }
     
-    // Function to update user avatars in the circle based on current users
-    function updateUserAvatars() {
-      // This would typically be done via websockets or polling
-      // For demonstration, we'll create a few demo users including the current user
+    // Function to get username from any existing session data or page elements
+    function getCurrentUsername() {
+      // Try to get from localStorage if set by app
+      const storedName = localStorage.getItem('userName') || 
+                         localStorage.getItem('username') ||
+                         localStorage.getItem('user_name') ||
+                         localStorage.getItem('planning_poker_username');
       
-      const userCircle = document.getElementById('userCircle');
-      if (!userCircle) return;
+      if (storedName) return storedName;
       
-      // Clear existing content
-      userCircle.innerHTML = '';
-      
-      // Create a poker table layout 
-      const pokerTable = document.createElement('div');
-      pokerTable.className = 'poker-table-layout';
-      
-      // Add current story display if we have one
-      const storyList = document.getElementById('storyList');
-      const selectedStory = storyList ? storyList.querySelector('.story-card.selected') : null;
-      
-      if (selectedStory) {
-        const storyDisplay = document.createElement('div');
-        storyDisplay.className = 'current-story-display';
-        storyDisplay.textContent = selectedStory.querySelector('.story-title').textContent;
-        pokerTable.appendChild(storyDisplay);
+      // Try to find username in user list
+      const userEntries = document.querySelectorAll('.user-entry');
+      for (const entry of userEntries) {
+        const usernameEl = entry.querySelector('.username');
+        if (usernameEl && usernameEl.textContent.includes('(You)')) {
+          return usernameEl.textContent.replace('(You)', '').trim();
+        }
       }
       
-      // Create avatar row
-      const avatarRow = document.createElement('div');
-      avatarRow.className = 'avatar-row';
-      
-      // Create vote row
-      const voteRow = document.createElement('div');
-      voteRow.className = 'vote-row';
-      
-      // Sample users for demo (including current user)
-      const users = [
-        { id: currentUser.id, name: currentUser.name, color: '#673ab7', voted: false },
-      //  { id: 'user_2', name: 'John Doe', color: '#4CAF50', voted: true },
-        //{ id: 'user_3', name: 'Jane Smith', color: '#2196F3', voted: false },
-        //{ id: 'user_4', name: 'Alex Johnson', color: '#FF9800', voted: true }
-      ];
-      
-      // Add users to the avatar row and vote spaces to the vote row
-      users.forEach(user => {
-        // Create avatar container
-        const avatarContainer = document.createElement('div');
-        avatarContainer.className = 'avatar-container';
-        if (user.voted) avatarContainer.classList.add('has-voted');
-        
-        // Create avatar circle
-        const avatarCircle = document.createElement('div');
-        avatarCircle.className = 'avatar-circle';
-        avatarCircle.style.backgroundColor = user.color;
-        avatarCircle.textContent = user.name.charAt(0).toUpperCase();
-        
-        // Create user name label
-        const userName = document.createElement('div');
-        userName.className = 'user-name';
-        userName.textContent = user.name;
-        
-        // Add to avatar container
-        avatarContainer.appendChild(avatarCircle);
-        avatarContainer.appendChild(userName);
-        
-        // Add to avatar row
-        avatarRow.appendChild(avatarContainer);
-        
-        // Create vote card space
-        const voteSpace = document.createElement('div');
-        voteSpace.className = 'vote-card-space';
-        voteSpace.setAttribute('data-user-id', user.id);
-        
-        // If the user has voted, show the vote indicator
-        if (user.voted) {
-          voteSpace.classList.add('has-vote');
-          const voteBadge = document.createElement('span');
-          voteBadge.className = 'vote-badge';
-          voteBadge.textContent = '?'; // Will be revealed when votes are shown
-          voteSpace.appendChild(voteBadge);
-        }
-        
-        // Add to vote row
-        voteRow.appendChild(voteSpace);
-      });
-      
-      // Add rows to poker table
-      pokerTable.appendChild(avatarRow);
-      pokerTable.appendChild(voteRow);
-      
-      // Add reveal votes button
-      const revealContainer = document.createElement('div');
-      revealContainer.className = 'reveal-button-container';
-      
-      const revealButton = document.createElement('button');
-      revealButton.className = 'reveal-votes-button';
-      revealButton.textContent = 'REVEAL VOTES';
-      revealButton.addEventListener('click', function() {
-        document.body.classList.add('votes-revealed');
-      });
-      
-      revealContainer.appendChild(revealButton);
-      pokerTable.appendChild(revealContainer);
-      
-      // Add poker table to user circle
-      userCircle.appendChild(pokerTable);
-      
-      // Setup drag and drop for planning cards
-      setupDragAndDrop();
+      // Default fallback
+      return 'You';
     }
     
-    // Function to set up drag and drop functionality
-    function setupDragAndDrop() {
-      // Get all planning cards and vote spaces
-      const planningCards = document.querySelectorAll('#planningCards .card');
-      const voteSpaces = document.querySelectorAll('.vote-card-space');
+    // Function to apply shared URL restrictions for vote card spaces
+    function applySharedUrlRestrictions() {
+      // Only apply if this is a shared URL session
+      if (!isSharedUrlSession()) return;
       
-      // Add drag start event to planning cards
-      planningCards.forEach(card => {
-        card.addEventListener('dragstart', function(e) {
-          e.dataTransfer.setData('text/plain', card.getAttribute('data-value'));
-          e.dataTransfer.effectAllowed = 'move';
-        });
-      });
+      // Mark body to apply special styles
+      document.body.classList.add('shared-url-user');
       
-      // Add drag over and drop events to vote spaces
-      voteSpaces.forEach(space => {
-        const userId = space.getAttribute('data-user-id');
+      // Wait for DOM to be updated by main.js
+      setTimeout(() => {
+        // Get current username
+        const currentUsername = getCurrentUsername();
         
-        // Allow drag over only for current user's space
-        space.addEventListener('dragover', function(e) {
-          // Only allow dropping on the current user's space
-          if (userId === currentUser.id) {
-            e.preventDefault();
-          }
-        });
+        // Find all vote card spaces and avatar containers
+        const voteCardSpaces = document.querySelectorAll('.vote-card-space');
+        const avatarContainers = document.querySelectorAll('.avatar-container');
         
-        // Handle drop event
-        space.addEventListener('drop', function(e) {
-          // Only allow dropping on the current user's space
-          if (userId === currentUser.id) {
-            e.preventDefault();
-            const value = e.dataTransfer.getData('text/plain');
-            
-            // Clear any existing vote
-            while (space.firstChild) {
-              space.removeChild(space.firstChild);
-            }
-            
-            // Create vote badge
-            const voteBadge = document.createElement('span');
-            voteBadge.className = 'vote-badge';
-            voteBadge.textContent = value;
-            
-            // Add vote badge and update styles
-            space.appendChild(voteBadge);
-            space.classList.add('has-vote');
-            
-            // Find and update the avatar container to show voted status
-            const avatarContainers = document.querySelectorAll('.avatar-container');
-            avatarContainers.forEach(container => {
-              if (container.querySelector('.user-name').textContent === currentUser.name) {
-                container.classList.add('has-voted');
+        // Mark each vote card space with whether it belongs to current user
+        for (let i = 0; i < voteCardSpaces.length; i++) {
+          // Use the matching avatar container to determine ownership
+          if (i < avatarContainers.length) {
+            const nameEl = avatarContainers[i].querySelector('.user-name');
+            if (nameEl) {
+              const isCurrentUser = nameEl.textContent === currentUsername ||
+                                    nameEl.textContent.includes('(You)');
+              
+              voteCardSpaces[i].setAttribute('data-current-user', isCurrentUser);
+              
+              // For non-current user spaces, intercept drop events
+              if (!isCurrentUser) {
+                voteCardSpaces[i].addEventListener('drop', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // Show tooltip explaining why they can't drop here
+                  showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
+                  
+                  return false;
+                });
               }
-            });
-            
-            // In a real app, you'd send this vote to the server
-            console.log(`User ${currentUser.name} voted: ${value}`);
-          } else {
-            // Show message that they can only vote on their own card
-            showTooltip("You can only vote on your own card", e.clientX, e.clientY - 30);
-          }
-        });
-      });
-    }
-    
-    // Function to check for stories and apply restrictions to the UI
-    function updateUI() {
-      checkForStories();
-      setupVotingRestrictions();
-      
-      // Find and mark the current user's avatar and vote space
-      const userNames = document.querySelectorAll('.user-name');
-      userNames.forEach(nameEl => {
-        if (nameEl.textContent === currentUser.name) {
-          const container = nameEl.closest('.avatar-container');
-          if (container) {
-            container.classList.add('current-user');
+            }
           }
         }
-      });
+      }, 500); // Delay to allow main.js to initialize the UI
     }
     
-    // Initialize when DOM content is loaded
-    document.addEventListener('DOMContentLoaded', function() {
-      // Setup user
-      setupUser();
+    // Monitor for CSV file uploads
+    document.getElementById('csvInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
       
-      // Update user avatars
-      updateUserAvatars();
-      
-      // Check for stories and update UI
-      updateUI();
-      
-      // Monitor for CSV file uploads
-      document.getElementById('csvInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const csvData = event.target.result;
+        const storyList = document.getElementById('storyList');
         
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const csvData = event.target.result;
-          const storyList = document.getElementById('storyList');
-          
-          // Clear existing stories
-          if (storyList) storyList.innerHTML = '';
-          
-          // Simple CSV parsing (assumes each line is a story)
-          const stories = csvData.split('\n');
-          stories.forEach(function(story) {
-            if (story.trim()) {
-              const storyCard = document.createElement('div');
-              storyCard.className = 'story-card';
-              
-              const storyTitle = document.createElement('div');
-              storyTitle.className = 'story-title';
-              storyTitle.textContent = story.trim();
-              
-              storyCard.appendChild(storyTitle);
-              storyList.appendChild(storyCard);
-            }
-          });
-          
-          // Update UI after adding stories
-          updateUI();
-          
-          // Select the first story
-          const firstStory = storyList.querySelector('.story-card');
-          if (firstStory) {
-            firstStory.classList.add('selected');
-            updateUserAvatars(); // Update to show current story
-          }
-        };
+        // Clear existing stories
+        if (storyList) storyList.innerHTML = '';
         
-        reader.readAsText(file);
-      });
-      
-      // Add ticket button functionality
-      const addTicketBtn = document.getElementById('addTicketBtn');
-      if (addTicketBtn) {
-        addTicketBtn.addEventListener('click', function() {
-          const storyText = prompt("Enter the story details:");
-          if (storyText && storyText.trim()) {
-            const storyList = document.getElementById('storyList');
-            
+        // Simple CSV parsing (assumes each line is a story)
+        const stories = csvData.split('\n');
+        stories.forEach(function(story) {
+          if (story.trim()) {
             const storyCard = document.createElement('div');
             storyCard.className = 'story-card';
             
             const storyTitle = document.createElement('div');
             storyTitle.className = 'story-title';
-            storyTitle.textContent = storyText.trim();
+            storyTitle.textContent = story.trim();
             
             storyCard.appendChild(storyTitle);
             storyList.appendChild(storyCard);
-            
-            // Update UI after adding a story
-            updateUI();
-            
-            // If this is the first story, select it
-            if (storyList.querySelectorAll('.story-card').length === 1) {
-              storyCard.classList.add('selected');
-              updateUserAvatars(); // Update to show current story
-            }
           }
         });
-      }
+        
+        // Check for stories again after CSV upload
+        checkForStories();
+      };
       
-      // Story selection handler
-      document.addEventListener('click', function(e) {
-        if (e.target.closest('.story-card')) {
-          const storyCard = e.target.closest('.story-card');
-          const allStories = document.querySelectorAll('.story-card');
+      reader.readAsText(file);
+    });
+    
+    // Add ticket button functionality
+    const addTicketBtn = document.getElementById('addTicketBtn');
+    if (addTicketBtn) {
+      addTicketBtn.addEventListener('click', function() {
+        const storyText = prompt("Enter the story details:");
+        if (storyText && storyText.trim()) {
+          const storyList = document.getElementById('storyList');
           
-          // Remove selected class from all stories
-          allStories.forEach(story => story.classList.remove('selected'));
+          const storyCard = document.createElement('div');
+          storyCard.className = 'story-card';
           
-          // Add selected class to clicked story
-          storyCard.classList.add('selected');
+          const storyTitle = document.createElement('div');
+          storyTitle.className = 'story-title';
+          storyTitle.textContent = storyText.trim();
           
-          // Update the UI to show current story
-          updateUserAvatars();
-          updateUI();
+          storyCard.appendChild(storyTitle);
+          storyList.appendChild(storyCard);
+          
+          // Check for stories after adding a story
+          checkForStories();
         }
       });
+    }
+    
+    // Call immediately on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check for stories
+      checkForStories();
       
-      // Watch for changes to the story list
-      const storyList = document.getElementById('storyList');
-      if (storyList) {
-        const observer = new MutationObserver(function(mutations) {
-          updateUI();
-        });
-        
-        observer.observe(storyList, { 
+      // Apply shared URL restrictions
+      applySharedUrlRestrictions();
+    });
+    
+    // Watch for changes to the DOM
+    const observer = new MutationObserver(function(mutations) {
+      // Re-apply shared URL restrictions whenever the DOM changes
+      // This handles updates that might come after initial page load
+      applySharedUrlRestrictions();
+    });
+    
+    // Start observing the document body
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Create an observer specifically for the user circle
+    const userCircleObserver = new MutationObserver(function(mutations) {
+      // Apply restrictions again when user circle changes
+      applySharedUrlRestrictions();
+    });
+    
+    // Start observing the user circle container after a delay
+    setTimeout(() => {
+      const userCircle = document.getElementById('userCircle');
+      if (userCircle) {
+        userCircleObserver.observe(userCircle, {
           childList: true,
           subtree: true
         });
       }
-      
-      // Navigation button handlers
-      const prevBtn = document.getElementById('prevStory');
-      const nextBtn = document.getElementById('nextStory');
-      
-      if (prevBtn) {
-        prevBtn.addEventListener('click', function() {
-          const storyList = document.getElementById('storyList');
-          const selectedStory = storyList.querySelector('.story-card.selected');
-          if (selectedStory && selectedStory.previousElementSibling) {
-            selectedStory.classList.remove('selected');
-            selectedStory.previousElementSibling.classList.add('selected');
-            updateUserAvatars(); // Update to show current story
-          }
-        });
-      }
-      
-      if (nextBtn) {
-        nextBtn.addEventListener('click', function() {
-          const storyList = document.getElementById('storyList');
-          const selectedStory = storyList.querySelector('.story-card.selected');
-          if (selectedStory && selectedStory.nextElementSibling) {
-            selectedStory.classList.remove('selected');
-            selectedStory.nextElementSibling.classList.add('selected');
-            updateUserAvatars(); // Update to show current story
-          }
-        });
-      }
-    });
+    }, 1000);
   </script>
 </body>
 </html>
