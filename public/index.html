@@ -25,7 +25,7 @@
       padding: 20px; 
       overflow-y: auto;
       border-right: white;
-       border-left-color: white;
+      border-left-color: white;
     }
     
     .rightbar {
@@ -54,24 +54,42 @@
       font-weight: bold;
     }
     
+    /* Updated story card styling to exactly match Add Ticket button */
     .story-card { 
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin-bottom: 10px; 
-      padding: 10px; 
-      background-color: #fff; 
-      border-radius: 8px; 
-      border: 1px solid #e0e0e0;
+      padding: 14px 16px; 
+      background-color: white; 
+      color: #673ab7; /* Exactly match ADD TICKET button color */
+      border: 1px solid #673ab7; /* Exactly match ADD TICKET button border */
+      border-radius: 25px;
       cursor: pointer; 
       transition: all 0.2s ease;
+      font-size: 14px;
+      font-weight: 600; /* Match ADD TICKET font weight */
+      text-align: center;
+      height: 42px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .story-card:hover {
+      background-color: #f0e6ff;
     }
     
     .story-card.selected { 
-      background-color: #e8f4fd; 
-      border: 1px solid #60a5fa;
+      background-color: #f0e6ff; /* Lighter purple on selection */
+      border-color: #673ab7;
+      color: #673ab7;
     }
     
     .story-card.active { 
-      background-color: #f0f0f0; 
-      border: 1px solid #4CAF50;
+      background-color: #f0e6ff; /* Now matches hover state */
+      border-color: #673ab7;
+      color: #673ab7;
+      box-shadow: 0 2px 4px rgba(103, 58, 183, 0.3); /* Subtle shadow to indicate active */
     }
     
     /* Updated button styling to match the ADD TICKET reference */
@@ -126,26 +144,28 @@
       margin: 0;
     }
     
+    /* Updated upload section to match Add Ticket style */
     .upload-section { 
-      display: flex; 
-      justify-content: flex-end; 
-      padding: 10px 20px; 
-      background: white; 
-      border-bottom: 1px solid white;
+      padding: 20px 20px 0 20px;
+      background: white;
+      display: flex;
+      justify-content: center;
     }
     
     .upload-right { 
-      display: flex; 
-      align-items: center; 
-      gap: 20px; /* Increased gap to prevent overlapping */
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      width: 100%;
+      max-width: 300px;
     }
     
-    /* Fixed width buttons to prevent overlap */
+    /* Fixed width buttons to match Add Ticket style */
     .invite-button { 
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 16px;
+      padding: 10px 16px;
       background-color: white;
       color: #673ab7;
       border: 1px solid #673ab7;
@@ -154,8 +174,9 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
-      height: 35px;
-      width: 120px; /* Fixed width */
+      height: 42px;
+      flex: 1;
+      min-width: 120px;
       box-sizing: border-box;
       white-space: nowrap;
     }
@@ -164,20 +185,21 @@
       background-color: #f0e6ff;
     }
     
-    /* File input container with fixed width */
+    /* File input container to match Add Ticket style */
     .file-input {
-      display: inline-block;
+      display: inline-flex;
       position: relative;
-      height: 35px;
-      width: 120px; /* Fixed width to match invite button */
+      height: 42px;
+      flex: 1;
+      min-width: 120px;
     }
 
-    /* Fixed file button styling */
+    /* Fixed file button styling to match Add Ticket */
     .file-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 16px;
+      padding: 10px 16px;
       background-color: white;
       color: #673ab7;
       border: 1px solid #673ab7;
@@ -186,8 +208,8 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
-      height: 35px;
-      width: 100%; /* Take full width of container */
+      height: 42px;
+      width: 100%;
       box-sizing: border-box;
       white-space: nowrap;
     }
@@ -617,7 +639,7 @@
     </div>
   </div>
 
-  <!-- Upload Section -->
+  <!-- Updated Upload Section - now centered and styled like Add Ticket button -->
   <div class="upload-section">
     <div class="upload-right">
       <div class="file-input" id="fileInputContainer">
