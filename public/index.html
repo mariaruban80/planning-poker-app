@@ -206,11 +206,6 @@
       cursor: pointer;
       z-index: 2;
     }
-
-    /* Hide elements for guest users */
-    .hide-for-guests {
-      display: none !important; /* Use !important to override any inline styles */
-    }
     
     .modal-overlay { 
       position: fixed; 
@@ -303,24 +298,19 @@
       flex: 1;
     }
 
-    /* UPDATED - Question mark styling with reveal handling */
+    /* Updated - Only change the opacity of question marks but keep original functionality */
     .vote-badge {
       background-color: transparent;
-      font-size: 14px; /* Made it match username font size */
+      font-size: 14px; /* Match username font size */
       font-weight: 600; /* Match username font weight */
       padding: 2px 8px;
       min-width: 28px;
       text-align: center;
-      /* Don't set color to transparent here to allow for revealing */
+      color: transparent; /* Hide question marks */
     }
     
-    /* Hide votes until revealed */
-    .vote-badge:not(.revealed) {
-      color: transparent !important;
-    }
-    
-    /* When votes are revealed, show the values with this color */
-    .vote-badge.revealed {
+    /* When votes are revealed, show them with this color */
+    body.votes-revealed .vote-badge {
       color: #673ab7 !important;
     }
     
@@ -424,28 +414,14 @@
       background-color: #f0e6ff;
     }
     
-    /* UPDATED - Card vote badge styling */
+    /* Updated - Make vote card question marks invisible but still functional */
     .vote-card-space .vote-badge {
       font-size: 18px;
       font-weight: bold;
-      /* Don't set color to transparent here */
+      color: transparent; /* Make question marks invisible */
     }
     
-    /* Hide votes until revealed */
-    .vote-card-space .vote-badge:not(.revealed) {
-      color: transparent !important;
-    }
-    
-    /* When votes are revealed, show them in this color */
-    .vote-card-space .vote-badge.revealed {
-      color: #333 !important;
-    }
-    
-    /* Body class for when votes should be revealed */
-    body.votes-revealed .vote-badge {
-      color: #673ab7 !important;
-    }
-    
+    /* Show vote values when votes are revealed */
     body.votes-revealed .vote-card-space .vote-badge {
       color: #333 !important;
     }
@@ -611,11 +587,11 @@
   <!-- Upload Section -->
   <div class="upload-section">
     <div class="upload-right">
-      <div class="file-input admin-only-element" id="fileInputContainer">
+      <div class="file-input" id="fileInputContainer">
         <span class="file-button">Choose File</span>
         <input type="file" id="csvInput" accept=".csv" />
       </div>
-      <button class="invite-button admin-only-element" id="inviteButton">Invite Others</button>
+      <button class="invite-button" id="inviteButton">Invite Others</button>
     </div>
   </div>
 
@@ -627,9 +603,9 @@
       <h3 class="section-heading">Voting Controls</h3>
       <!-- Added controls-section for better styling of control buttons -->
       <div class="controls-section">
-        <button class="button admin-only-element" id="revealVotesBtn">Reveal Votes</button>
-        <button class="button admin-only-element" id="resetVotesBtn">Reset Votes</button>
-        <button class="button admin-only-element" id="exportCsvBtn">Export All Votes</button>
+        <button class="button" id="revealVotesBtn">Reveal Votes</button>
+        <button class="button" id="resetVotesBtn">Reset Votes</button>
+        <button class="button" id="exportCsvBtn">Export All Votes</button>
       </div>
     </div>
 
@@ -655,8 +631,8 @@
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Added ID to the ADD TICKET button and admin-only-element class -->
-      <button class="add-ticket-btn admin-only-element" id="addTicketBtn"><span>+</span>ADD TICKET</button>
+      <!-- Added ID to the ADD TICKET button -->
+      <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
       
       <!-- The story list remains -->
       <div id="storyList" class="story-container"></div>
@@ -673,9 +649,6 @@
   <script type="module" src="main.js"></script>
 
   <script>
-    // Global flag to track if user is a guest
-    let isGuestUser = false;
-
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
       document.getElementById('inviteLink').value = window.location.href;
@@ -692,131 +665,22 @@
       alert('Invite link copied!');
     }
     
-    // Fixed function to reveal votes - properly shows vote values
+    // Simple function to reveal votes - only toggles the body class
     function revealVotes() {
-      console.log("Revealing votes...");
-      
-      // Mark votes as revealed by adding class to body
       document.body.classList.add('votes-revealed');
-      
-      // Make vote badges visible by adding revealed class
-      const voteBadges = document.querySelectorAll('.vote-badge');
-      for (let i = 0; i < voteBadges.length; i++) {
-        voteBadges[i].classList.add('revealed');
-        
-        // Make sure the vote text is actually present for revealing
-        if (voteBadges[i].getAttribute('data-vote-value')) {
-          voteBadges[i].textContent = voteBadges[i].getAttribute('data-vote-value');
-        }
-      }
-      
-      // Make vote card spaces show their content
-      const voteCards = document.querySelectorAll('.vote-card-space');
-      for (let i = 0; i < voteCards.length; i++) {
-        voteCards[i].classList.add('revealed');
-        
-        // Make sure the card vote badges are also revealed
-        const cardBadges = voteCards[i].querySelectorAll('.vote-badge');
-        for (let j = 0; j < cardBadges.length; j++) {
-          cardBadges[j].classList.add('revealed');
-          
-          if (cardBadges[j].getAttribute('data-vote-value')) {
-            cardBadges[j].textContent = cardBadges[j].getAttribute('data-vote-value');
-          }
-        }
-      }
-      
-      // If there are any question marks still in the UI, replace them with actual vote values
-      replaceQuestionMarksWithValues();
-      
-      console.log("Votes revealed!");
     }
     
-    // Function to replace question marks with actual vote values
-    function replaceQuestionMarksWithValues() {
-      // Find all elements containing question marks
-      const questionElements = document.querySelectorAll('*');
-      for (let i = 0; i < questionElements.length; i++) {
-        if (questionElements[i].textContent === '?') {
-          // Replace with a vote value from data-vote-value if it exists
-          if (questionElements[i].hasAttribute('data-vote-value')) {
-            questionElements[i].textContent = questionElements[i].getAttribute('data-vote-value');
-          }
-        }
-      }
-    }
-    
-    // Function to hide all question marks by replacing them with empty space
-    function hideQuestionMarks() {
-      // First, store the original question mark values in data attributes for later revealing
-      const questionElements = document.querySelectorAll('*');
-      for (let i = 0; i < questionElements.length; i++) {
-        const el = questionElements[i];
-        if (el.textContent === '?') {
-          // Store that this was a question mark and hide it
-          el.setAttribute('data-vote-value', '?');
-          el.textContent = ' ';
-          // Also add a class to mark this as a vote badge
-          el.classList.add('vote-badge');
-        }
-      }
-      
-      // Select all vote badges
-      const voteBadges = document.querySelectorAll('.vote-badge');
-      for (let i = 0; i < voteBadges.length; i++) {
-        // Store the current text as data attribute if not already stored
-        if (!voteBadges[i].hasAttribute('data-vote-value') && voteBadges[i].textContent.trim() !== '') {
-          voteBadges[i].setAttribute('data-vote-value', voteBadges[i].textContent);
-        }
-        
-        // Hide the vote value until revealed
-        if (!document.body.classList.contains('votes-revealed')) {
-          voteBadges[i].textContent = ' ';
-        }
-      }
-    }
-    
-    // Check if user is a guest by examining URL parameters more thoroughly
+    // Simple guest detection function that doesn't interfere with existing code
     function checkGuestStatus() {
-      const url = window.location.href;
-      
-      // If URL contains any parameters that suggest a room join, consider them a guest
-      if (url.indexOf('?') > -1) { // Check if there are any URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Check for join, guest, room, or any other parameter that might indicate a shared room
-        if (urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
-            urlParams.toString().length > 0) {
-          return true;
-        }
-      }
-      
-      // Check for URL patterns that suggest joining someone else's session
-      if (url.indexOf('/join/') > -1 || url.indexOf('/room/') > -1) {
-        return true;
-      }
-      
-      // Check if there's a hash parameter (fragment identifier)
-      if (window.location.hash && window.location.hash.length > 1) {
-        return true;
-      }
-      
-      return false;
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
     }
     
-    // Function to hide elements for guest users
-    function updateUIForGuestStatus() {
-      if (isGuestUser) {
-        console.log('Guest user detected - hiding admin controls');
-        
-        // Apply hide-for-guests class to all admin-only elements
-        const adminElements = document.querySelectorAll('.admin-only-element');
-        for (let i = 0; i < adminElements.length; i++) {
-          adminElements[i].classList.add('hide-for-guests');
-        }
-        
-        // Additional direct targeting of specific elements
-        const specificElements = [
+    // Function to hide buttons for guests
+    function hideButtonsForGuests() {
+      if (checkGuestStatus()) {
+        // Simple list of elements to hide
+        const elementsToHide = [
           'fileInputContainer',
           'inviteButton',
           'revealVotesBtn',
@@ -825,75 +689,40 @@
           'addTicketBtn'
         ];
         
-        specificElements.forEach(function(id) {
+        // Hide each element if it exists
+        elementsToHide.forEach(function(id) {
           const element = document.getElementById(id);
           if (element) {
             element.style.display = 'none';
           }
         });
-      } else {
-        console.log('Admin user detected - showing all controls');
       }
     }
     
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOM fully loaded');
-      
-      // Check if user is a guest
-      isGuestUser = checkGuestStatus();
-      console.log('Guest status:', isGuestUser);
-      
-      // First attempt to update UI
-      updateUIForGuestStatus();
-      
-      // Hide question marks (replace with spaces but keep values in data attributes)
-      hideQuestionMarks();
-      
-      // Set up event listeners
-      const revealBtn = document.getElementById('revealVotesBtn');
-      if (revealBtn) {
-        revealBtn.addEventListener('click', revealVotes);
-      }
-      
-      // Add listener to the main REVEAL VOTES button in the center of screen (if it exists)
-      const mainRevealBtn = document.querySelector('.reveal-votes-button');
-      if (mainRevealBtn) {
-        mainRevealBtn.addEventListener('click', revealVotes);
-      }
-      
+      // Setup invite button click handler
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton) {
         inviteButton.addEventListener('click', showInviteModal);
       }
       
-      // Try again after a delay to make sure DOM is ready and any dynamic content is loaded
-      setTimeout(function() {
-        updateUIForGuestStatus();
-        hideQuestionMarks();
-      }, 500);
+      // Setup reveal button click handler
+      const revealBtn = document.getElementById('revealVotesBtn');
+      if (revealBtn) {
+        revealBtn.addEventListener('click', revealVotes);
+      }
+      
+      // Check if user is a guest and hide buttons accordingly
+      hideButtonsForGuests();
+      
+      // Add a slight delay to ensure all elements are ready
+      setTimeout(hideButtonsForGuests, 100);
     });
     
-    // Run another check after window fully loads (including all assets)
+    // Also check when window is fully loaded (all assets)
     window.addEventListener('load', function() {
-      console.log('Window fully loaded');
-      updateUIForGuestStatus();
-      hideQuestionMarks();
-      
-      // Set up a mutation observer to handle dynamically added content
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          if (mutation.addedNodes.length) {
-            hideQuestionMarks();
-          }
-        });
-      });
-      
-      // Start observing the document for changes
-      observer.observe(document.body, { 
-        childList: true, 
-        subtree: true 
-      });
+      hideButtonsForGuests();
     });
   </script>
 </body>
