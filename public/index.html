@@ -734,24 +734,13 @@
     
     // Function to replace question marks with actual vote values
     function replaceQuestionMarksWithValues() {
-      // This would typically reference a data structure with actual vote values
-      // Since we don't have real data, we'll simulate it with random values
-      const possibleVotes = ["1", "2", "3", "5", "8", "13", "21"];
-      
       // Find all elements containing question marks
       const questionElements = document.querySelectorAll('*');
       for (let i = 0; i < questionElements.length; i++) {
         if (questionElements[i].textContent === '?') {
-          // Replace with a vote value (would use real data in production)
-          // Here we're using preset vote values if they exist on data attributes
+          // Replace with a vote value from data-vote-value if it exists
           if (questionElements[i].hasAttribute('data-vote-value')) {
             questionElements[i].textContent = questionElements[i].getAttribute('data-vote-value');
-          } else {
-            // For testing only - in real app, you'd use the actual vote value
-            const randomValue = possibleVotes[Math.floor(Math.random() * possibleVotes.length)];
-            questionElements[i].textContent = randomValue;
-            // Store the value for future reference
-            questionElements[i].setAttribute('data-vote-value', randomValue);
           }
         }
       }
@@ -776,7 +765,7 @@
       const voteBadges = document.querySelectorAll('.vote-badge');
       for (let i = 0; i < voteBadges.length; i++) {
         // Store the current text as data attribute if not already stored
-        if (!voteBadges[i].hasAttribute('data-vote-value')) {
+        if (!voteBadges[i].hasAttribute('data-vote-value') && voteBadges[i].textContent.trim() !== '') {
           voteBadges[i].setAttribute('data-vote-value', voteBadges[i].textContent);
         }
         
@@ -847,81 +836,9 @@
       }
     }
     
-    // Add test data for demo purposes (question marks that will be revealed)
-    function addTestDataForDemo() {
-      // Simulate some votes with question marks in user list
-      const userList = document.getElementById('userList');
-      if (userList && userList.querySelectorAll('.user-entry').length === 0) {
-        // Sample users for demo
-        const users = [
-          { name: 'John', initial: 'JD', vote: '5' },
-          { name: 'Alice', initial: 'AC', vote: '8' },
-          { name: 'Robert', initial: 'RS', vote: '3' }
-        ];
-        
-        // Create user entries
-        users.forEach(function(user) {
-          const entry = document.createElement('div');
-          entry.className = 'user-entry voted';
-          
-          const avatar = document.createElement('div');
-          avatar.className = 'avatar';
-          avatar.style.backgroundColor = getRandomColor();
-          avatar.textContent = user.initial;
-          
-          const username = document.createElement('div');
-          username.className = 'username';
-          username.textContent = user.name;
-          
-          const voteBadge = document.createElement('div');
-          voteBadge.className = 'vote-badge';
-          voteBadge.setAttribute('data-vote-value', user.vote);
-          voteBadge.textContent = '?'; // This will be transparent initially
-          
-          entry.appendChild(avatar);
-          entry.appendChild(username);
-          entry.appendChild(voteBadge);
-          userList.appendChild(entry);
-        });
-      }
-      
-      // Also add some vote card spaces in the center with question marks
-      const userCircle = document.getElementById('userCircle');
-      if (userCircle) {
-        // Create a vote row for demo
-        const voteRow = document.createElement('div');
-        voteRow.className = 'vote-row';
-        
-        // Add some vote cards
-        for (let i = 0; i < 3; i++) {
-          const voteCard = document.createElement('div');
-          voteCard.className = 'vote-card-space has-vote';
-          
-          const voteBadge = document.createElement('div');
-          voteBadge.className = 'vote-badge';
-          voteBadge.setAttribute('data-vote-value', ['5', '8', '3'][i]);
-          voteBadge.textContent = '?'; // This will be transparent initially
-          
-          voteCard.appendChild(voteBadge);
-          voteRow.appendChild(voteCard);
-        }
-        
-        userCircle.appendChild(voteRow);
-      }
-    }
-    
-    // Helper function for demo
-    function getRandomColor() {
-      const colors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0'];
-      return colors[Math.floor(Math.random() * colors.length)];
-    }
-    
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM fully loaded');
-      
-      // Add test data for demo
-      addTestDataForDemo();
       
       // Check if user is a guest
       isGuestUser = checkGuestStatus();
