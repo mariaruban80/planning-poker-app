@@ -14,26 +14,7 @@
       margin: 0;
       padding: 0;
     }
-    /* Add stronger styling for vote card spaces that are not the current user's */
-    body.shared-url-user .vote-card-space:not([data-current-user="true"]) {
-      cursor: not-allowed !important;
-      background-color: #f5f5f5 !important;
-      pointer-events: none !important; /* This completely blocks all events from reaching the element */
-      position: relative;
-      overflow: hidden;
-    }
     
-    /* Add a lock overlay to other users' vote cards */
-    body.shared-url-user .vote-card-space:not([data-current-user="true"])::after {
-      content: "🔒";
-      position: absolute;
-      font-size: 20px;
-      opacity: 0.6;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 2;
-    }
     .container { 
       display: flex; 
       background: white;
@@ -475,12 +456,6 @@
       background-color: #f9f9f9;
     }
     
-    /* Add specific styling for vote spaces that aren't the current user's when on a shared URL */
-    .shared-url-user .vote-card-space:not([data-current-user="true"]) {
-      cursor: not-allowed !important;
-      background-color: #f5f5f5;
-    }
-    
     .vote-card-space.has-vote {
       border-style: solid;
       border-color: #673ab7;
@@ -694,24 +669,6 @@
       font-style: italic;
       max-width: 80%;
     }
-    
-    /* Tooltip for error messages */
-    .tooltip {
-      position: fixed;
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 5px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    .tooltip.showing {
-      opacity: 1;
-    }
   </style>
 </head>
 
@@ -729,9 +686,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Tooltip for error messages -->
-  <div id="tooltip" class="tooltip"></div>
 
   <!-- Updated Upload Section - moved to right side as per screenshot -->
   <div class="upload-section">
@@ -840,102 +794,44 @@
       }
     }
     
-    // Function to display a tooltip
-    function showTooltip(message, x, y) {
-      const tooltip = document.getElementById('tooltip');
-      if (!tooltip) return;
-      
-      tooltip.textContent = message;
-      tooltip.style.left = x + 'px';
-      tooltip.style.top = y + 'px';
-      tooltip.classList.add('showing');
-      
-      setTimeout(() => {
-        tooltip.classList.remove('showing');
-      }, 2000);
+    // Function to remove or hide any modals from the original app
+    function hideAllOriginalModals() {
+      // Find and hide all modal dialogs from the original app
+      const modalDialogs = document.querySelectorAll('.modal-dialog, .modal-overlay');
+      modalDialogs.forEach(modal => {
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+      });
     }
     
-    // Function to check if this is a shared URL session
-    function isSharedUrlSession() {
-      // Check URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const isSharedUrl = urlParams.has('join') || 
-                          urlParams.has('guest') || 
-                          urlParams.has('room') || 
-                          window.location.hash || 
-                          window.location.pathname.includes('/join/') || 
-                          window.location.pathname.includes('/room/');
+    // Custom modal functions
+    function showInviteModalCustom() {
+      // First hide any existing modals from the original app
+      hideAllOriginalModals();
       
-      return isSharedUrl;
+      // Set the link value
+      document.getElementById('inviteLinkCustom').value = window.location.href;
+      
+      // Show our custom modal
+      document.getElementById('inviteModalCustom').style.display = 'flex';
+    }
+
+    function hideInviteModalCustom() {
+      document.getElementById('inviteModalCustom').style.display = 'none';
+    }
+
+    function copyInviteLinkCustom() {
+      const inviteInput = document.getElementById('inviteLinkCustom');
+      inviteInput.select();
+      document.execCommand('copy');
+      alert('Invite link copied!');
     }
     
-    // Function to get username from any existing session data or page elements
-    function getCurrentUsername() {
-      // Try to get from localStorage if set by app
-      const storedName = localStorage.getItem('userName') || 
-                         localStorage.getItem('username') ||
-                         localStorage.getItem('user_name') ||
-                         localStorage.getItem('planning_poker_username');
-      
-      if (storedName) return storedName;
-      
-      // Try to find username in user list
-      const userEntries = document.querySelectorAll('.user-entry');
-      for (const entry of userEntries) {
-        const usernameEl = entry.querySelector('.username');
-        if (usernameEl && usernameEl.textContent.includes('(You)')) {
-          return usernameEl.textContent.replace('(You)', '').trim();
-        }
-      }
-      
-      // Default fallback
-      return 'You';
-    }
-    
-    // Function to apply shared URL restrictions for vote card spaces
-    function applySharedUrlRestrictions() {
-      // Only apply if this is a shared URL session
-      if (!isSharedUrlSession()) return;
-      
-      // Mark body to apply special styles
-      document.body.classList.add('shared-url-user');
-      
-      // Wait for DOM to be updated by main.js
-      setTimeout(() => {
-        // Get current username
-        const currentUsername = getCurrentUsername();
-        
-        // Find all vote card spaces and avatar containers
-        const voteCardSpaces = document.querySelectorAll('.vote-card-space');
-        const avatarContainers = document.querySelectorAll('.avatar-container');
-        
-        // Mark each vote card space with whether it belongs to current user
-        for (let i = 0; i < voteCardSpaces.length; i++) {
-          // Use the matching avatar container to determine ownership
-          if (i < avatarContainers.length) {
-            const nameEl = avatarContainers[i].querySelector('.user-name');
-            if (nameEl) {
-              const isCurrentUser = nameEl.textContent === currentUsername ||
-                                    nameEl.textContent.includes('(You)');
-              
-              voteCardSpaces[i].setAttribute('data-current-user', isCurrentUser);
-              
-              // For non-current user spaces, intercept drop events
-              if (!isCurrentUser) {
-                voteCardSpaces[i].addEventListener('drop', function(e) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  // Show tooltip explaining why they can't drop here
-                  showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
-                  
-                  return false;
-                });
-              }
-            }
-          }
-        }
-      }, 500); // Delay to allow main.js to initialize the UI
+    // Simple function to reveal votes - only toggles the body class
+    function revealVotes() {
+      document.body.classList.add('votes-revealed');
     }
     
     // Monitor for CSV file uploads
@@ -1003,39 +899,34 @@
       // Check for stories
       checkForStories();
       
-      // Apply shared URL restrictions
-      applySharedUrlRestrictions();
-    });
-    
-    // Watch for changes to the DOM
-    const observer = new MutationObserver(function(mutations) {
-      // Re-apply shared URL restrictions whenever the DOM changes
-      // This handles updates that might come after initial page load
-      applySharedUrlRestrictions();
-    });
-    
-    // Start observing the document body
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-    
-    // Create an observer specifically for the user circle
-    const userCircleObserver = new MutationObserver(function(mutations) {
-      // Apply restrictions again when user circle changes
-      applySharedUrlRestrictions();
-    });
-    
-    // Start observing the user circle container after a delay
-    setTimeout(() => {
-      const userCircle = document.getElementById('userCircle');
-      if (userCircle) {
-        userCircleObserver.observe(userCircle, {
-          childList: true,
-          subtree: true
-        });
+      // Setup reveal button click handler
+      const revealBtn = document.getElementById('revealVotesBtn');
+      if (revealBtn) {
+        revealBtn.addEventListener('click', revealVotes);
       }
-    }, 1000);
+      
+      // Setup custom invite modal
+      const inviteBtn = document.getElementById('inviteButton');
+      if (inviteBtn) {
+        inviteBtn.addEventListener('click', showInviteModalCustom);
+      }
+      
+      // Hide original modals
+      hideAllOriginalModals();
+    });
+    
+    // Watch for story list changes
+    const storyList = document.getElementById('storyList');
+    if (storyList) {
+      const observer = new MutationObserver(function(mutations) {
+        checkForStories();
+      });
+      
+      observer.observe(storyList, { 
+        childList: true,
+        subtree: true
+      });
+    }
   </script>
 </body>
 </html>
