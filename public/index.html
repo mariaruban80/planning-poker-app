@@ -14,9 +14,10 @@
     }
     
     .container { 
-     display: flex; 
-     background: white;
-     min-height: calc(100vh - 140px);
+      display: flex; 
+      background: white;
+      min-height: calc(100vh - 140px);
+      position: relative; /* For absolute positioning of planning cards */
     }
     
     .sidebar, .rightbar { 
@@ -25,7 +26,7 @@
       padding: 20px; 
       overflow-y: auto;
       border-right: white;
-       border-left-color: white;
+      border-left-color: white;
     }
     
     .rightbar {
@@ -34,15 +35,15 @@
     }
     
     .main { 
-       flex: 1; 
-       padding: 20px; 
-       display: flex; 
-       flex-direction: column; 
-       align-items: center;
-       background: white;
+      flex: 1; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      background: white;
       border-right: white;
       border-left-color: white;
-     box-shadow: none;
+      box-shadow: none;
     }
     
     .banner { 
@@ -74,7 +75,7 @@
       border: 1px solid #4CAF50;
     }
     
-    /* Updated button styling to match the ADD TICKET reference */
+    /* Updated button styling to match the image */
     .button { 
       margin: 10px 0; 
       padding: 12px 20px; 
@@ -273,11 +274,12 @@
       flex: 1;
     }
 
+    /* Updated to make question marks transparent */
     .vote-badge {
       background-color: transparent;
-      color: transparent; /* Hide the question marks by making text transparent */
-      font-size: 12px; /* Match username font size exactly */
-      font-weight: 600; /* Match username font weight */
+      color: transparent !important; /* Hide the question marks completely */
+      font-size: 12px;
+      font-weight: 600;
       padding: 2px 8px;
       min-width: 28px;
       text-align: center;
@@ -285,155 +287,25 @@
     
     /* Show vote values when votes are revealed */
     .votes-revealed .vote-badge {
-      color: #673ab7 !important; /* Purple color matching your screenshot */
+      color: #673ab7 !important;
     }
     
-    /* New poker table layout */
-    .poker-table-layout {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      gap: 20px;
-      padding: 20px 0;
-    }
-    
-    .current-story-display {
-      width: 100%;
-      max-width: 700px;
-      padding: 15px;
-      background-color: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .avatar-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .vote-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .avatar-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 70px;
-    }
-    
-    .avatar-circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-      font-size: 18px;
-      background-color: #673ab7;
-      transition: all 0.3s ease;
-    }
-    
-    .has-voted .avatar-circle {
-      border: 2px solid #4CAF50;
-    }
-    
-    .user-name {
-      font-size: 12px;
-      margin-top: 5px;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-      font-weight: 500;
-    }
-    
-    .vote-card-space {
-      width: 60px;
-      height: 90px;
-      border: 1px dashed #ccc;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: white;
-      transition: all 0.2s ease;
-    }
-    
-    .vote-card-space:hover {
-      border-color: #999;
-      background-color: #f9f9f9;
-    }
-    
-    .vote-card-space.has-vote {
-      border-style: solid;
-      border-color: #673ab7;
-      background-color: #f0e6ff;
-    }
-    
-    .vote-card-space .vote-badge {
-      font-size: 18px;
-      font-weight: bold;
-      color: transparent; /* Hide the question marks by making text transparent */
-    }
-    
-    /* Show vote values when votes are revealed */
-    .vote-card-space.revealed .vote-badge {
-      color: #333 !important; /* Show the vote value */
-    }
-    
-    .reveal-button-container {
-      margin: 15px 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-    }
-    
-    .reveal-votes-button {
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      background-color: white;
-      color: #673ab7;
-      border: 2px solid #673ab7;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      letter-spacing: 1px;
-      min-width: 200px;
-      text-transform: uppercase;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    }
-    
-    .reveal-votes-button:hover {
-      background-color: #673ab7;
-      color: white;
+    /* Planning cards fixed to bottom of page */
+    .planning-cards-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #eee;
+      z-index: 100;
+      padding: 15px 20px;
     }
     
     /* Vote cards styling */
     .planning-cards-section {
       width: 100%;
       text-align: center;
-      margin-top: 20px;
-      padding: 15px;
-      background-color: white;
     }
     
     .planning-cards-section h3 {
@@ -441,7 +313,7 @@
       margin-bottom: 15px;
       font-size: 18px;
       font-weight: 600;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
     }
     
     .cards {
@@ -452,8 +324,8 @@
     }
     
     .card {
-      width: 30px; /* Reduced from 40px */
-      height: 50px; /* Reduced from 60px for proportional look */
+      width: 60px;
+      height: 90px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -461,7 +333,7 @@
       border-radius: 8px;
       cursor: grab;
       font-weight: bold;
-      font-size: 16px; /* Reduced from 18px */
+      font-size: 22px;
       text-align: center;
       transition: transform 0.2s;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -473,6 +345,94 @@
       transform: translateY(-5px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
+    
+    /* New poker layout styling */
+    .poker-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      padding: 20px;
+    }
+    
+    .user-circles-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 50px;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    
+    .user-circle-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .user-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #f8e2dd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .user-circle.cyan-bg {
+      background: #00bcd4;
+      color: white;
+    }
+    
+    .user-name-label {
+      font-size: 14px;
+      color: #333;
+    }
+    
+    .vote-cards-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+    
+    /* Vote card placeholder styling - dashed box from image */
+    .vote-card-placeholder {
+      width: 80px; 
+      height: 120px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    
+    /* Reveal votes button in center - styled like the image */
+    .reveal-votes-center-button {
+      background: white;
+      color: #673ab7;
+      border: 2px solid #673ab7;
+      border-radius: 8px;
+      padding: 15px 40px;
+      font-size: 16px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 30px 0;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .reveal-votes-center-button:hover {
+      background: #673ab7;
+      color: white;
+    }
 
     /* Voted heading in sidebar */
     .section-heading {
@@ -481,7 +441,7 @@
       color: #333;
       margin: 20px 0 10px 0;
       padding-bottom: 5px;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
     }
 
     /* User-friendly UI tweaks */
@@ -494,23 +454,25 @@
         width: 100%;
         max-width: 100%;
         border: none;
-        border-bottom: 1px solid white; /* Changed to white */
+        border-bottom: 1px solid white;
+      }
+      .planning-cards-wrapper {
+        position: fixed;
       }
     }
 
     /* User circle container styling */
     #userCircle {
-      background-color: white;
       padding: 20px;
       margin-bottom: 20px;
       width: 100%;
     }
     
-    /* Add Ticket button styling - Updated to match image */
+    /* Add Ticket button styling */
     .add-ticket-btn {
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: center; 
       padding: 10px 16px;
       background-color: white;
       color: #673ab7;
@@ -540,6 +502,11 @@
       display: flex;
       flex-direction: column;
       width: 100%;
+    }
+    
+    /* Ensure main content has enough bottom padding for planning cards */
+    .main-content {
+      padding-bottom: 150px; /* Make space for planning cards */
     }
   </style>
 </head>
@@ -571,7 +538,19 @@
   <div class="container">
     <div class="sidebar">
       <h3>Current Members</h3>
-      <div id="userList"></div> 
+      <div id="userList">
+        <!-- Example user entries with transparent question marks -->
+        <div class="user-entry">
+          <div class="avatar" style="background-color: #f8e2dd; color: #333;">TE</div>
+          <div class="username">Test</div>
+          <div class="vote-badge">?</div>
+        </div>
+        <div class="user-entry">
+          <div class="avatar" style="background-color: #00bcd4; color: white;">AN</div>
+          <div class="username">anand</div>
+          <div class="vote-badge">?</div>
+        </div>
+      </div> 
       
       <h3 class="section-heading">Voting Controls</h3>
       <!-- Added controls-section for better styling of control buttons -->
@@ -583,28 +562,44 @@
     </div>
 
     <div class="main">
-      <!-- Story will be displayed in the poker-table-layout instead of here -->
-      
-      <!-- New poker table layout will be rendered here -->
-      <div id="userCircle" class="user-circle-container"></div>
-      
-      <!-- Planning cards -->
-      <div class="planning-cards-section">
-        <h3>Planning Cards</h3>
-        <div class="cards">
-          <div class="card" draggable="true">0</div>
-          <div class="card" draggable="true">1</div>
-          <div class="card" draggable="true">3</div>
-          <div class="card" draggable="true">5</div>
-          <div class="card" draggable="true">8</div>
-          <div class="card" draggable="true">13</div>
-          <div class="card" draggable="true">21</div>
+      <div class="main-content">
+        <!-- New poker layout matching the image -->
+        <div class="poker-layout">
+          <div class="user-circles-row">
+            <!-- User 1 -->
+            <div class="user-circle-wrapper">
+              <div class="user-circle">TE</div>
+              <div class="user-name-label">Test</div>
+            </div>
+          </div>
+          
+          <!-- Vote card placeholders - Dashed boxes from the image -->
+          <div class="vote-cards-row">
+            <div class="vote-card-placeholder"></div>
+          </div>
+          
+          <!-- Reveal votes button styled like the image -->
+          <button class="reveal-votes-center-button" id="revealCenterBtn">Reveal Votes</button>
+          
+          <!-- Second row of vote cards -->
+          <div class="vote-cards-row">
+            <div class="vote-card-placeholder"></div>
+          </div>
+          
+          <!-- Second row of users -->
+          <div class="user-circles-row">
+            <!-- User 2 -->
+            <div class="user-circle-wrapper">
+              <div class="user-circle cyan-bg">AN</div>
+              <div class="user-name-label">anand</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Removed "User Stories" heading and replaced with ADD TICKET button -->
+      <!-- Replaced User Stories heading with ADD TICKET button -->
       <button class="add-ticket-btn"><span>+</span>ADD TICKET</button>
       
       <!-- The story list remains -->
@@ -614,6 +609,22 @@
       <div class="navigation-buttons">
         <button class="button" id="prevStory">Previous Story</button>
         <button class="button" id="nextStory">Next Story</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Planning cards fixed at bottom -->
+  <div class="planning-cards-wrapper">
+    <div class="planning-cards-section">
+      <h3>Planning Cards</h3>
+      <div class="cards">
+        <div class="card" draggable="true">0</div>
+        <div class="card" draggable="true">1</div>
+        <div class="card" draggable="true">3</div>
+        <div class="card" draggable="true">5</div>
+        <div class="card" draggable="true">8</div>
+        <div class="card" draggable="true">13</div>
+        <div class="card" draggable="true">21</div>
       </div>
     </div>
   </div>
@@ -677,10 +688,15 @@
         inviteButton.addEventListener('click', showInviteModal);
       }
       
-      // Set up the reveal votes button with direct function call
+      // Set up both reveal votes buttons with direct function call
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
         revealBtn.addEventListener('click', revealVotes);
+      }
+      
+      const revealCenterBtn = document.getElementById('revealCenterBtn');
+      if (revealCenterBtn) {
+        revealCenterBtn.addEventListener('click', revealVotes);
       }
     });
   </script>
