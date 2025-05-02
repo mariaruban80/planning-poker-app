@@ -7,28 +7,26 @@
 
   <style>
     body { 
-      font-family: 'Arial', sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background: #f5f6fa; /* Pearl white background */
+      background: white;
     }
     
     .container { 
       display: flex; 
+      background: white;
       min-height: calc(100vh - 140px);
     }
     
     .sidebar, .rightbar { 
       width: 20%; 
-      background: #f5f6fa; 
+      background: white; 
       padding: 20px; 
       overflow-y: auto;
-      border-right: 1px solid #e0e0e0;
+      border-right: 1px solid white;
     }
     
     .rightbar {
       border-right: none;
-      border-left: 1px solid #e0e0e0;
+      border-left: 1px solid white;
     }
     
     .main { 
@@ -233,7 +231,7 @@
     .vote-badge {
       background-color: transparent;
       color: transparent; /* Hide the question marks by making text transparent */
-      font-size: 14px; /* Match username font size exactly */
+      font-size: 12px; /* Match username font size exactly */
       font-weight: 600; /* Match username font weight */
       padding: 2px 8px;
       min-width: 28px;
@@ -346,7 +344,7 @@
     }
     
     .vote-card-space .vote-badge {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: bold;
       color: transparent; /* Hide the question marks by making text transparent */
     }
