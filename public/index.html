@@ -632,6 +632,11 @@
       max-height: 38px;
       width: 100%;
     }
+    
+    /* Hide elements for guest users */
+    .hide-for-guests {
+      display: none !important; /* Use !important to override any inline styles */
+    }
   </style>
 </head>
 
@@ -700,33 +705,9 @@
       <!-- Added ID to the ADD TICKET button -->
       <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
       
-      <!-- The story list remains with example stories from screenshot -->
+      <!-- The story list CONTAINER with no hardcoded stories -->
       <div id="storyList" class="story-container">
-        <!-- Example stories from screenshot -->
-        <div class="story-card">
-          <div class="story-title">Story 1: Task | RIN-2270 | "PoC- Title name | URL & H1 alignment"</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 2: Story | RIN-2244 | CaseMgmt - SED - View S045 - Decision on entitlement section (For CDM v4.3)</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 3: Story | RIN-2172 | CaseMgmt - Rename the link 'Select' to 'Match' in the Search for an OH5 record' screen</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 4: Story | RIN-2156 | CaseMgmt - SED - Create X010- Section-2: Response to reminder section - Data validations</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 5: Story | RIN-2155 | CaseMgmt - SED - Create X010 - Section-1: Person details section - Data validations</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 6: Story | RIN-2144 | CaseMgmt - SED - Create X009 - Reminder request section - Data validations</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 7: Story | RIN-2133 | CaseMgmt - SED - Create X009 - Person details section - Data validations</div>
-        </div>
-        <div class="story-card">
-          <div class="story-title">Story 8: Story | RIN-2113 | CaseMgmt - Implementation of additional validations on the edit search screen</div>
-        </div>
+        <!-- Stories will be loaded dynamically -->
       </div>
       
       <!-- Navigation buttons -->
@@ -783,8 +764,17 @@
     
     // Simple guest detection function that doesn't interfere with existing code
     function checkGuestStatus() {
+      // Check URL params for indicators that this is a guest session
       const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
+      const isFromInvite = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
+      
+      // Check for hash fragment
+      const hasHash = window.location.hash && window.location.hash.length > 1;
+      
+      // Check for URL patterns
+      const pathIncludesJoin = window.location.pathname.includes('/join/') || window.location.pathname.includes('/room/');
+      
+      return isFromInvite || hasHash || pathIncludesJoin;
     }
     
     // Function to hide buttons for guests
@@ -931,6 +921,40 @@
         el = el.parentNode;
       }
     }, true);
+    
+    // Function to handle CSV file uploads for story list
+    document.getElementById('csvInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const csvData = event.target.result;
+        // Process the CSV data and create story cards
+        const storyList = document.getElementById('storyList');
+        
+        // Clear existing stories
+        storyList.innerHTML = '';
+        
+        // Simple CSV parsing (assumes each line is a story)
+        const stories = csvData.split('\n');
+        stories.forEach(function(story, index) {
+          if (story.trim()) {
+            const storyCard = document.createElement('div');
+            storyCard.className = 'story-card';
+            
+            const storyTitle = document.createElement('div');
+            storyTitle.className = 'story-title';
+            storyTitle.textContent = story.trim();
+            
+            storyCard.appendChild(storyTitle);
+            storyList.appendChild(storyCard);
+          }
+        });
+      };
+      
+      reader.readAsText(file);
+    });
   </script>
 </body>
 </html>
