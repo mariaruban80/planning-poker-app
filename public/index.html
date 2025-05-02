@@ -303,10 +303,11 @@
       flex: 1;
     }
 
+    /* UPDATED - Question mark hidden properly */
     .vote-badge {
       background-color: transparent;
-      color: transparent; /* Hide the question marks by making text transparent */
-      font-size: 12px; /* Match username font size exactly */
+      color: transparent !important; /* Hide the question marks with !important */
+      font-size: 14px; /* Made it match username font size */
       font-weight: 600; /* Match username font weight */
       padding: 2px 8px;
       min-width: 28px;
@@ -418,10 +419,11 @@
       background-color: #f0e6ff;
     }
     
+    /* UPDATED - Question mark hidden properly for vote cards */
     .vote-card-space .vote-badge {
       font-size: 18px;
       font-weight: bold;
-      color: transparent; /* Hide the question marks by making text transparent */
+      color: transparent !important; /* Hide the question marks with !important */
     }
     
     /* Show vote values when votes are revealed */
@@ -571,6 +573,29 @@
       flex-direction: column;
       width: 100%;
     }
+    
+    /* ADDITIONAL CSS TO ENSURE ALL QUESTION MARKS ARE HIDDEN */
+    /* This is a more aggressive approach to hiding question marks */
+    .vote-badge::before,
+    .vote-badge::after,
+    .vote-card-space::before,
+    .vote-card-space::after {
+      content: "" !important;
+      color: transparent !important;
+    }
+    
+    /* Hide all question marks globally */
+    .question-mark-hide {
+      color: transparent !important;
+      opacity: 0 !important;
+    }
+    
+    /* Additional CSS to ensure question marks stay hidden even with JS manipulations */
+    [data-vote]:not(.revealed),
+    [data-value]:not(.revealed),
+    .hidden-vote:not(.revealed) {
+      color: transparent !important;
+    }
   </style>
 </head>
 
@@ -680,6 +705,7 @@
       const voteBadges = document.querySelectorAll('.vote-badge');
       for (let i = 0; i < voteBadges.length; i++) {
         voteBadges[i].style.color = '#673ab7';
+        voteBadges[i].classList.add('revealed');
       }
       
       // Make vote card spaces show their content
@@ -749,6 +775,41 @@
       }
     }
     
+    // Function to hide all question marks by making them transparent
+    function fixQuestionMarks() {
+      // Select all vote badges and apply the CSS fix
+      const voteBadges = document.querySelectorAll('.vote-badge');
+      for (let i = 0; i < voteBadges.length; i++) {
+        voteBadges[i].classList.add('question-mark-hide');
+        voteBadges[i].style.color = 'transparent'; // Direct style override
+        // Replace content with empty space if it contains a question mark
+        if (voteBadges[i].textContent.includes('?')) {
+          voteBadges[i].textContent = ' ';
+        }
+      }
+      
+      // Select all vote card spaces that have question marks
+      const voteCards = document.querySelectorAll('.vote-card-space .vote-badge');
+      for (let i = 0; i < voteCards.length; i++) {
+        voteCards[i].classList.add('question-mark-hide');
+        voteCards[i].style.color = 'transparent'; // Direct style override
+        // Replace content with empty space if it contains a question mark
+        if (voteCards[i].textContent.includes('?')) {
+          voteCards[i].textContent = ' ';
+        }
+      }
+      
+      // Additional fixing of any elements with question mark content
+      const allElements = document.querySelectorAll('*');
+      for (let i = 0; i < allElements.length; i++) {
+        if (allElements[i].textContent === '?') {
+          allElements[i].classList.add('question-mark-hide');
+          allElements[i].style.color = 'transparent';
+          allElements[i].textContent = ' ';
+        }
+      }
+    }
+    
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM fully loaded');
@@ -759,6 +820,9 @@
       
       // First attempt to update UI
       updateUIForGuestStatus();
+      
+      // Fix question marks
+      fixQuestionMarks();
       
       // Set up event listeners
       const revealBtn = document.getElementById('revealVotesBtn');
@@ -772,16 +836,31 @@
       }
       
       // Try again after a delay to make sure DOM is ready and any dynamic content is loaded
-      setTimeout(updateUIForGuestStatus, 500);
+      setTimeout(function() {
+        updateUIForGuestStatus();
+        fixQuestionMarks();
+      }, 500);
     });
     
     // Run another check after window fully loads (including all assets)
     window.addEventListener('load', function() {
       console.log('Window fully loaded');
       updateUIForGuestStatus();
+      fixQuestionMarks();
       
       // Another check after everything else has had time to initialize
-      setTimeout(updateUIForGuestStatus, 1000);
+      setTimeout(function() {
+        updateUIForGuestStatus();
+        fixQuestionMarks();
+        
+        // Set up a mutation observer to watch for DOM changes
+        const observer = new MutationObserver(function() {
+          fixQuestionMarks();
+        });
+        
+        // Start observing the document with the configured parameters
+        observer.observe(document.body, { childList: true, subtree: true });
+      }, 1000);
     });
   </script>
 </body>
