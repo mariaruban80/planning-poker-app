@@ -74,23 +74,41 @@
       border: 1px solid #4CAF50;
     }
     
+    /* Updated button styling to match the image */
     .button { 
       margin: 10px 0; 
       padding: 12px; 
-      background-color: #6c63ff; 
-      color: white; 
-      border: none; 
+      background-color: white; 
+      color: #673ab7; 
+      border: 2px solid #673ab7; 
       border-radius: 8px; 
       cursor: pointer; 
       width: 100%;
       font-weight: 600;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s, color 0.2s;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
     .button:hover { 
-      background-color: #574fdd; 
+      background-color: #673ab7; 
+      color: white;
+    }
+    
+    /* Navigation button container for parallel display */
+    .navigation-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      width: 100%;
+    }
+    
+    .navigation-buttons .button {
+      flex: 1;
+      margin: 0;
     }
     
     .upload-section { 
@@ -534,7 +552,8 @@
     <div class="rightbar" id="storyListContainer">
       <h3>User Stories</h3>
       <div id="storyList"></div>
-      <div style="margin-top: 20px;">
+      <!-- Modified to display buttons in parallel -->
+      <div class="navigation-buttons">
         <button class="button" id="prevStory">Previous Story</button>
         <button class="button" id="nextStory">Next Story</button>
       </div>
