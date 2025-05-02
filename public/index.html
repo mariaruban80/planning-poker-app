@@ -14,7 +14,26 @@
       margin: 0;
       padding: 0;
     }
+    /* Add stronger styling for vote card spaces that are not the current user's */
+    body.shared-url-user .vote-card-space:not([data-current-user="true"]) {
+      cursor: not-allowed !important;
+      background-color: #f5f5f5 !important;
+      pointer-events: none !important; /* This completely blocks all events from reaching the element */
+      position: relative;
+      overflow: hidden;
+    }
     
+    /* Add a lock overlay to other users' vote cards */
+    body.shared-url-user .vote-card-space:not([data-current-user="true"])::after {
+      content: "🔒";
+      position: absolute;
+      font-size: 20px;
+      opacity: 0.6;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+    }
     .container { 
       display: flex; 
       background: white;
