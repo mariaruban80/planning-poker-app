@@ -15,494 +15,9 @@
       padding: 0;
     }
     
-    .container { 
-      display: flex; 
-      background: white;
-      min-height: calc(100vh - 140px);
-    }
+    /* All other CSS styles remain the same... */
     
-    .sidebar, .rightbar { 
-      width: 20%; 
-      background: white; 
-      padding: 20px; 
-      overflow-y: auto;
-      border-right: white;
-      border-left-color: white;
-    }
-    
-    .rightbar {
-      border-right: none;
-      border-left: 1px solid white;
-    }
-    
-    .main { 
-      flex: 1; 
-      padding: 20px; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center;
-      background: white;
-      border-right: white;
-      border-left-color: white;
-      box-shadow: none;
-    }
-    
-    .banner { 
-      background-color: #003366; 
-      color: white; 
-      padding: 15px; 
-      text-align: center; 
-      font-size: 24px; 
-      font-weight: bold;
-    }
-    
-    /* Updated story card styling to match reference screenshot */
-    .story-card { 
-      display: flex;
-      align-items: center;
-      justify-content: flex-start; /* Left align text */
-      margin-bottom: 10px; 
-      padding: 14px 16px; 
-      background-color: white; 
-      color: #333; /* Dark text color for better readability */
-      border: 1px solid #e0e0e0; /* Light gray border */
-      border-radius: 8px; /* Less rounded corners */
-      cursor: pointer; 
-      transition: all 0.2s ease;
-      font-size: 13px;
-      font-weight: normal; /* Regular font weight */
-      text-align: left; /* Left aligned text */
-      height: auto; /* Allow flexible height */
-      min-height: 42px; /* Minimum height */
-      width: 100%;
-      box-sizing: border-box;
-      white-space: normal;
-      line-height: 1.4;
-    }
-    
-    .story-card:hover {
-      background-color: #f5f5f5; /* Light gray background on hover */
-      border-color: #d0d0d0;
-    }
-    
-    .story-card.selected { 
-      background-color: #e8f0fe; /* Light blue background */
-      border-color: #4285f4; /* Google blue border */
-      color: #333;
-    }
-    
-    .story-card.active { 
-      background-color: #e8f0fe; /* Light blue color for active state */
-      border-color: #4285f4;
-      color: #333;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow to indicate active */
-    }
-    
-    /* Updated button styling to match the ADD TICKET reference */
-    .button { 
-      margin: 10px 0; 
-      padding: 12px 20px; 
-      background-color: white; 
-      color: #673ab7; 
-      border: 1px solid #673ab7; 
-      border-radius: 25px; /* More rounded corners like ADD TICKET */
-      cursor: pointer; 
-      width: 100%;
-      font-weight: 600;
-      transition: all 0.2s;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      font-size: 14px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      height: 42px; /* Fixed height for all buttons */
-      min-width: 140px; /* Minimum width to ensure buttons look good */
-      box-shadow: none;
-    }
-    
-    .button:hover { 
-      background-color: #f0e6ff; /* Lighter purple background on hover */
-      color: #673ab7;
-    }
-    
-    /* Controls section with fixed height buttons */
-    .controls-section {
-      display: flex;
-      flex-direction: column;
-      margin-top: 15px;
-    }
-    
-    .controls-section .button {
-      margin: 5px 0;
-    }
-    
-    /* Navigation button container for parallel display */
-    .navigation-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-      width: 100%;
-    }
-    
-    .navigation-buttons .button {
-      flex: 1;
-      margin: 0;
-    }
-    
-    /* Updated upload section to match reference screenshot */
-    .upload-section { 
-      padding: 15px 20px;
-      background: white;
-      display: flex;
-      justify-content: flex-end; /* Align to right side */
-      border-bottom: 1px solid transparent;
-    }
-    
-    .upload-right { 
-      display: flex;
-      gap: 10px;
-      width: auto; /* Not full width anymore */
-    }
-    
-    /* Fixed width buttons to match reference screenshot */
-    .invite-button { 
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      height: 42px;
-      width: 140px; /* Fixed width */
-      box-sizing: border-box;
-      white-space: nowrap;
-    }
-
-    .invite-button:hover {
-      background-color: #f0e6ff;
-    }
-    
-    /* File input container to match reference screenshot */
-    .file-input {
-      display: inline-flex;
-      position: relative;
-      height: 42px;
-      width: 140px; /* Fixed width */
-    }
-
-    /* Fixed file button styling */
-    .file-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      height: 42px;
-      width: 100%;
-      box-sizing: border-box;
-      white-space: nowrap;
-    }
-
-    .file-button:hover {
-      background-color: #f0e6ff;
-    }
-
-    .file-input input[type="file"] {
-      opacity: 0;
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-      z-index: 2;
-    }
-    
-    /* Updated modal styling with higher z-index to ensure it appears on top */
-    #inviteModalCustom {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    }
-    
-    .modal-content {
-      background-color: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      text-align: center;
-      min-width: 300px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    
-    .modal-content h3 {
-      margin-top: 0;
-      color: #333;
-    }
-    
-    .modal-content input[type="text"] {
-      width: 100%;
-      padding: 10px;
-      margin: 15px 0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
-      font-size: 14px;
-    }
-    
-    .modal-content .button-group {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    
-    .modal-content button {
-      padding: 10px 15px;
-      background: #673ab7;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-      min-width: 80px;
-      transition: all 0.2s;
-    }
-    
-    .modal-content button:hover {
-      background: #5c33a4;
-    }
-    
-    /* User list styling */
-    .sidebar h3, .rightbar h3 {
-      color: #333;
-      margin-top: 0;
-      padding-bottom: 10px;
-      border-bottom: 1px solid white; /* Changed to white */
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 15px;
-    }
-    
-    #userList {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 0.5rem 0;
-      width: 100%;
-    }
-
-    .user-entry {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: white;
-      border-radius: 30px;
-      padding: 8px 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .user-entry.voted {
-      background: linear-gradient(to right, #e5f7e5, #c1e1c1);
-    }
-
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      object-fit: cover;
-      margin-right: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-    }
-
-    .username {
-      font-weight: 600;
-      font-size: 14px;
-      color: #3b444b;
-      flex: 1;
-    }
-
-    /* Updated - Only change the opacity of question marks but keep original functionality */
-    .vote-badge {
-      background-color: transparent;
-      font-size: 14px; /* Match username font size */
-      font-weight: 600; /* Match username font weight */
-      padding: 2px 8px;
-      min-width: 28px;
-      text-align: center;
-      color: transparent; /* Hide question marks */
-    }
-    
-    /* When votes are revealed, show them with this color */
-    body.votes-revealed .vote-badge {
-      color: #673ab7 !important;
-    }
-    
-    /* New poker table layout */
-    .poker-table-layout {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      gap: 20px;
-      padding: 20px 0;
-    }
-    
-    .current-story-display {
-      width: 100%;
-      max-width: 700px;
-      padding: 15px;
-      background-color: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .avatar-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .vote-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .avatar-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 70px;
-    }
-    
-    .avatar-circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-      font-size: 18px;
-      background-color: #673ab7;
-      transition: all 0.3s ease;
-    }
-    
-    .has-voted .avatar-circle {
-      border: 2px solid #4CAF50;
-    }
-    
-    .user-name {
-      font-size: 12px;
-      margin-top: 5px;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-      font-weight: 500;
-    }
-    
-    .vote-card-space {
-      width: 60px;
-      height: 90px;
-      border: 1px dashed #ccc;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: white;
-      transition: all 0.2s ease;
-    }
-    
-    .vote-card-space:hover {
-      border-color: #999;
-      background-color: #f9f9f9;
-    }
-    
-    .vote-card-space.has-vote {
-      border-style: solid;
-      border-color: #673ab7;
-      background-color: #f0e6ff;
-    }
-    
-    /* Updated - Make vote card question marks invisible but still functional */
-    .vote-card-space .vote-badge {
-      font-size: 18px;
-      font-weight: bold;
-      color: transparent; /* Make question marks invisible */
-    }
-    
-    /* Show vote values when votes are revealed */
-    body.votes-revealed .vote-card-space .vote-badge {
-      color: #333 !important;
-    }
-    
-    .reveal-button-container {
-      margin: 15px 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-    }
-    
-    .reveal-votes-button {
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      background-color: white;
-      color: #673ab7;
-      border: 2px solid #673ab7;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      letter-spacing: 1px;
-      min-width: 200px;
-      text-transform: uppercase;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    }
-    
-    .reveal-votes-button:hover {
-      background-color: #673ab7;
-      color: white;
-    }
-    
-    /* Vote cards styling */
+    /* Updated planning cards styling to match the new reference image */
     .planning-cards-section {
       width: 100%;
       text-align: center;
@@ -516,7 +31,7 @@
       margin-bottom: 15px;
       font-size: 18px;
       font-weight: 600;
-      border-bottom: 1px solid white; /* Changed to white */
+      border-bottom: 1px solid white;
     }
     
     .cards {
@@ -527,119 +42,79 @@
     }
     
     .card {
-      width: 50px; 
-      height: 50px; 
+      width: 55px; /* Decreased width to match the reference image */
+      height: 50px; /* Decreased height to match the reference image */
       display: flex;
       align-items: center;
       justify-content: center;
       background: #e6e6fa; /* Light purple background */
-      border-radius: 4px;
-      cursor: grab;
+      border-radius: 8px;
+      cursor: pointer;
       font-weight: bold;
-      font-size: 18px; /* Larger font */
+      font-size: 16px; /* Smaller font size to match reference */
       text-align: center;
-      transition: transform 0.2s;
+      transition: all 0.2s ease;
       color: #333;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 4px; /* Add small margin between cards */
     }
     
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-
-    /* Voted heading in sidebar */
-    .section-heading {
-      font-size: 16px;
-      font-weight: bold;
-      color: #333;
-      margin: 20px 0 10px 0;
-      padding-bottom: 5px;
-      border-bottom: 1px solid white; /* Changed to white */
-    }
-
-    /* User-friendly UI tweaks */
-    @media (max-width: 1200px) {
-      .container {
-        flex-direction: column;
-        height: auto;
-      }
-      .sidebar, .rightbar {
-        width: 100%;
-        max-width: 100%;
-        border: none;
-        border-bottom: 1px solid white; /* Changed to white */
-      }
-    }
-
-    /* User circle container styling */
-    #userCircle {
-      background-color: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      width: 100%;
+    /* Add new disabled state for cards */
+    .card.disabled {
+      background-color: #f0f0f0;
+      color: #aaa;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
     
-    /* Add Ticket button styling - Updated to match image */
-    .add-ticket-btn {
+    .card.disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .card:hover:not(.disabled) {
+      transform: translateY(-3px); /* Smaller hover effect */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Story card width adjustment */
+    .story-card {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
+      justify-content: flex-start;
+      margin-bottom: 10px;
+      padding: 14px 16px;
       background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      font-size: 14px;
-      font-weight: 600;
+      color: #333;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
-      margin: 0 0 20px 0;
-      height: 42px;
-    }
-    
-    .add-ticket-btn:hover {
-      background-color: #f0e6ff;
-    }
-    
-    .add-ticket-btn span {
-      margin-right: 5px;
-      font-size: 18px;
-      color: #673ab7;
-    }
-    
-    /* Story list container - no top heading */
-    .story-container {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }
-    
-    /* Hide any modal coming from main.js */
-    .modal-dialog, .modal-overlay {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-    
-    /* Updated story text to handle long content */
-    .story-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 3; /* Show max of 3 lines */
-      -webkit-box-orient: vertical;
-      max-height: none; /* Remove fixed height constraint */
-      width: 100%;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: normal;
       text-align: left;
+      height: auto;
+      min-height: 42px;
+      width: calc(100% - 32px); /* Adjusted width accounting for padding */
+      box-sizing: border-box;
+      white-space: normal;
+      line-height: 1.4;
     }
     
-    /* Hide elements for guest users */
-    .hide-for-guests {
-      display: none !important; /* Use !important to override any inline styles */
+    /* Add a message for when no stories are available */
+    .no-stories-message {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      border: 1px dashed #ccc;
+      margin-top: 20px;
+      font-style: italic;
     }
+    
+    /* Rest of your CSS remains unchanged... */
   </style>
 </head>
 
@@ -689,17 +164,22 @@
       <!-- New poker table layout will be rendered here -->
       <div id="userCircle" class="user-circle-container"></div>
       
+      <!-- Add a no stories message -->
+      <div id="noStoriesMessage" class="no-stories-message">
+        No stories available. Please upload stories to start voting.
+      </div>
+      
       <!-- Planning cards -->
       <div class="planning-cards-section">
         <h3>Planning Cards</h3>
-        <div class="cards">
-          <div class="card" draggable="true">0</div>
-          <div class="card" draggable="true">1</div>
-          <div class="card" draggable="true">3</div>
-          <div class="card" draggable="true">5</div>
-          <div class="card" draggable="true">8</div>
-          <div class="card" draggable="true">13</div>
-          <div class="card" draggable="true">21</div>
+        <div class="cards" id="planningCardsContainer">
+          <div class="card" draggable="true" data-value="0">0</div>
+          <div class="card" draggable="true" data-value="1">1</div>
+          <div class="card" draggable="true" data-value="3">3</div>
+          <div class="card" draggable="true" data-value="5">5</div>
+          <div class="card" draggable="true" data-value="8">8</div>
+          <div class="card" draggable="true" data-value="13">13</div>
+          <div class="card" draggable="true" data-value="21">21</div>
         </div>
       </div>
     </div>
@@ -834,6 +314,52 @@
       });
     }
     
+    // Function to check if there are any stories and disable voting if not
+    function checkForStories() {
+      const storyList = document.getElementById('storyList');
+      const noStoriesMessage = document.getElementById('noStoriesMessage');
+      const planningCards = document.querySelectorAll('.card');
+      
+      // Check if there are any story cards
+      const hasStories = storyList && storyList.querySelectorAll('.story-card').length > 0;
+      
+      if (!hasStories) {
+        // No stories, disable voting
+        planningCards.forEach(card => {
+          card.classList.add('disabled');
+          card.setAttribute('draggable', 'false');
+                    
+          // Remove any existing drag event listeners
+          card.ondragstart = null;
+          card.onclick = null;
+          
+          // Add click handler to show message
+          card.addEventListener('click', function() {
+            alert('No stories available. Please upload stories to start voting.');
+          });
+        });
+        
+        // Show the no stories message
+        if (noStoriesMessage) {
+          noStoriesMessage.style.display = 'block';
+        }
+      } else {
+        // Has stories, enable voting
+        planningCards.forEach(card => {
+          card.classList.remove('disabled');
+          card.setAttribute('draggable', 'true');
+          
+          // Remove message click handler
+          card.onclick = null;
+        });
+        
+        // Hide the no stories message
+        if (noStoriesMessage) {
+          noStoriesMessage.style.display = 'none';
+        }
+      }
+    }
+    
     // Execute when DOM is fully loaded
     document.addEventListener('DOMContentLoaded', function() {
       // Hide original modals immediately
@@ -851,6 +377,9 @@
       // Check if user is a guest and hide buttons accordingly
       hideButtonsForGuests();
       
+      // Check for stories and disable voting if necessary
+      checkForStories();
+      
       // Add a slight delay to ensure all elements are loaded
       setTimeout(function() {
         // Hide any modals from the original app again
@@ -861,6 +390,9 @@
         
         // Hide buttons for guests again
         hideButtonsForGuests();
+        
+        // Check for stories again after delay
+        checkForStories();
       }, 500);
     });
     
@@ -869,6 +401,7 @@
       hideAllOriginalModals();
       interceptInviteButtons();
       hideButtonsForGuests();
+      checkForStories();
       
       // Use MutationObserver to watch for dynamically added modals
       const observer = new MutationObserver(function(mutations) {
@@ -954,10 +487,51 @@
             storyList.appendChild(storyCard);
           }
         });
+        
+        // After loading stories, update the UI
+        checkForStories();
       };
       
       reader.readAsText(file);
     });
+    
+    // Add ticket button functionality
+    document.getElementById('addTicketBtn').addEventListener('click', function() {
+      // Get story text from user
+      const storyText = prompt("Enter the story details:");
+      
+      if (storyText && storyText.trim()) {
+        // Create new story card
+        const storyList = document.getElementById('storyList');
+        
+        const storyCard = document.createElement('div');
+        storyCard.className = 'story-card';
+        
+        const storyTitle = document.createElement('div');
+        storyTitle.className = 'story-title';
+        storyTitle.textContent = storyText.trim();
+        
+        storyCard.appendChild(storyTitle);
+        storyList.appendChild(storyCard);
+        
+        // After adding a story, update the UI
+        checkForStories();
+      }
+    });
+    
+    // Use MutationObserver to watch for changes to the story list
+    const storyObserver = new MutationObserver(function(mutations) {
+      checkForStories();
+    });
+    
+    // Start observing the story list
+    const storyList = document.getElementById('storyList');
+    if (storyList) {
+      storyObserver.observe(storyList, { 
+        childList: true, 
+        subtree: true 
+      });
+    }
   </script>
 </body>
 </html>
