@@ -206,6 +206,11 @@
       cursor: pointer;
       z-index: 2;
     }
+
+    /* Hide elements for guest users */
+    .hide-for-guests {
+      display: none !important; /* Use !important to override any inline styles */
+    }
     
     .modal-overlay { 
       position: fixed; 
@@ -585,11 +590,11 @@
   <!-- Upload Section -->
   <div class="upload-section">
     <div class="upload-right">
-      <div class="file-input" id="fileInputContainer">
+      <div class="file-input admin-only-element" id="fileInputContainer">
         <span class="file-button">Choose File</span>
         <input type="file" id="csvInput" accept=".csv" />
       </div>
-      <button class="invite-button" id="inviteButton">Invite Others</button>
+      <button class="invite-button admin-only-element" id="inviteButton">Invite Others</button>
     </div>
   </div>
 
@@ -601,9 +606,9 @@
       <h3 class="section-heading">Voting Controls</h3>
       <!-- Added controls-section for better styling of control buttons -->
       <div class="controls-section">
-        <button class="button" id="revealVotesBtn">Reveal Votes</button>
-        <button class="button" id="resetVotesBtn">Reset Votes</button>
-        <button class="button" id="exportCsvBtn">Export All Votes</button>
+        <button class="button admin-only-element" id="revealVotesBtn">Reveal Votes</button>
+        <button class="button admin-only-element" id="resetVotesBtn">Reset Votes</button>
+        <button class="button admin-only-element" id="exportCsvBtn">Export All Votes</button>
       </div>
     </div>
 
@@ -629,8 +634,8 @@
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Added ID to the ADD TICKET button -->
-      <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
+      <!-- Added ID to the ADD TICKET button and admin-only-element class -->
+      <button class="add-ticket-btn admin-only-element" id="addTicketBtn"><span>+</span>ADD TICKET</button>
       
       <!-- The story list remains -->
       <div id="storyList" class="story-container"></div>
@@ -647,6 +652,9 @@
   <script type="module" src="main.js"></script>
 
   <script>
+    // Global flag to track if user is a guest
+    let isGuestUser = false;
+
     function showInviteModal() {
       document.getElementById('inviteModal').style.display = 'flex';
       document.getElementById('inviteLink').value = window.location.href;
@@ -681,44 +689,99 @@
       }
     }
     
-    // Improved function to handle guest user interface
-    document.addEventListener('DOMContentLoaded', function() {
-      // Add a small delay to ensure all DOM elements are fully loaded
-      setTimeout(function() {
-        // Check for guest status based on URL parameters
+    // Check if user is a guest by examining URL parameters more thoroughly
+    function checkGuestStatus() {
+      const url = window.location.href;
+      
+      // If URL contains any parameters that suggest a room join, consider them a guest
+      if (url.indexOf('?') > -1) { // Check if there are any URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
         
-        // Only hide the buttons if user is a guest
-        if (isGuest) {
-          // Use a safer way to hide elements (check if they exist first)
-          const elementsToHide = [
-            'fileInputContainer', 'inviteButton', 'revealVotesBtn', 
-            'resetVotesBtn', 'exportCsvBtn', 'addTicketBtn'
-          ];
-          
-          elementsToHide.forEach(function(id) {
-            const element = document.getElementById(id);
-            if (element) {
-              element.style.display = 'none';
-            } else {
-              console.log('Element not found:', id);
-            }
-          });
+        // Check for join, guest, room, or any other parameter that might indicate a shared room
+        if (urlParams.has('join') || urlParams.has('guest') || urlParams.has('room') || 
+            urlParams.toString().length > 0) {
+          return true;
+        }
+      }
+      
+      // Check for URL patterns that suggest joining someone else's session
+      if (url.indexOf('/join/') > -1 || url.indexOf('/room/') > -1) {
+        return true;
+      }
+      
+      // Check if there's a hash parameter (fragment identifier)
+      if (window.location.hash && window.location.hash.length > 1) {
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // Function to hide elements for guest users
+    function updateUIForGuestStatus() {
+      if (isGuestUser) {
+        console.log('Guest user detected - hiding admin controls');
+        
+        // Apply hide-for-guests class to all admin-only elements
+        const adminElements = document.querySelectorAll('.admin-only-element');
+        for (let i = 0; i < adminElements.length; i++) {
+          adminElements[i].classList.add('hide-for-guests');
         }
         
-        // Only setup invite button if it's visible
-        const inviteButton = document.getElementById('inviteButton');
-        if (inviteButton && !isGuest) {
-          inviteButton.addEventListener('click', showInviteModal);
-        }
+        // Additional direct targeting of specific elements
+        const specificElements = [
+          'fileInputContainer',
+          'inviteButton',
+          'revealVotesBtn',
+          'resetVotesBtn',
+          'exportCsvBtn',
+          'addTicketBtn'
+        ];
         
-        // Set up the reveal votes button with direct function call
-        const revealBtn = document.getElementById('revealVotesBtn');
-        if (revealBtn) {
-          revealBtn.addEventListener('click', revealVotes);
-        }
-      }, 100); // Short delay to ensure DOM is ready
+        specificElements.forEach(function(id) {
+          const element = document.getElementById(id);
+          if (element) {
+            element.style.display = 'none';
+          }
+        });
+      } else {
+        console.log('Admin user detected - showing all controls');
+      }
+    }
+    
+    // Execute when DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM fully loaded');
+      
+      // Check if user is a guest
+      isGuestUser = checkGuestStatus();
+      console.log('Guest status:', isGuestUser);
+      
+      // First attempt to update UI
+      updateUIForGuestStatus();
+      
+      // Set up event listeners
+      const revealBtn = document.getElementById('revealVotesBtn');
+      if (revealBtn) {
+        revealBtn.addEventListener('click', revealVotes);
+      }
+      
+      const inviteButton = document.getElementById('inviteButton');
+      if (inviteButton) {
+        inviteButton.addEventListener('click', showInviteModal);
+      }
+      
+      // Try again after a delay to make sure DOM is ready and any dynamic content is loaded
+      setTimeout(updateUIForGuestStatus, 500);
+    });
+    
+    // Run another check after window fully loads (including all assets)
+    window.addEventListener('load', function() {
+      console.log('Window fully loaded');
+      updateUIForGuestStatus();
+      
+      // Another check after everything else has had time to initialize
+      setTimeout(updateUIForGuestStatus, 1000);
     });
   </script>
 </body>
