@@ -803,7 +803,8 @@
 
   <!-- Scripts -->
   <script type="module" src="main.js"></script>
-<script>
+
+  <script>
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -841,14 +842,8 @@
     
     // Function to display a tooltip
     function showTooltip(message, x, y) {
-      // Create tooltip if it doesn't exist
-      let tooltip = document.getElementById('tooltip');
-      if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'tooltip';
-        tooltip.className = 'tooltip';
-        document.body.appendChild(tooltip);
-      }
+      const tooltip = document.getElementById('tooltip');
+      if (!tooltip) return;
       
       tooltip.textContent = message;
       tooltip.style.left = x + 'px';
@@ -893,39 +888,8 @@
         }
       }
       
-      // Look for a username in the user interface
-      const userNameElements = document.querySelectorAll('.user-name');
-      for (let i = 0; i < userNameElements.length; i++) {
-        const userName = userNameElements[i].textContent;
-        // Many apps append "(You)" to the current user's name
-        if (userName && (userName.includes('(You)') || userName.includes('(you)') || userName.includes('(current)'))) {
-          return userName.replace(/\(You\)|\(you\)|\(current\)/g, '').trim();
-        }
-      }
-      
       // Default fallback
       return 'You';
-    }
-    
-    // Function to completely disable drag and drop on specific elements
-    function disableDragAndDrop(element) {
-      if (!element) return;
-      
-      // Prevent all events related to drag and drop
-      const events = ['dragstart', 'dragenter', 'dragover', 'dragleave', 'drop', 'dragend'];
-      
-      events.forEach(eventName => {
-        element.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
-        }, true); // Use capturing phase
-      });
-      
-      // Set inline styles to reinforce the CSS
-      element.style.pointerEvents = 'none';
-      element.style.cursor = 'not-allowed';
-      element.setAttribute('draggable', 'false');
     }
     
     // Function to apply shared URL restrictions for vote card spaces
@@ -936,104 +900,42 @@
       // Mark body to apply special styles
       document.body.classList.add('shared-url-user');
       
-      // Get current username - try multiple methods to be robust
-      let currentUsername = getCurrentUsername();
-      console.log("Current username detected:", currentUsername);
-      
-      // Find all vote card spaces in the document
-      const voteCardSpaces = document.querySelectorAll('.vote-card-space');
-      console.log(`Found ${voteCardSpaces.length} vote card spaces`);
-      
-      // Find all avatar containers and user names
-      const avatarContainers = document.querySelectorAll('.avatar-container');
-      const userNames = document.querySelectorAll('.user-name');
-      
-      // If we can't find the current username, watch for when we can
-      if (!currentUsername || currentUsername === 'You') {
-        console.log("Waiting for username to be available in UI");
-        // Try again after a short delay in case the UI is still loading
-        setTimeout(applySharedUrlRestrictions, 1000);
-      }
-      
-      // Initialize a map of username to avatar container position
-      const usernameToPositionMap = new Map();
-      
-      // Map username to position in the UI
-      userNames.forEach((nameEl, index) => {
-        usernameToPositionMap.set(nameEl.textContent.trim(), index);
+      // Wait for DOM to be updated by main.js
+      setTimeout(() => {
+        // Get current username
+        const currentUsername = getCurrentUsername();
         
-        // Check if this might be the current user
-        if (nameEl.textContent.includes('(You)') || 
-            nameEl.textContent.includes('(you)') || 
-            nameEl.textContent.includes('(current)')) {
-          currentUsername = nameEl.textContent.replace(/\(You\)|\(you\)|\(current\)/g, '').trim();
-          console.log("Updated current username:", currentUsername);
-        }
-      });
-      
-      // Process each vote card space
-      voteCardSpaces.forEach((space, index) => {
-        // Try to determine if this space belongs to the current user
-        let isCurrentUserSpace = false;
+        // Find all vote card spaces and avatar containers
+        const voteCardSpaces = document.querySelectorAll('.vote-card-space');
+        const avatarContainers = document.querySelectorAll('.avatar-container');
         
-        // If we have a matching avatar container, use that
-        if (index < userNames.length) {
-          const name = userNames[index].textContent.trim();
-          
-          // Check if this is the current user's name
-          isCurrentUserSpace = (name === currentUsername) || 
-                               name.includes('(You)') || 
-                               name.includes('(you)') || 
-                               name.includes('(current)');
-        }
-        
-        console.log(`Vote space ${index}: ${isCurrentUserSpace ? 'Current User' : 'Other User'}`);
-        
-        // Mark the space with a data attribute
-        space.setAttribute('data-current-user', isCurrentUserSpace);
-        
-        // For other users' spaces, completely disable drag and drop
-        if (!isCurrentUserSpace) {
-          disableDragAndDrop(space);
-          
-          // Create a transparent blocking overlay if not already present
-          if (!space.querySelector('.blocking-overlay')) {
-            const overlay = document.createElement('div');
-            overlay.className = 'blocking-overlay';
-            overlay.style.position = 'absolute';
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.width = '100%';
-            overlay.style.height = '100%';
-            overlay.style.zIndex = '10';
-            overlay.style.cursor = 'not-allowed';
-            
-            // Make sure position is relative for absolute positioning
-            space.style.position = 'relative';
-            
-            // Add click handler to show tooltip
-            overlay.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
-              return false;
-            });
-            
-            space.appendChild(overlay);
+        // Mark each vote card space with whether it belongs to current user
+        for (let i = 0; i < voteCardSpaces.length; i++) {
+          // Use the matching avatar container to determine ownership
+          if (i < avatarContainers.length) {
+            const nameEl = avatarContainers[i].querySelector('.user-name');
+            if (nameEl) {
+              const isCurrentUser = nameEl.textContent === currentUsername ||
+                                    nameEl.textContent.includes('(You)');
+              
+              voteCardSpaces[i].setAttribute('data-current-user', isCurrentUser);
+              
+              // For non-current user spaces, intercept drop events
+              if (!isCurrentUser) {
+                voteCardSpaces[i].addEventListener('drop', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // Show tooltip explaining why they can't drop here
+                  showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
+                  
+                  return false;
+                });
+              }
+            }
           }
         }
-      });
-      
-      // Add global drop prevention
-      document.addEventListener('drop', function(e) {
-        // If this is not the current user's vote space, prevent drop
-        if (e.target.closest('.vote-card-space:not([data-current-user="true"])')) {
-          e.preventDefault();
-          e.stopPropagation();
-          showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
-          return false;
-        }
-      }, true);
+      }, 500); // Delay to allow main.js to initialize the UI
     }
     
     // Monitor for CSV file uploads
@@ -1095,73 +997,45 @@
         }
       });
     }
-
-    // Apply restrictions as soon as possible
-    (function() {
-      // Check for stories
-      checkForStories();
-      
-      // First application of shared URL restrictions
-      if (isSharedUrlSession()) {
-        console.log("Shared URL session detected");
-        // Apply immediately
-        applySharedUrlRestrictions();
-        
-        // And again after a short delay to catch late-rendered elements
-        setTimeout(applySharedUrlRestrictions, 500);
-        setTimeout(applySharedUrlRestrictions, 1000);
-        setTimeout(applySharedUrlRestrictions, 2000);
-      }
-    })();
     
-    // Call when DOM is loaded
+    // Call immediately on page load
     document.addEventListener('DOMContentLoaded', function() {
       // Check for stories
       checkForStories();
       
       // Apply shared URL restrictions
-      if (isSharedUrlSession()) {
-        applySharedUrlRestrictions();
-      }
+      applySharedUrlRestrictions();
     });
     
-    // Also apply on full page load
-    window.addEventListener('load', function() {
-      if (isSharedUrlSession()) {
-        applySharedUrlRestrictions();
-      }
-    });
-    
-    // Create an observer to watch for changes to the DOM
+    // Watch for changes to the DOM
     const observer = new MutationObserver(function(mutations) {
-      if (isSharedUrlSession()) {
-        // Use a debounce approach to avoid calling too frequently
-        clearTimeout(window.restrictionsTimeout);
-        window.restrictionsTimeout = setTimeout(applySharedUrlRestrictions, 200);
-      }
+      // Re-apply shared URL restrictions whenever the DOM changes
+      // This handles updates that might come after initial page load
+      applySharedUrlRestrictions();
     });
     
     // Start observing the document body
     observer.observe(document.body, {
       childList: true,
-      subtree: true,
-      attributes: false
+      subtree: true
     });
     
-    // Intercept dragstart events at the document level
-    document.addEventListener('dragstart', function(e) {
-      // If we're in a shared URL session, verify the target
-      if (isSharedUrlSession()) {
-        const targetVoteSpace = e.target.closest('.vote-card-space');
-        if (targetVoteSpace && targetVoteSpace.getAttribute('data-current-user') !== 'true') {
-          e.preventDefault();
-          e.stopPropagation();
-          showTooltip("You can only vote on your own card", e.clientX, e.clientY - 40);
-          return false;
-        }
+    // Create an observer specifically for the user circle
+    const userCircleObserver = new MutationObserver(function(mutations) {
+      // Apply restrictions again when user circle changes
+      applySharedUrlRestrictions();
+    });
+    
+    // Start observing the user circle container after a delay
+    setTimeout(() => {
+      const userCircle = document.getElementById('userCircle');
+      if (userCircle) {
+        userCircleObserver.observe(userCircle, {
+          childList: true,
+          subtree: true
+        });
       }
-    }, true);
+    }, 1000);
   </script>
 </body>
 </html>
-  
