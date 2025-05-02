@@ -835,65 +835,116 @@
     }
     
     // Function to export all votes to a CSV file
-    function doExportAllVotes() {
-      // Get all story cards
-      const storyCards = document.querySelectorAll('#storyList .story-card');
-      if (storyCards.length === 0) {
-        alert("No stories available to export.");
-        return;
-      }
-      
-      // Create CSV content
-      let csvContent = "Story Description,Highest Vote\n";
-      
-      // Process each story
-      storyCards.forEach((storyCard, index) => {
-        // Get story description
-        const storyTitle = storyCard.querySelector('.story-title');
-        const storyDesc = storyTitle ? storyTitle.textContent.trim() : `Story ${index + 1}`;
+    function exportAllVotes() {
+      try {
+        // Get all story cards
+        const storyList = document.getElementById('storyList');
+        const storyCards = storyList ? storyList.querySelectorAll('.story-card') : [];
         
-        // Default highest vote
-        let highestVote = "No votes";
-        
-        // If this is the selected story, check for votes
-        const isSelected = storyCard.classList.contains('selected');
-        if (isSelected && document.body.classList.contains('votes-revealed')) {
-          // Try to get visible votes from the UI
-          const voteElements = document.querySelectorAll('.vote-badge, .vote-value');
-          const votes = [];
-          
-          voteElements.forEach(el => {
-            const voteValue = el.textContent.trim();
-            if (voteValue && !isNaN(voteValue)) {
-              votes.push(parseInt(voteValue));
-            }
-          });
-          
-          if (votes.length > 0) {
-            highestVote = Math.max(...votes).toString();
-          }
+        if (storyCards.length === 0) {
+          alert('No stories available to export.');
+          return;
         }
         
-        // Escape the description for CSV format
-        const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
-        csvContent += `${escapedDesc},${highestVote}\n`;
-      });
-      
-      // Create a download link
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = 'planning_poker_votes.csv';
-      
-      // Trigger the download
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+        // Create CSV header
+        let csvContent = 'Story Description,Highest Vote\n';
+        
+        // For each story, create a row in the CSV
+        storyCards.forEach(function(storyCard) {
+          // Get the story description
+          const storyTitle = storyCard.querySelector('.story-title');
+          const storyDesc = storyTitle ? storyTitle.textContent.trim() : '';
+          
+          // Default vote is "No votes"
+          let highestVote = "No votes";
+          
+          // We'll try to find votes for this story
+          // First make this story selected temporarily if it's not already
+          const wasSelected = storyCard.classList.contains('selected');
+          
+          if (!wasSelected) {
+            // Remember the originally selected story
+            const originalSelected = document.querySelector('.story-card.selected');
+            
+            // Select this story temporarily
+            if (originalSelected) originalSelected.classList.remove('selected');
+            storyCard.classList.add('selected');
+            
+            // Give the DOM a moment to update
+            setTimeout(() => {
+              // Find votes for this now-selected story
+              const voteElements = document.querySelectorAll('.vote-badge');
+              const votes = [];
+              
+              // Try to get any visible vote values
+              if (document.body.classList.contains('votes-revealed')) {
+                voteElements.forEach(element => {
+                  const voteValue = element.textContent.trim();
+                  if (!isNaN(voteValue) && voteValue !== '') {
+                    votes.push(parseInt(voteValue));
+                  }
+                });
+              }
+              
+              // If we found votes, get the highest
+              if (votes.length > 0) {
+                highestVote = Math.max(...votes).toString();
+              }
+              
+              // Add this story to the CSV
+              const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
+              csvContent += `${escapedDesc},${highestVote}\n`;
+              
+              // Restore the original selection
+              storyCard.classList.remove('selected');
+              if (originalSelected) originalSelected.classList.add('selected');
+            }, 100);
+          } else {
+            // This story is already selected, look for votes
+            const voteElements = document.querySelectorAll('.vote-badge');
+            const votes = [];
+            
+            // Try to get any visible vote values
+            if (document.body.classList.contains('votes-revealed')) {
+              voteElements.forEach(element => {
+                const voteValue = element.textContent.trim();
+                if (!isNaN(voteValue) && voteValue !== '') {
+                  votes.push(parseInt(voteValue));
+                }
+              });
+            }
+            
+            // If we found votes, get the highest
+            if (votes.length > 0) {
+              highestVote = Math.max(...votes).toString();
+            }
+            
+            // Add this story to the CSV
+            const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
+            csvContent += `${escapedDesc},${highestVote}\n`;
+          }
+        });
+        
+        // After all stories are processed, create the CSV file
+        setTimeout(() => {
+          const blob = new Blob([csvContent], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'planning_poker_votes.csv';
+          a.style.display = 'none';
+          
+          document.body.appendChild(a);
+          a.click();
+          
+          // Clean up
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, storyCards.length * 150); // Give enough time for all stories to be processed
+      } catch (error) {
+        console.error('Error exporting votes:', error);
+        alert('Error exporting votes. Please try again.');
+      }
     }
     
     // Monitor for CSV file uploads
@@ -911,10 +962,11 @@
         
         // Simple CSV parsing (assumes each line is a story)
         const stories = csvData.split('\n');
-        stories.forEach(function(story) {
+        stories.forEach(function(story, index) {
           if (story.trim()) {
             const storyCard = document.createElement('div');
             storyCard.className = 'story-card';
+            storyCard.id = `story_${index}`;
             
             const storyTitle = document.createElement('div');
             storyTitle.className = 'story-title';
@@ -927,6 +979,12 @@
         
         // Check for stories again after CSV upload
         checkForStories();
+        
+        // Select the first story if there are any
+        const firstStory = storyList.querySelector('.story-card');
+        if (firstStory) {
+          firstStory.classList.add('selected');
+        }
       };
       
       reader.readAsText(file);
@@ -942,6 +1000,7 @@
           
           const storyCard = document.createElement('div');
           storyCard.className = 'story-card';
+          storyCard.id = `story_${Date.now()}`;
           
           const storyTitle = document.createElement('div');
           storyTitle.className = 'story-title';
@@ -952,51 +1011,47 @@
           
           // Check for stories after adding a story
           checkForStories();
+          
+          // If this is the first story, select it
+          if (storyList.querySelectorAll('.story-card').length === 1) {
+            storyCard.classList.add('selected');
+          }
         }
       });
     }
     
-    // Story selection handler - when a story is clicked
+    // Story selection functionality
     document.addEventListener('click', function(e) {
-      if (e.target.closest('.story-card')) {
-        const selectedStory = e.target.closest('.story-card');
-        const allStories = document.querySelectorAll('.story-card');
-        
-        // Remove selected class from all stories
-        allStories.forEach(function(story) {
+      const clickedStory = e.target.closest('.story-card');
+      if (clickedStory) {
+        // Deselect all stories
+        document.querySelectorAll('.story-card').forEach(story => {
           story.classList.remove('selected');
         });
         
-        // Add selected class to clicked story
-        selectedStory.classList.add('selected');
+        // Select the clicked story
+        clickedStory.classList.add('selected');
       }
     });
     
-    // Previous story button handler
-    const prevStoryBtn = document.getElementById('prevStory');
-    if (prevStoryBtn) {
-      prevStoryBtn.addEventListener('click', function() {
-        const selectedStory = document.querySelector('.story-card.selected');
-        if (selectedStory && selectedStory.previousElementSibling) {
-          selectedStory.classList.remove('selected');
-          selectedStory.previousElementSibling.classList.add('selected');
-        }
-      });
-    }
+    // Previous and Next story button handlers
+    document.getElementById('prevStory')?.addEventListener('click', function() {
+      const selectedStory = document.querySelector('.story-card.selected');
+      if (selectedStory && selectedStory.previousElementSibling) {
+        selectedStory.classList.remove('selected');
+        selectedStory.previousElementSibling.classList.add('selected');
+      }
+    });
     
-    // Next story button handler
-    const nextStoryBtn = document.getElementById('nextStory');
-    if (nextStoryBtn) {
-      nextStoryBtn.addEventListener('click', function() {
-        const selectedStory = document.querySelector('.story-card.selected');
-        if (selectedStory && selectedStory.nextElementSibling) {
-          selectedStory.classList.remove('selected');
-          selectedStory.nextElementSibling.classList.add('selected');
-        }
-      });
-    }
+    document.getElementById('nextStory')?.addEventListener('click', function() {
+      const selectedStory = document.querySelector('.story-card.selected');
+      if (selectedStory && selectedStory.nextElementSibling) {
+        selectedStory.classList.remove('selected');
+        selectedStory.nextElementSibling.classList.add('selected');
+      }
+    });
     
-    // Call immediately on page load
+    // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
       // Check for stories
       checkForStories();
@@ -1007,6 +1062,12 @@
         revealBtn.addEventListener('click', revealVotes);
       }
       
+      // Setup export button with direct onclick handler
+      const exportBtn = document.getElementById('exportCsvBtn');
+      if (exportBtn) {
+        exportBtn.onclick = exportAllVotes;
+      }
+      
       // Setup invite button
       const inviteBtn = document.getElementById('inviteButton');
       if (inviteBtn) {
@@ -1015,12 +1076,6 @@
       
       // Hide original modals
       hideAllOriginalModals();
-      
-      // Attach export handler to export button directly
-      const exportBtn = document.getElementById('exportCsvBtn');
-      if (exportBtn) {
-        exportBtn.onclick = doExportAllVotes;
-      }
     });
     
     // Watch for story list changes
@@ -1035,18 +1090,6 @@
         subtree: true
       });
     }
-    
-    // Make sure export function is directly connected to button
-    window.addEventListener('load', function() {
-      // Ensure the export button has the correct click handler
-      document.getElementById('exportCsvBtn').onclick = doExportAllVotes;
-      
-      // Select first story if none is selected
-      if (document.querySelectorAll('.story-card').length > 0 && 
-          document.querySelectorAll('.story-card.selected').length === 0) {
-        document.querySelector('.story-card').classList.add('selected');
-      }
-    });
   </script>
 </body>
 </html>
