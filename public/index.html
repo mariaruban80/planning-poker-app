@@ -11,26 +11,12 @@
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
       color: #333;
-      margin: 0;
-      padding: 0;
-      height: 100vh;
-      overflow: hidden;
-    }
-    
-    /* Hide all scrollbars */
-    ::-webkit-scrollbar {
-      display: none;
-    }
-    
-    * {
-      -ms-overflow-style: none;  /* IE and Edge */
-      scrollbar-width: none;  /* Firefox */
     }
     
     .container { 
      display: flex; 
      background: white;
-     height: calc(100vh - 100px);
+     min-height: calc(100vh - 140px);
     }
     
     .sidebar, .rightbar { 
@@ -39,7 +25,7 @@
       padding: 20px; 
       overflow-y: auto;
       border-right: white;
-      border-left-color: white;
+       border-left-color: white;
     }
     
     .rightbar {
@@ -48,16 +34,15 @@
     }
     
     .main { 
-      flex: 1; 
-      padding: 20px; 
-      display: flex; 
-      flex-direction: column; 
-      justify-content: space-between;
-      align-items: center;
-      background: white;
+       flex: 1; 
+       padding: 20px; 
+       display: flex; 
+       flex-direction: column; 
+       align-items: center;
+       background: white;
       border-right: white;
       border-left-color: white;
-      box-shadow: none;
+     box-shadow: none;
     }
     
     .banner { 
@@ -89,13 +74,14 @@
       border: 1px solid #4CAF50;
     }
     
+    /* Updated button styling to match the ADD TICKET reference */
     .button { 
       margin: 10px 0; 
       padding: 12px 20px; 
       background-color: white; 
       color: #673ab7; 
       border: 1px solid #673ab7; 
-      border-radius: 25px;
+      border-radius: 25px; /* More rounded corners like ADD TICKET */
       cursor: pointer; 
       width: 100%;
       font-weight: 600;
@@ -106,16 +92,17 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      height: 42px;
-      min-width: 140px;
+      height: 42px; /* Fixed height for all buttons */
+      min-width: 140px; /* Minimum width to ensure buttons look good */
       box-shadow: none;
     }
     
     .button:hover { 
-      background-color: #f0e6ff;
+      background-color: #f0e6ff; /* Lighter purple background on hover */
       color: #673ab7;
     }
     
+    /* Controls section with fixed height buttons */
     .controls-section {
       display: flex;
       flex-direction: column;
@@ -126,6 +113,7 @@
       margin: 5px 0;
     }
     
+    /* Navigation button container for parallel display */
     .navigation-buttons {
       display: flex;
       gap: 10px;
@@ -144,45 +132,68 @@
       padding: 10px 20px; 
       background: white; 
       border-bottom: 1px solid white;
-      gap: 10px;
     }
     
     .upload-right { 
       display: flex; 
       align-items: center; 
-      gap: 10px;
+      gap: 20px; /* Increased gap to prevent overlapping */
     }
     
-    /* Updated invite button styling to match the image */
+    /* Fixed width buttons to prevent overlap */
     .invite-button { 
-      padding: 12px 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
       background-color: white;
+      color: #673ab7;
       border: 1px solid #673ab7;
       border-radius: 25px;
-      color: #673ab7;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
-      height: 42px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 120px;
+      height: 35px;
+      width: 120px; /* Fixed width */
       box-sizing: border-box;
+      white-space: nowrap;
     }
 
     .invite-button:hover {
       background-color: #f0e6ff;
     }
     
-    /* Updated file input to exactly match invite button */
+    /* File input container with fixed width */
     .file-input {
       display: inline-block;
       position: relative;
-      height: 42px;
+      height: 35px;
+      width: 120px; /* Fixed width to match invite button */
+    }
+
+    /* Fixed file button styling */
+    .file-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      background-color: white;
+      color: #673ab7;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      height: 35px;
+      width: 100%; /* Take full width of container */
       box-sizing: border-box;
-      min-width: 120px;
+      white-space: nowrap;
+    }
+
+    .file-button:hover {
+      background-color: #f0e6ff;
     }
 
     .file-input input[type="file"] {
@@ -194,33 +205,6 @@
       height: 100%;
       cursor: pointer;
       z-index: 2;
-    }
-
-    /* Updated file button to exactly match invite button */
-    .file-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 20px;
-      background-color: white;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      color: #673ab7;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      height: 42px;
-      width: 100%;
-      box-sizing: border-box;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 1;
-    }
-
-    .file-button:hover {
-      background-color: #f0e6ff;
     }
     
     .modal-overlay { 
@@ -261,11 +245,12 @@
       cursor: pointer;
     }
     
+    /* User list styling */
     .sidebar h3, .rightbar h3 {
       color: #333;
       margin-top: 0;
       padding-bottom: 10px;
-      border-bottom: 1px solid white;
+      border-bottom: 1px solid white; /* Changed to white */
       font-size: 18px;
       font-weight: 600;
       margin-bottom: 15px;
@@ -315,18 +300,20 @@
 
     .vote-badge {
       background-color: transparent;
-      color: transparent;
-      font-size: 12px;
-      font-weight: 600;
+      color: transparent; /* Hide the question marks by making text transparent */
+      font-size: 12px; /* Match username font size exactly */
+      font-weight: 600; /* Match username font weight */
       padding: 2px 8px;
       min-width: 28px;
       text-align: center;
     }
     
+    /* Show vote values when votes are revealed */
     .votes-revealed .vote-badge {
-      color: #673ab7 !important;
+      color: #673ab7 !important; /* Purple color matching your screenshot */
     }
     
+    /* New poker table layout */
     .poker-table-layout {
       display: flex;
       flex-direction: column;
@@ -429,11 +416,12 @@
     .vote-card-space .vote-badge {
       font-size: 18px;
       font-weight: bold;
-      color: transparent;
+      color: transparent; /* Hide the question marks by making text transparent */
     }
     
+    /* Show vote values when votes are revealed */
     .vote-card-space.revealed .vote-badge {
-      color: #333 !important;
+      color: #333 !important; /* Show the vote value */
     }
     
     .reveal-button-container {
@@ -464,14 +452,13 @@
       color: white;
     }
     
-    /* Updated planning cards section styling to match the image exactly */
+    /* Vote cards styling */
     .planning-cards-section {
       width: 100%;
       text-align: center;
       margin-top: 20px;
+      padding: 15px;
       background-color: white;
-      padding: 0;
-      border-top: 1px solid #eee;
     }
     
     .planning-cards-section h3 {
@@ -479,62 +466,50 @@
       margin-bottom: 15px;
       font-size: 18px;
       font-weight: 600;
-      border-bottom: none;
-      text-align: center;
+      border-bottom: 1px solid white; /* Changed to white */
     }
     
-    /* Updated cards container to match image layout exactly */
     .cards {
       display: flex;
+      gap: 10px;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 15px;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 0 20px 20px;
     }
     
-    /* Second row of cards (55 and 89) */
-    .cards-row-2 {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 15px;
-    }
-    
-    /* Updated card styling to match image exactly */
     .card {
-      width: 70px;
-      height: 70px;
+      width: 30px; /* Reduced from 40px */
+      height: 50px; /* Reduced from 60px for proportional look */
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #e1d9f6; /* Light purple matching the image exactly */
+      background: #cfc6f7;
       border-radius: 8px;
-      cursor: pointer;
+      cursor: grab;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px; /* Reduced from 18px */
       text-align: center;
-      color: #673ab7; /* Purple text matching image */
-      border: none;
-      box-shadow: none;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      color: #333;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     }
     
-    /* Add hover effect but keep it subtle */
     .card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
+    /* Voted heading in sidebar */
     .section-heading {
       font-size: 16px;
       font-weight: bold;
       color: #333;
       margin: 20px 0 10px 0;
       padding-bottom: 5px;
-      border-bottom: 1px solid white;
+      border-bottom: 1px solid white; /* Changed to white */
     }
 
+    /* User-friendly UI tweaks */
     @media (max-width: 1200px) {
       .container {
         flex-direction: column;
@@ -544,10 +519,11 @@
         width: 100%;
         max-width: 100%;
         border: none;
-        border-bottom: 1px solid white;
+        border-bottom: 1px solid white; /* Changed to white */
       }
     }
 
+    /* User circle container styling */
     #userCircle {
       background-color: white;
       padding: 20px;
@@ -555,12 +531,12 @@
       width: 100%;
     }
     
-    /* Updated add ticket button to match image */
+    /* Add Ticket button styling - Updated to match image */
     .add-ticket-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 12px 20px;
+      padding: 10px 16px;
       background-color: white;
       color: #673ab7;
       border: 1px solid #673ab7;
@@ -584,18 +560,11 @@
       color: #673ab7;
     }
     
+    /* Story list container - no top heading */
     .story-container {
       display: flex;
       flex-direction: column;
       width: 100%;
-    }
-    
-    /* Content wrapper without scroll */
-    .main-content {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
   </style>
 </head>
@@ -617,7 +586,7 @@
   <div class="upload-section">
     <div class="upload-right">
       <div class="file-input" id="fileInputContainer">
-        <label class="file-button">Choose File</label>
+        <span class="file-button">Choose File</span>
         <input type="file" id="csvInput" accept=".csv" />
       </div>
       <button class="invite-button" id="inviteButton">Invite Others</button>
@@ -639,34 +608,31 @@
     </div>
 
     <div class="main">
-      <!-- Main content wrapper -->
-      <div class="main-content">
-        <!-- User circle container -->
-        <div id="userCircle" class="user-circle-container"></div>
-      </div>
+      <!-- Story will be displayed in the poker-table-layout instead of here -->
       
-      <!-- Planning cards section exactly as in the image -->
+      <!-- New poker table layout will be rendered here -->
+      <div id="userCircle" class="user-circle-container"></div>
+      
+      <!-- Planning cards -->
       <div class="planning-cards-section">
         <h3>Planning Cards</h3>
-        
         <div class="cards">
-          <div class="card">0</div>
-          <div class="card">1</div>
-          <div class="card">2</div>
-          <div class="card">3</div>
-          <div class="card">5</div>
-          <div class="card">8</div>
-          <div class="card">13</div>
-          
+          <div class="card" draggable="true">0</div>
+          <div class="card" draggable="true">1</div>
+          <div class="card" draggable="true">3</div>
+          <div class="card" draggable="true">5</div>
+          <div class="card" draggable="true">8</div>
+          <div class="card" draggable="true">13</div>
+          <div class="card" draggable="true">21</div>
         </div>
       </div>
     </div>
 
     <div class="rightbar" id="storyListContainer">
-      <!-- Add ticket button -->
+      <!-- Removed "User Stories" heading and replaced with ADD TICKET button -->
       <button class="add-ticket-btn"><span>+</span>ADD TICKET</button>
       
-      <!-- The story list -->
+      <!-- The story list remains -->
       <div id="storyList" class="story-container"></div>
       
       <!-- Navigation buttons -->
@@ -697,24 +663,31 @@
       alert('Invite link copied!');
     }
     
+    // Fixed function to reveal votes - optimized to prevent infinite loops and hanging
     function revealVotes() {
+      // Mark votes as revealed by adding class to body
       document.body.classList.add('votes-revealed');
       
+      // Make vote badges visible in a performance-optimized way
       const voteBadges = document.querySelectorAll('.vote-badge');
       for (let i = 0; i < voteBadges.length; i++) {
         voteBadges[i].style.color = '#673ab7';
       }
       
+      // Make vote card spaces show their content
       const voteCards = document.querySelectorAll('.vote-card-space');
       for (let i = 0; i < voteCards.length; i++) {
         voteCards[i].classList.add('revealed');
       }
     }
     
+    // Connect invite button to modal and handle guest status
     document.addEventListener('DOMContentLoaded', function() {
+      // Add this minimal check for guest status based on URL
       const urlParams = new URLSearchParams(window.location.search);
       const isGuest = urlParams.has('join') || urlParams.has('guest') || urlParams.has('room');
       
+      // Only hide the buttons if user is a guest
       if (isGuest) {
         document.getElementById('fileInputContainer').style.display = 'none';
         document.getElementById('inviteButton').style.display = 'none';
@@ -723,11 +696,13 @@
         document.getElementById('exportCsvBtn').style.display = 'none';
       }
       
+      // Only setup invite button if it's visible
       const inviteButton = document.getElementById('inviteButton');
       if (inviteButton && !isGuest) {
         inviteButton.addEventListener('click', showInviteModal);
       }
       
+      // Set up the reveal votes button with direct function call
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
         revealBtn.addEventListener('click', revealVotes);
