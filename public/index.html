@@ -834,6 +834,85 @@
       document.body.classList.add('votes-revealed');
     }
 
+    // FIXED EXPORT FUNCTION - This is the fixed function that actually works
+    function exportAllVotes() {
+      try {
+        // Enable votes to be visible
+        document.body.classList.add('votes-revealed');
+        
+        // Get all story cards
+        const storyList = document.getElementById('storyList');
+        const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+        
+        if (storyCards.length === 0) {
+          alert('No stories available to export.');
+          return;
+        }
+        
+        // Save current selection to restore later
+        const originalSelectedStory = document.querySelector('.story-card.selected');
+        
+        // Prepare CSV content
+        let csv = `Story ID,Story Description,Highest Vote\n`;
+        
+        // Process each story card
+        storyCards.forEach((card, index) => {
+          // Get story ID
+          const storyId = card.id || `story_${index}`;
+          
+          // Get story description
+          let storyDesc = '';
+          const storyTitleElement = card.querySelector('.story-title');
+          if (storyTitleElement) {
+            storyDesc = storyTitleElement.textContent.trim();
+          } else {
+            storyDesc = card.textContent.trim();
+          }
+          
+          // Get the vote value from the data attribute
+          let highestVote = 'No votes';
+          if (card.hasAttribute('data-vote')) {
+            const voteValue = card.getAttribute('data-vote');
+            if (voteValue && !isNaN(voteValue)) {
+              highestVote = voteValue;
+            }
+          }
+          
+          // Properly escape the description for CSV format
+          const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
+                             `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
+          
+          // Add this row to the CSV
+          csv += `${storyId},${escapedDesc},${highestVote}\n`;
+        });
+        
+        // Create and trigger the download
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'planning_poker_votes.csv');
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        // Restore original selection
+        if (originalSelectedStory) {
+          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+          originalSelectedStory.classList.add('selected');
+        }
+        
+      } catch (error) {
+        console.error('Error exporting votes:', error);
+        alert('Error exporting votes: ' + (error.message || 'Unknown error'));
+      }
+    }
+
     // Monitor for CSV file uploads
     document.getElementById('csvInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -845,144 +924,7 @@
         const storyList = document.getElementById('storyList');
         
         // Clear existing stories
-        if (storyList)function exportAllVotes() {
-  try {
-    // Enable votes to be visible (though we're not relying on this)
-    document.body.classList.add('votes-revealed');
-    
-    // Get all story cards
-    const storyList = document.getElementById('storyList');
-    const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
-    
-    if (storyCards.length === 0) {
-      alert('No stories available to export.');
-      return;
-    }
-    
-    // Save current selection to restore later
-    const originalSelectedStory = document.querySelector('.story-card.selected');
-    let originalVotesRevealed = document.body.classList.contains('votes-revealed');
-    
-    // Force votes to be revealed for export
-    document.body.classList.add('votes-revealed');
-    
-    // Prepare CSV content
-    let csv = `Story ID,Story Description,Highest Vote\n`;
-    
-    // Process each story card
-    storyCards.forEach((card, index) => {
-      // Get story ID
-      const storyId = card.id || `story_${index}`;
-      
-      // Get story description
-      let storyDesc = '';
-      const storyTitleElement = card.querySelector('.story-title');
-      if (storyTitleElement) {
-        storyDesc = storyTitleElement.textContent.trim();
-      } else {
-        storyDesc = card.textContent.trim();
-      }
-      
-      // IMPORTANT: Temporarily select this story to ensure its votes are visible
-      document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-      card.classList.add('selected');
-      
-      // Get the vote using multiple approaches
-      let highestVote = 'No votes';
-      
-      // 1. Direct data-vote attribute
-      if (card.hasAttribute('data-vote')) {
-        const voteValue = card.getAttribute('data-vote');
-        if (voteValue && !isNaN(voteValue)) {
-          highestVote = voteValue;
-          console.log(`Found vote ${voteValue} in data-vote for story ${index}`);
-        }
-      }
-      
-      // 2. Check vote badges - both in the card and globally (when the card is selected)
-      if (highestVote === 'No votes') {
-        // Force a small delay to allow UI to update if needed
-        setTimeout(() => {}, 50);
-        
-        // First try vote badges in the card
-        const cardVoteBadges = card.querySelectorAll('.vote-badge');
-        if (cardVoteBadges.length > 0) {
-          for (let badge of cardVoteBadges) {
-            const voteText = badge.textContent.trim();
-            if (voteText && !isNaN(voteText)) {
-              highestVote = voteText;
-              console.log(`Found vote ${voteText} in card's vote badge for story ${index}`);
-              break;
-            }
-          }
-        }
-        
-        // If still no vote, try the main UI vote indicators that appear when a story is selected
-        if (highestVote === 'No votes') {
-          const allVoteBadges = document.querySelectorAll('.vote-badge:not([style*="display: none"])');
-          for (let badge of allVoteBadges) {
-            const voteText = badge.textContent.trim();
-            if (voteText && !isNaN(voteText)) {
-              highestVote = voteText;
-              console.log(`Found vote ${voteText} in global vote badge for story ${index}`);
-              break;
-            }
-          }
-        }
-      }
-      
-      // 3. Look for any voted class or data-voted attribute
-      if (highestVote === 'No votes' && 
-          (card.classList.contains('voted') || card.hasAttribute('data-voted'))) {
-        // Story is marked as voted but we couldn't find the value
-        // Let's check for any number in the card's content that might be a vote
-        const cardText = card.textContent;
-        const numbers = cardText.match(/\b\d+\b/g);
-        if (numbers && numbers.length) {
-          // Use the largest number as vote (heuristic)
-          const numericValues = numbers.map(n => parseInt(n));
-          highestVote = Math.max(...numericValues).toString();
-          console.log(`Using heuristic, found vote ${highestVote} for story ${index}`);
-        }
-      }
-      
-      // Properly escape the description for CSV format
-      const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
-                          `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
-      
-      // Add this row to the CSV
-      csv += `${storyId},${escapedDesc},${highestVote}\n`;
-    });
-    
-    // Create and trigger the download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'planning_poker_votes.csv');
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    // Restore original selection and votes revealed state
-    document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-    if (originalSelectedStory) {
-      originalSelectedStory.classList.add('selected');
-    }
-    if (!originalVotesRevealed) {
-      document.body.classList.remove('votes-revealed');
-    }
-    
-  } catch (error) {
-    console.error('Error exporting votes:', error);
-    alert('Error exporting votes: ' + (error.message || 'Unknown error'));
-  }
-} storyList.innerHTML = '';
+        if (storyList) storyList.innerHTML = '';
         
         // Simple CSV parsing (assumes each line is a story)
         const stories = csvData.split('\n');
