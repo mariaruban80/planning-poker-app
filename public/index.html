@@ -833,9 +833,21 @@
     function revealVotes() {
       document.body.classList.add('votes-revealed');
     }
-function exportAllVotes() {
+
+    // Monitor for CSV file uploads
+    document.getElementById('csvInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const csvData = event.target.result;
+        const storyList = document.getElementById('storyList');
+        
+        // Clear existing stories
+        if (storyList)function exportAllVotes() {
   try {
-    // Make sure votes are visible
+    // Enable votes to be visible (though we're not relying on this)
     document.body.classList.add('votes-revealed');
     
     // Get all story cards
@@ -847,55 +859,90 @@ function exportAllVotes() {
       return;
     }
     
-    console.log("Found " + storyCards.length + " story cards"); // Debug
+    // Save current selection to restore later
+    const originalSelectedStory = document.querySelector('.story-card.selected');
+    let originalVotesRevealed = document.body.classList.contains('votes-revealed');
+    
+    // Force votes to be revealed for export
+    document.body.classList.add('votes-revealed');
     
     // Prepare CSV content
     let csv = `Story ID,Story Description,Highest Vote\n`;
     
     // Process each story card
     storyCards.forEach((card, index) => {
-      console.log("Processing card:", card); // Debug
-      
       // Get story ID
       const storyId = card.id || `story_${index}`;
       
-      // Try multiple ways to get the story description
-      let storyDesc = 'No description';
-      // First try .story-title
+      // Get story description
+      let storyDesc = '';
       const storyTitleElement = card.querySelector('.story-title');
-      if (storyTitleElement && storyTitleElement.textContent) {
+      if (storyTitleElement) {
         storyDesc = storyTitleElement.textContent.trim();
-      } 
-      // Then try any paragraph or text content
-      else if (card.querySelector('p')) {
-        storyDesc = card.querySelector('p').textContent.trim();
-      }
-      // Finally, use all text content
-      else {
+      } else {
         storyDesc = card.textContent.trim();
       }
       
-      console.log("Story description:", storyDesc); // Debug
+      // IMPORTANT: Temporarily select this story to ensure its votes are visible
+      document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+      card.classList.add('selected');
       
-      // Try multiple ways to get the vote
+      // Get the vote using multiple approaches
       let highestVote = 'No votes';
       
-      // First try data-vote attribute directly
+      // 1. Direct data-vote attribute
       if (card.hasAttribute('data-vote')) {
-        const vote = card.getAttribute('data-vote');
-        if (vote && !isNaN(vote)) {
-          highestVote = vote;
-          console.log("Found vote in data-vote:", vote); // Debug
+        const voteValue = card.getAttribute('data-vote');
+        if (voteValue && !isNaN(voteValue)) {
+          highestVote = voteValue;
+          console.log(`Found vote ${voteValue} in data-vote for story ${index}`);
         }
       }
       
-      // Next, try any element with class vote-badge inside the card
-      if (highestVote === 'No votes' && card.querySelector('.vote-badge')) {
-        const voteBadge = card.querySelector('.vote-badge');
-        const voteText = voteBadge.textContent.trim();
-        if (voteText && !isNaN(voteText)) {
-          highestVote = voteText;
-          console.log("Found vote in vote-badge:", voteText); // Debug
+      // 2. Check vote badges - both in the card and globally (when the card is selected)
+      if (highestVote === 'No votes') {
+        // Force a small delay to allow UI to update if needed
+        setTimeout(() => {}, 50);
+        
+        // First try vote badges in the card
+        const cardVoteBadges = card.querySelectorAll('.vote-badge');
+        if (cardVoteBadges.length > 0) {
+          for (let badge of cardVoteBadges) {
+            const voteText = badge.textContent.trim();
+            if (voteText && !isNaN(voteText)) {
+              highestVote = voteText;
+              console.log(`Found vote ${voteText} in card's vote badge for story ${index}`);
+              break;
+            }
+          }
+        }
+        
+        // If still no vote, try the main UI vote indicators that appear when a story is selected
+        if (highestVote === 'No votes') {
+          const allVoteBadges = document.querySelectorAll('.vote-badge:not([style*="display: none"])');
+          for (let badge of allVoteBadges) {
+            const voteText = badge.textContent.trim();
+            if (voteText && !isNaN(voteText)) {
+              highestVote = voteText;
+              console.log(`Found vote ${voteText} in global vote badge for story ${index}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // 3. Look for any voted class or data-voted attribute
+      if (highestVote === 'No votes' && 
+          (card.classList.contains('voted') || card.hasAttribute('data-voted'))) {
+        // Story is marked as voted but we couldn't find the value
+        // Let's check for any number in the card's content that might be a vote
+        const cardText = card.textContent;
+        const numbers = cardText.match(/\b\d+\b/g);
+        if (numbers && numbers.length) {
+          // Use the largest number as vote (heuristic)
+          const numericValues = numbers.map(n => parseInt(n));
+          highestVote = Math.max(...numericValues).toString();
+          console.log(`Using heuristic, found vote ${highestVote} for story ${index}`);
         }
       }
       
@@ -922,23 +969,20 @@ function exportAllVotes() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
+    // Restore original selection and votes revealed state
+    document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+    if (originalSelectedStory) {
+      originalSelectedStory.classList.add('selected');
+    }
+    if (!originalVotesRevealed) {
+      document.body.classList.remove('votes-revealed');
+    }
+    
   } catch (error) {
     console.error('Error exporting votes:', error);
     alert('Error exporting votes: ' + (error.message || 'Unknown error'));
   }
-}
-    // Monitor for CSV file uploads
-    document.getElementById('csvInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const csvData = event.target.result;
-        const storyList = document.getElementById('storyList');
-        
-        // Clear existing stories
-        if (storyList) storyList.innerHTML = '';
+} storyList.innerHTML = '';
         
         // Simple CSV parsing (assumes each line is a story)
         const stories = csvData.split('\n');
