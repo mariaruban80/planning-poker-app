@@ -66,6 +66,7 @@
       background-color: white; 
       color: #333; /* Dark text color for better readability */
       border: 1px solid #e0e0e0; /* Light gray border */
+      
       border-radius: 8px; /* Less rounded corners */
       cursor: pointer; 
       transition: all 0.2s ease;
@@ -691,7 +692,7 @@
   <div class="upload-section">
     <div class="upload-right">
       <div class="file-input" id="fileInputContainer">
-        <span class="file-button">Choose File</span>
+        <span class="file-button">Upload Ticket</span>
         <input type="file" id="csvInput" accept=".csv" />
       </div>
       <button class="invite-button" id="inviteButton">Invite Others</button>
@@ -834,8 +835,7 @@
       document.body.classList.add('votes-revealed');
     }
     
-    // Function to export all votes to a CSV file
- // Function to export all votes to a CSV file
+// Function to export all votes to a CSV file
 function exportAllVotes() {
   try {
     // Get all story cards
@@ -857,44 +857,59 @@ function exportAllVotes() {
       document.body.classList.add('votes-revealed');
     }
     
-    // Create CSV header
+    // Create CSV header - ensure columns are correctly formatted
     let csvContent = 'Story ID,Story Description,Highest Vote\n';
     
-    // Process each story sequentially with promises
-    const processStories = async () => {
-      for (let i = 0; i < storyCards.length; i++) {
-        const storyCard = storyCards[i];
-        
+    // Create a promise-based function to process each story
+    const processStory = (storyCard) => {
+      return new Promise((resolve) => {
         // Get the story description and ID
         const storyTitle = storyCard.querySelector('.story-title');
         const storyDesc = storyTitle ? storyTitle.textContent.trim() : '';
-        const storyId = storyCard.id || `story_${i}`;
+        const storyId = storyCard.id || '';
         
-        // Select this story
+        // Select this story to make its votes visible
         document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
         storyCard.classList.add('selected');
         
-        // Wait for DOM to update
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Find votes for the current selected story
-        const voteElements = document.querySelectorAll('.vote-badge');
-        const votes = [];
-        
-        // Collect all numeric votes
-        voteElements.forEach(element => {
-          const voteText = element.textContent.trim();
-          if (voteText && !isNaN(voteText)) {
-            votes.push(parseInt(voteText));
+        // Wait for DOM to update after selecting the story
+        setTimeout(() => {
+          // Find votes for this specific story
+          let highestVote = "No votes";
+          
+          // Look for vote badges - these might be in different places depending on the UI
+          const voteBadges = document.querySelectorAll('.vote-badge');
+          const votes = [];
+          
+          voteBadges.forEach(badge => {
+            // Make sure we only get numeric votes
+            const voteText = badge.textContent.trim();
+            if (voteText && !isNaN(voteText)) {
+              votes.push(parseInt(voteText));
+            }
+          });
+          
+          if (votes.length > 0) {
+            highestVote = Math.max(...votes).toString();
           }
-        });
-        
-        // Determine highest vote
-        let highestVote = votes.length > 0 ? Math.max(...votes).toString() : "No votes";
-        
-        // Add to CSV content
-        const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
-        csvContent += `${storyId},${escapedDesc},${highestVote}\n`;
+          
+          // Properly escape the description for CSV format
+          const escapedDesc = storyDesc.includes(',') ? 
+                              `"${storyDesc.replace(/"/g, '""')}"` : 
+                              storyDesc;
+          
+          // Add to CSV content with proper column alignment
+          const row = `${storyId},${escapedDesc},${highestVote}\n`;
+          resolve(row);
+        }, 300); // Increased wait time to ensure DOM updates
+      });
+    };
+    
+    // Process all stories sequentially
+    (async () => {
+      for (const storyCard of storyCards) {
+        const row = await processStory(storyCard);
+        csvContent += row;
       }
       
       // Create and download the CSV file
@@ -921,17 +936,15 @@ function exportAllVotes() {
       if (!wasRevealed) {
         document.body.classList.remove('votes-revealed');
       }
-    };
-    
-    // Execute the async process
-    processStories();
+    })();
     
   } catch (error) {
     console.error('Error exporting votes:', error);
     alert('Error exporting votes. Please try again.');
   }
 }
-    
+
+ 
     // Monitor for CSV file uploads
     document.getElementById('csvInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
