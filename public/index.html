@@ -833,11 +833,9 @@
     function revealVotes() {
       document.body.classList.add('votes-revealed');
     }
-    
-   // FIXED: Function to export all votes to a CSV file - adapted from original working version
 function exportAllVotes() {
   try {
-    // First make sure we can see the votes
+    // Make sure votes are visible
     document.body.classList.add('votes-revealed');
     
     // Get all story cards
@@ -849,30 +847,61 @@ function exportAllVotes() {
       return;
     }
     
+    console.log("Found " + storyCards.length + " story cards"); // Debug
+    
     // Prepare CSV content
     let csv = `Story ID,Story Description,Highest Vote\n`;
     
     // Process each story card
     storyCards.forEach((card, index) => {
-      // Get story ID - use the card's id or create an index-based one
+      console.log("Processing card:", card); // Debug
+      
+      // Get story ID
       const storyId = card.id || `story_${index}`;
       
-      // Get story description from the title element
-      const storyTitle = card.querySelector('.story-title');
-      const storyDesc = storyTitle ? storyTitle.textContent.trim() : 'No description';
+      // Try multiple ways to get the story description
+      let storyDesc = 'No description';
+      // First try .story-title
+      const storyTitleElement = card.querySelector('.story-title');
+      if (storyTitleElement && storyTitleElement.textContent) {
+        storyDesc = storyTitleElement.textContent.trim();
+      } 
+      // Then try any paragraph or text content
+      else if (card.querySelector('p')) {
+        storyDesc = card.querySelector('p').textContent.trim();
+      }
+      // Finally, use all text content
+      else {
+        storyDesc = card.textContent.trim();
+      }
       
-      // Get the highest vote - directly from the card's data-vote attribute
+      console.log("Story description:", storyDesc); // Debug
+      
+      // Try multiple ways to get the vote
       let highestVote = 'No votes';
+      
+      // First try data-vote attribute directly
       if (card.hasAttribute('data-vote')) {
         const vote = card.getAttribute('data-vote');
         if (vote && !isNaN(vote)) {
           highestVote = vote;
+          console.log("Found vote in data-vote:", vote); // Debug
+        }
+      }
+      
+      // Next, try any element with class vote-badge inside the card
+      if (highestVote === 'No votes' && card.querySelector('.vote-badge')) {
+        const voteBadge = card.querySelector('.vote-badge');
+        const voteText = voteBadge.textContent.trim();
+        if (voteText && !isNaN(voteText)) {
+          highestVote = voteText;
+          console.log("Found vote in vote-badge:", voteText); // Debug
         }
       }
       
       // Properly escape the description for CSV format
       const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
-                         `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
+                          `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
       
       // Add this row to the CSV
       csv += `${storyId},${escapedDesc},${highestVote}\n`;
