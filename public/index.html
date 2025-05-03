@@ -835,117 +835,102 @@
     }
     
     // Function to export all votes to a CSV file
-    function exportAllVotes() {
-      try {
-        // Get all story cards
-        const storyList = document.getElementById('storyList');
-        const storyCards = storyList ? storyList.querySelectorAll('.story-card') : [];
+ // Function to export all votes to a CSV file
+function exportAllVotes() {
+  try {
+    // Get all story cards
+    const storyList = document.getElementById('storyList');
+    const storyCards = Array.from(storyList ? storyList.querySelectorAll('.story-card') : []);
+    
+    if (storyCards.length === 0) {
+      alert('No stories available to export.');
+      return;
+    }
+    
+    // Save the currently selected story to restore later
+    const originalSelected = document.querySelector('.story-card.selected');
+    const originalSelectedId = originalSelected ? originalSelected.id : null;
+    
+    // Force votes to be revealed if they aren't already
+    const wasRevealed = document.body.classList.contains('votes-revealed');
+    if (!wasRevealed) {
+      document.body.classList.add('votes-revealed');
+    }
+    
+    // Create CSV header
+    let csvContent = 'Story ID,Story Description,Highest Vote\n';
+    
+    // Process each story sequentially with promises
+    const processStories = async () => {
+      for (let i = 0; i < storyCards.length; i++) {
+        const storyCard = storyCards[i];
         
-        if (storyCards.length === 0) {
-          alert('No stories available to export.');
-          return;
-        }
+        // Get the story description and ID
+        const storyTitle = storyCard.querySelector('.story-title');
+        const storyDesc = storyTitle ? storyTitle.textContent.trim() : '';
+        const storyId = storyCard.id || `story_${i}`;
         
-        // Create CSV header
-        let csvContent = 'Story Description,Highest Vote\n';
+        // Select this story
+        document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+        storyCard.classList.add('selected');
         
-        // For each story, create a row in the CSV
-        storyCards.forEach(function(storyCard) {
-          // Get the story description
-          const storyTitle = storyCard.querySelector('.story-title');
-          const storyDesc = storyTitle ? storyTitle.textContent.trim() : '';
-          
-          // Default vote is "No votes"
-          let highestVote = "No votes";
-          
-          // We'll try to find votes for this story
-          // First make this story selected temporarily if it's not already
-          const wasSelected = storyCard.classList.contains('selected');
-          
-          if (!wasSelected) {
-            // Remember the originally selected story
-            const originalSelected = document.querySelector('.story-card.selected');
-            
-            // Select this story temporarily
-            if (originalSelected) originalSelected.classList.remove('selected');
-            storyCard.classList.add('selected');
-            
-            // Give the DOM a moment to update
-            setTimeout(() => {
-              // Find votes for this now-selected story
-              const voteElements = document.querySelectorAll('.vote-badge');
-              const votes = [];
-              
-              // Try to get any visible vote values
-              if (document.body.classList.contains('votes-revealed')) {
-                voteElements.forEach(element => {
-                  const voteValue = element.textContent.trim();
-                  if (!isNaN(voteValue) && voteValue !== '') {
-                    votes.push(parseInt(voteValue));
-                  }
-                });
-              }
-              
-              // If we found votes, get the highest
-              if (votes.length > 0) {
-                highestVote = Math.max(...votes).toString();
-              }
-              
-              // Add this story to the CSV
-              const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
-              csvContent += `${escapedDesc},${highestVote}\n`;
-              
-              // Restore the original selection
-              storyCard.classList.remove('selected');
-              if (originalSelected) originalSelected.classList.add('selected');
-            }, 100);
-          } else {
-            // This story is already selected, look for votes
-            const voteElements = document.querySelectorAll('.vote-badge');
-            const votes = [];
-            
-            // Try to get any visible vote values
-            if (document.body.classList.contains('votes-revealed')) {
-              voteElements.forEach(element => {
-                const voteValue = element.textContent.trim();
-                if (!isNaN(voteValue) && voteValue !== '') {
-                  votes.push(parseInt(voteValue));
-                }
-              });
-            }
-            
-            // If we found votes, get the highest
-            if (votes.length > 0) {
-              highestVote = Math.max(...votes).toString();
-            }
-            
-            // Add this story to the CSV
-            const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
-            csvContent += `${escapedDesc},${highestVote}\n`;
+        // Wait for DOM to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Find votes for the current selected story
+        const voteElements = document.querySelectorAll('.vote-badge');
+        const votes = [];
+        
+        // Collect all numeric votes
+        voteElements.forEach(element => {
+          const voteText = element.textContent.trim();
+          if (voteText && !isNaN(voteText)) {
+            votes.push(parseInt(voteText));
           }
         });
         
-        // After all stories are processed, create the CSV file
-        setTimeout(() => {
-          const blob = new Blob([csvContent], { type: 'text/csv' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'planning_poker_votes.csv';
-          a.style.display = 'none';
-          
-          document.body.appendChild(a);
-          a.click();
-          
-          // Clean up
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, storyCards.length * 150); // Give enough time for all stories to be processed
-      } catch (error) {
-        console.error('Error exporting votes:', error);
-        alert('Error exporting votes. Please try again.');
+        // Determine highest vote
+        let highestVote = votes.length > 0 ? Math.max(...votes).toString() : "No votes";
+        
+        // Add to CSV content
+        const escapedDesc = `"${storyDesc.replace(/"/g, '""')}"`;
+        csvContent += `${storyId},${escapedDesc},${highestVote}\n`;
       }
-    }
+      
+      // Create and download the CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'planning_poker_votes.csv';
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Restore original selection and revealed state
+      document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+      if (originalSelectedId) {
+        document.getElementById(originalSelectedId)?.classList.add('selected');
+      }
+      
+      if (!wasRevealed) {
+        document.body.classList.remove('votes-revealed');
+      }
+    };
+    
+    // Execute the async process
+    processStories();
+    
+  } catch (error) {
+    console.error('Error exporting votes:', error);
+    alert('Error exporting votes. Please try again.');
+  }
+}
     
     // Monitor for CSV file uploads
     document.getElementById('csvInput').addEventListener('change', function(e) {
