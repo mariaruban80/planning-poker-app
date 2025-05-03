@@ -834,120 +834,70 @@
       document.body.classList.add('votes-revealed');
     }
     
-    // FIXED: Function to export all votes to a CSV file
-    function exportAllVotes() {
-      try {
-        // First make sure we can see the votes
-        document.body.classList.add('votes-revealed');
-        
-        // Get all story cards
-        const storyList = document.getElementById('storyList');
-        const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
-        
-        if (storyCards.length === 0) {
-          alert('No stories available to export.');
-          return;
-        }
-        
-        // Save current selection to restore later
-        const originalSelectedStory = document.querySelector('.story-card.selected');
-        
-        // Prepare CSV data
-        let csvData = [];
-        
-        // Build CSV header
-        csvData.push(['Story ID', 'Story Description', 'Highest Vote']);
-        
-        // Process each story - we'll use a synchronous approach
-        storyCards.forEach(storyCard => {
-          // Extract story information
-          const storyId = storyCard.id || '';
-          const storyTitleElement = storyCard.querySelector('.story-title');
-          const storyDesc = storyTitleElement ? storyTitleElement.textContent.trim() : '';
-          
-          // Find the vote for this story (if any)
-          let highestVote = 'No votes';
-          
-          // Try getting vote from card's data attributes
-          if (storyCard.hasAttribute('data-vote')) {
-            const vote = storyCard.getAttribute('data-vote');
-            if (vote && !isNaN(vote)) {
-              highestVote = vote;
-            }
-          } 
-          // If no vote found, check for any visible votes in the DOM
-          else {
-            // Select this story to see its votes
-            document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-            storyCard.classList.add('selected');
-            
-            // Look for visible votes in the UI
-            const voteElements = document.querySelectorAll('.vote-badge');
-            const votes = [];
-            
-            voteElements.forEach(badge => {
-              if (badge.offsetParent !== null) { // Check if element is visible
-                const voteValue = badge.textContent.trim();
-                if (voteValue && !isNaN(voteValue)) {
-                  votes.push(parseInt(voteValue));
-                }
-              }
-            });
-            
-            if (votes.length > 0) {
-              highestVote = Math.max(...votes).toString();
-            }
-          }
-          
-          // Add this row to the CSV data
-          csvData.push([storyId, storyDesc, highestVote]);
-        });
-        
-        // Generate CSV content
-        let csvContent = csvData.map(row => {
-          return row.map(cell => {
-            // Escape CSV cells properly
-            if (cell === null || cell === undefined) {
-              return '';
-            }
-            
-            cell = String(cell);
-            
-            // If cell contains commas, quotes, or newlines, wrap in quotes and escape any quotes
-            if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-              return `"${cell.replace(/"/g, '""')}"`;
-            }
-            return cell;
-          }).join(',');
-        }).join('\n');
-        
-        // Create the download
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'planning_poker_votes.csv');
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        // Restore selection
-        document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-        if (originalSelectedStory) {
-          originalSelectedStory.classList.add('selected');
-        }
-        
-      } catch (error) {
-        console.error('Error exporting votes:', error);
-        alert('Error exporting votes: ' + (error.message || 'Unknown error'));
-      }
+   // FIXED: Function to export all votes to a CSV file - adapted from original working version
+function exportAllVotes() {
+  try {
+    // First make sure we can see the votes
+    document.body.classList.add('votes-revealed');
+    
+    // Get all story cards
+    const storyList = document.getElementById('storyList');
+    const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+    
+    if (storyCards.length === 0) {
+      alert('No stories available to export.');
+      return;
     }
     
+    // Prepare CSV content
+    let csv = `Story ID,Story Description,Highest Vote\n`;
+    
+    // Process each story card
+    storyCards.forEach((card, index) => {
+      // Get story ID - use the card's id or create an index-based one
+      const storyId = card.id || `story_${index}`;
+      
+      // Get story description from the title element
+      const storyTitle = card.querySelector('.story-title');
+      const storyDesc = storyTitle ? storyTitle.textContent.trim() : 'No description';
+      
+      // Get the highest vote - directly from the card's data-vote attribute
+      let highestVote = 'No votes';
+      if (card.hasAttribute('data-vote')) {
+        const vote = card.getAttribute('data-vote');
+        if (vote && !isNaN(vote)) {
+          highestVote = vote;
+        }
+      }
+      
+      // Properly escape the description for CSV format
+      const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
+                         `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
+      
+      // Add this row to the CSV
+      csv += `${storyId},${escapedDesc},${highestVote}\n`;
+    });
+    
+    // Create and trigger the download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'planning_poker_votes.csv');
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+  } catch (error) {
+    console.error('Error exporting votes:', error);
+    alert('Error exporting votes: ' + (error.message || 'Unknown error'));
+  }
+}
     // Monitor for CSV file uploads
     document.getElementById('csvInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -1121,40 +1071,6 @@
       });
     });
   </script>
-
-<!-- SheetJS Library -->
- <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<script>
-document.getElementById("exportBtn").addEventListener("click", function () {
-    const stories = document.querySelectorAll(".story-container");
-    const data = [["Story ID", "Story Description", "Highest Vote"]];
-
-    stories.forEach(story => {
-        const storyId = story.querySelector(".story-id")?.textContent.trim() || "N/A";
-        const storyDesc = story.querySelector(".story-description")?.textContent.trim() || "N/A";
-        const voteElements = story.querySelectorAll(".vote-value");
-
-        let highestVote = null;
-        voteElements.forEach(voteEl => {
-            const vote = parseInt(voteEl.textContent.trim(), 10);
-            if (!isNaN(vote)) {
-                if (highestVote === null || vote > highestVote) {
-                    highestVote = vote;
-                }
-            }
-        });
-
-        data.push([storyId, storyDesc, highestVote ?? "No votes"]);
-    });
-
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Stories");
-
-    XLSX.writeFile(workbook, "stories_export.xlsx");
-});
-</script>
 
 </body>
 </html>
