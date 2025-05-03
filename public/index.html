@@ -671,6 +671,75 @@
       font-style: italic;
       max-width: 80%;
     }
+    
+    /* Username modal styling */
+    #usernameModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    
+    #usernameModal .modal-content {
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 10px;
+      text-align: center;
+      min-width: 320px;
+      max-width: 90%;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    
+    #usernameModal h3 {
+      margin-top: 0;
+      color: #003366;
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+    
+    #usernameInput {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    
+    #usernameModal .button-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    
+    #usernameModal .ok-button {
+      padding: 10px 30px;
+      background-color: #003366;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    #usernameModal .cancel-button {
+      padding: 10px 20px;
+      background-color: #f5f5f5;
+      color: #333;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+    }
   </style>
 </head>
 
@@ -685,6 +754,18 @@
       <div class="button-group">
         <button onclick="copyInviteLinkCustom()">Copy Link</button>
         <button onclick="hideInviteModalCustom()">Close</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Username modal to replace the browser prompt -->
+  <div id="usernameModal">
+    <div class="modal-content">
+      <h3>Enter your username:</h3>
+      <input type="text" id="usernameInput" placeholder="Your name" />
+      <div class="button-row">
+        <button class="ok-button" onclick="submitUsername()">OK</button>
+        <button class="cancel-button" onclick="cancelUsername()">Cancel</button>
       </div>
     </div>
   </div>
@@ -761,6 +842,119 @@
   <script type="module" src="main.js"></script>
 
   <script>
+    // Username variables and functions
+    let username = '';
+    
+    // Function to show the username modal
+    function showUsernameModal() {
+      document.getElementById('usernameModal').style.display = 'flex';
+      document.getElementById('usernameInput').focus();
+    }
+    
+    // Function to handle username submission
+    function submitUsername() {
+      const usernameInput = document.getElementById('usernameInput');
+      username = usernameInput.value.trim();
+      
+      if (!username) {
+        // Generate a random username if none provided
+        username = 'User_' + Math.floor(Math.random() * 10000);
+      }
+      
+      // Store username in localStorage
+      localStorage.setItem('planningPokerUsername', username);
+      
+      // Hide the modal
+      document.getElementById('usernameModal').style.display = 'none';
+      
+      // Update UI with username
+      updateUserDisplay();
+    }
+    
+    // Function to handle cancel button
+    function cancelUsername() {
+      // Generate a random guest username
+      username = 'Guest_' + Math.floor(Math.random() * 10000);
+      
+      // Store username in localStorage
+      localStorage.setItem('planningPokerUsername', username);
+      
+      // Hide the modal
+      document.getElementById('usernameModal').style.display = 'none';
+      
+      // Update UI with username
+      updateUserDisplay();
+    }
+    
+    // Function to update UI elements with username
+    function updateUserDisplay() {
+      // Add self to user list
+      const userList = document.getElementById('userList');
+      if (userList) {
+        // Check if user already exists in the list
+        const existingUser = userList.querySelector(`.username[data-username="${username}"]`);
+        if (!existingUser) {
+          // Create a user entry element
+          const userEntry = document.createElement('div');
+          userEntry.className = 'user-entry';
+          
+          // Create avatar with initials
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar';
+          avatar.style.backgroundColor = getUserColor(username);
+          avatar.textContent = getInitials(username);
+          
+          // Create username display
+          const usernameElement = document.createElement('div');
+          usernameElement.className = 'username';
+          usernameElement.setAttribute('data-username', username);
+          usernameElement.textContent = username;
+          
+          // Create vote badge
+          const voteBadge = document.createElement('span');
+          voteBadge.className = 'vote-badge';
+          voteBadge.textContent = '?';
+          
+          // Add elements to user entry
+          userEntry.appendChild(avatar);
+          userEntry.appendChild(usernameElement);
+          userEntry.appendChild(voteBadge);
+          
+          // Add to user list
+          userList.appendChild(userEntry);
+        }
+      }
+    }
+    
+    // Utility function to get initials from name
+    function getInitials(name) {
+      return name
+        .split(' ')
+        .map(part => part.charAt(0))
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    
+    // Utility function to get a consistent color for a user
+    function getUserColor(name) {
+      const colors = [
+        '#673AB7', '#3F51B5', '#2196F3', '#00BCD4', 
+        '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
+        '#FF9800', '#FF5722', '#795548', '#607D8B'
+      ];
+      
+      // Simple hash function for name
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      
+      // Use hash to pick a color
+      const index = Math.abs(hash) % colors.length;
+      return colors[index];
+    }
+    
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -1129,8 +1323,38 @@
             selectedStory.appendChild(voteBadge);
           }
           voteBadge.textContent = value;
+          
+          // Mark current user as voted
+          const userList = document.getElementById('userList');
+          if (userList) {
+            const currentUser = userList.querySelector(`.username[data-username="${username}"]`);
+            if (currentUser) {
+              const userEntry = currentUser.closest('.user-entry');
+              if (userEntry) {
+                userEntry.classList.add('voted');
+                
+                // Update the vote badge for this user
+                const voteBadge = userEntry.querySelector('.vote-badge');
+                if (voteBadge) {
+                  voteBadge.textContent = value;
+                }
+              }
+            }
+          }
         }
       });
+    });
+    
+    // Check for Enter key in username input
+    document.addEventListener('DOMContentLoaded', function() {
+      const usernameInput = document.getElementById('usernameInput');
+      if (usernameInput) {
+        usernameInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            submitUsername();
+          }
+        });
+      }
     });
     
     // Initialize on page load
@@ -1158,6 +1382,49 @@
       
       // Hide original modals
       hideAllOriginalModals();
+      
+      // Check for saved username or show username modal
+      const savedUsername = localStorage.getItem('planningPokerUsername');
+      if (savedUsername) {
+        username = savedUsername;
+        updateUserDisplay();
+      } else {
+        // Show username modal
+        showUsernameModal();
+      }
+      
+      // Setup reset votes button
+      const resetBtn = document.getElementById('resetVotesBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          // Remove voting indicators
+          document.body.classList.remove('votes-revealed');
+          
+          // Reset votes on story cards
+          document.querySelectorAll('.story-card').forEach(card => {
+            card.removeAttribute('data-vote');
+            card.removeAttribute('data-voted');
+            const voteBadge = card.querySelector('.vote-badge');
+            if (voteBadge) {
+              voteBadge.textContent = '?';
+            }
+          });
+          
+          // Reset user vote indicators
+          document.querySelectorAll('.user-entry').forEach(user => {
+            user.classList.remove('voted');
+            const voteBadge = user.querySelector('.vote-badge');
+            if (voteBadge) {
+              voteBadge.textContent = '?';
+            }
+          });
+          
+          // Reset selected planning card
+          document.querySelectorAll('.card').forEach(card => {
+            card.removeAttribute('data-selected');
+          });
+        });
+      }
     });
     
     // Watch for story list changes
