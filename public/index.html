@@ -834,10 +834,10 @@
       document.body.classList.add('votes-revealed');
     }
 
-    // FIXED EXPORT FUNCTION - This is the fixed function that actually works
+    // COMPLETELY REVISED EXPORT FUNCTION
     function exportAllVotes() {
       try {
-        // Enable votes to be visible
+        // Enable votes to be visible for export
         document.body.classList.add('votes-revealed');
         
         // Get all story cards
@@ -849,14 +849,18 @@
           return;
         }
         
-        // Save current selection to restore later
-        const originalSelectedStory = document.querySelector('.story-card.selected');
-        
-        // Prepare CSV content
+        // Initialize csv content
         let csv = `Story ID,Story Description,Highest Vote\n`;
+        
+        // Track the selected story to restore later
+        const originalSelectedStory = document.querySelector('.story-card.selected');
         
         // Process each story card
         storyCards.forEach((card, index) => {
+          // Select this card to ensure votes are visible
+          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+          card.classList.add('selected');
+          
           // Get story ID
           const storyId = card.id || `story_${index}`;
           
@@ -869,22 +873,47 @@
             storyDesc = card.textContent.trim();
           }
           
-          // Get the vote value from the data attribute
+          // Look for votes in multiple places
           let highestVote = 'No votes';
-          if (card.hasAttribute('data-vote')) {
+          
+          // First check data-value of selected card
+          const selectedCard = document.querySelector('.card[data-selected="true"]');
+          if (selectedCard) {
+            highestVote = selectedCard.getAttribute('data-value');
+          }
+          
+          // Check data-vote attribute on the story card
+          if (highestVote === 'No votes' && card.hasAttribute('data-vote')) {
             const voteValue = card.getAttribute('data-vote');
             if (voteValue && !isNaN(voteValue)) {
               highestVote = voteValue;
             }
           }
           
+          // Check vote badge inside the story card
+          if (highestVote === 'No votes') {
+            const voteBadges = card.querySelectorAll('.vote-badge');
+            voteBadges.forEach(badge => {
+              const voteText = badge.textContent.trim();
+              if (voteText && !isNaN(voteText)) {
+                highestVote = voteText;
+              }
+            });
+          }
+          
           // Properly escape the description for CSV format
           const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
                              `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
           
-          // Add this row to the CSV
+          // Add row to CSV
           csv += `${storyId},${escapedDesc},${highestVote}\n`;
         });
+        
+        // Restore the original selection
+        document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+        if (originalSelectedStory) {
+          originalSelectedStory.classList.add('selected');
+        }
         
         // Create and trigger the download
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -900,12 +929,6 @@
         // Clean up
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        // Restore original selection
-        if (originalSelectedStory) {
-          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-          originalSelectedStory.classList.add('selected');
-        }
         
       } catch (error) {
         console.error('Error exporting votes:', error);
@@ -1017,6 +1040,35 @@
       }
     });
     
+    // Add click handlers for planning cards - to store votes in data attributes
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', function() {
+        const value = this.getAttribute('data-value');
+        const selectedStory = document.querySelector('.story-card.selected');
+        
+        if (selectedStory) {
+          // Store the vote directly on the story card as a data attribute
+          selectedStory.setAttribute('data-vote', value);
+          selectedStory.setAttribute('data-voted', 'true');
+          
+          // Store which card was selected
+          document.querySelectorAll('.card').forEach(c => {
+            c.removeAttribute('data-selected');
+          });
+          this.setAttribute('data-selected', 'true');
+          
+          // Update any vote badge if it exists
+          let voteBadge = selectedStory.querySelector('.vote-badge');
+          if (!voteBadge) {
+            voteBadge = document.createElement('span');
+            voteBadge.className = 'vote-badge';
+            selectedStory.appendChild(voteBadge);
+          }
+          voteBadge.textContent = value;
+        }
+      });
+    });
+    
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
       // Check for stories
@@ -1056,35 +1108,6 @@
         subtree: true
       });
     }
-    
-    // Add click handlers for planning cards - to store votes in data attributes
-    document.querySelectorAll('.card').forEach(card => {
-      card.addEventListener('click', function() {
-        const value = this.getAttribute('data-value');
-        const selectedStory = document.querySelector('.story-card.selected');
-        
-        if (selectedStory) {
-          // Store the vote directly on the story card as a data attribute
-          selectedStory.setAttribute('data-vote', value);
-          selectedStory.setAttribute('data-voted', 'true');
-          
-          // Store which card was selected
-          document.querySelectorAll('.card').forEach(c => {
-            c.removeAttribute('data-selected');
-          });
-          this.setAttribute('data-selected', 'true');
-          
-          // Update any vote badge if it exists
-          let voteBadge = selectedStory.querySelector('.vote-badge');
-          if (!voteBadge) {
-            voteBadge = document.createElement('span');
-            voteBadge.className = 'vote-badge';
-            selectedStory.appendChild(voteBadge);
-          }
-          voteBadge.textContent = value;
-        }
-      });
-    });
   </script>
 
 </body>
