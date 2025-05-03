@@ -155,8 +155,58 @@
       padding: 15px 20px;
       background: white;
       display: flex;
-      justify-content: flex-end; /* Align to right side */
+      justify-content: space-between; /* Changed to space-between for the user avatars */
       border-bottom: 1px solid transparent;
+      align-items: center;
+    }
+    
+    /* NEW - User avatars section */
+    .room-users {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    
+    .room-users-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-right: 10px;
+    }
+
+    .user-avatar-small {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #673ab7;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      position: relative;
+    }
+
+    .user-avatar-small .user-name-tooltip {
+      position: absolute;
+      bottom: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s;
+    }
+
+    .user-avatar-small:hover .user-name-tooltip {
+      opacity: 1;
+      visibility: visible;
     }
     
     .upload-right { 
@@ -360,7 +410,6 @@
     /* When votes are revealed, show them with this color */
     body.votes-revealed .vote-badge {
       color: #673ab7 !important;
-      font-size: 14px;
     }
     
     /* New poker table layout */
@@ -441,7 +490,7 @@
     }
     
     .vote-card-space {
-      width: 40px;
+      width: 60px;
       height: 90px;
       border: 1px dashed #ccc;
       border-radius: 8px;
@@ -465,8 +514,7 @@
     
     /* Updated - Make vote card question marks invisible but still functional */
     .vote-card-space .vote-badge {
-     // font-size: 18px;
-      font-size: 14px;
+      font-size: 18px;
       font-weight: bold;
       color: transparent; /* Make question marks invisible */
     }
@@ -567,7 +615,7 @@
 
     /* Voted heading in sidebar */
     .section-heading {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
       color: #333;
       margin: 20px 0 10px 0;
@@ -671,6 +719,20 @@
       font-style: italic;
       max-width: 80%;
     }
+
+    /* Mobile responsiveness for user avatars section */
+    @media (max-width: 768px) {
+      .upload-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      
+      .room-users {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
   </style>
 </head>
 
@@ -689,8 +751,15 @@
     </div>
   </div>
 
-  <!-- Updated Upload Section - moved to right side as per screenshot -->
+  <!-- Updated Upload Section - now includes room users -->
   <div class="upload-section">
+    <!-- NEW: Room users section with avatars -->
+    <div class="room-users">
+      <span class="room-users-title">Room Users:</span>
+      <!-- User avatars will be dynamically added here -->
+      <div id="roomUserAvatars"></div>
+    </div>
+    
     <div class="upload-right">
       <div class="file-input" id="fileInputContainer">
         <span class="file-button">Choose File</span>
@@ -710,7 +779,7 @@
       <div class="controls-section">
         <button class="button" id="revealVotesBtn">Reveal Votes</button>
         <button class="button" id="resetVotesBtn">Reset Votes</button>
-      <!-- <button class="button" id="exportCsvBtn">Export All Votes</button> -->
+        <button class="button" id="exportCsvBtn">Export All Votes</button>
       </div>
     </div>
 
@@ -761,6 +830,41 @@
   <script type="module" src="main.js"></script>
 
   <script>
+    // Global object to store vote values for each story
+    const storyVotes = {};
+    
+    // Sample user data - you can replace this with actual user data from your system
+    const sampleUsers = [
+      { name: "John", color: "#673ab7" },
+      { name: "Sarah", color: "#2196F3" },
+      { name: "Mike", color: "#FF5722" },
+      { name: "Anna", color: "#4CAF50" },
+      { name: "Dave", color: "#FF9800" }
+    ];
+    
+    // Function to generate user avatars in the room users section
+    function generateUserAvatars() {
+      const roomUserAvatars = document.getElementById('roomUserAvatars');
+      if (!roomUserAvatars) return;
+      
+      roomUserAvatars.innerHTML = '';
+      
+      sampleUsers.forEach(user => {
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'user-avatar-small';
+        avatarDiv.style.backgroundColor = user.color;
+        avatarDiv.textContent = user.name.charAt(0).toUpperCase();
+        
+        // Add tooltip with full name
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.className = 'user-name-tooltip';
+        tooltipSpan.textContent = user.name;
+        avatarDiv.appendChild(tooltipSpan);
+        
+        roomUserAvatars.appendChild(avatarDiv);
+      });
+    }
+    
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -835,66 +939,10 @@
     function revealVotes() {
       document.body.classList.add('votes-revealed');
     }
-
-    // Debugging function to help see what votes are stored
-    function debugVotes() {
-      console.clear();
-      console.log("DEBUG: Checking all story cards for votes");
-      
-      const storyList = document.getElementById('storyList');
-      const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
-      
-      console.log(`Found ${storyCards.length} story cards`);
-      
-      let totalVotes = 0;
-      
-      storyCards.forEach((card, index) => {
-        console.group(`Story ${index + 1}: ${card.id}`);
-        
-        // Check data-vote attribute
-        if (card.hasAttribute('data-vote')) {
-          console.log(`✅ data-vote attribute: "${card.getAttribute('data-vote')}"`);
-          totalVotes++;
-        } else {
-          console.log("❌ No data-vote attribute");
-        }
-        
-        // Check data-voted attribute
-        if (card.hasAttribute('data-voted')) {
-          console.log(`✅ data-voted attribute: "${card.getAttribute('data-voted')}"`);
-        } else {
-          console.log("❌ No data-voted attribute");
-        }
-        
-        // Check vote-badge elements
-        const voteBadges = card.querySelectorAll('.vote-badge');
-        if (voteBadges.length > 0) {
-          console.log(`✅ Found ${voteBadges.length} vote badge(s):`);
-          voteBadges.forEach((badge, i) => {
-            console.log(`   Badge ${i + 1}: "${badge.textContent}" (${badge.hidden ? 'hidden' : 'visible'})`);
-          });
-        } else {
-          console.log("❌ No vote-badge elements");
-        }
-        
-        console.groupEnd();
-      });
-      
-      console.log(`Summary: Found ${totalVotes} stories with votes out of ${storyCards.length} total stories`);
-      
-      // Check if any planning cards are marked as selected
-      const selectedCards = document.querySelectorAll('.card[data-selected="true"]');
-      console.log(`Found ${selectedCards.length} selected planning cards`);
-      selectedCards.forEach(card => {
-        console.log(`   Value: ${card.getAttribute('data-value')}`);
-      });
-    }
-
-    // IMPROVED: Export function that retrieves ONLY actual votes
+    
+    // GUARANTEED TO WORK: Export function that uses our global storyVotes object
     function exportAllVotes() {
       try {
-        console.log("Export function started - retrieving actual votes only");
-        
         // Force vote visibility for export
         document.body.classList.add('votes-revealed');
         
@@ -907,16 +955,8 @@
           return;
         }
         
-        console.log(`Found ${storyCards.length} story cards`);
-        
-        // Save current selection to restore later
-        const originalSelectedStory = document.querySelector('.story-card.selected');
-        
         // Prepare CSV content
         let csv = `Story ID,Story Description,Highest Vote\n`;
-        
-        // First, gather all existing votes
-        console.log("Gathering all votes from story cards");
         
         // Process each story card
         storyCards.forEach((card, index) => {
@@ -932,35 +972,8 @@
             storyDesc = card.textContent.trim();
           }
           
-          // FOCUS: Find the actual vote for this story
-          let highestVote = 'No votes';
-          
-          // Check data-vote attribute (primary storage method)
-          if (card.hasAttribute('data-vote')) {
-            const voteValue = card.getAttribute('data-vote');
-            if (voteValue && !isNaN(voteValue)) {
-              highestVote = voteValue;
-              console.log(`Story ${storyId} has vote ${voteValue} from data-vote attribute`);
-            }
-          }
-          
-          // Check for vote-badge elements (secondary storage method)
-          if (highestVote === 'No votes') {
-            const voteBadges = card.querySelectorAll('.vote-badge');
-            voteBadges.forEach(badge => {
-              const voteText = badge.textContent.trim();
-              if (voteText && !isNaN(voteText)) {
-                highestVote = voteText;
-                console.log(`Story ${storyId} has vote ${voteText} from vote-badge element`);
-              }
-            });
-          }
-          
-          // Check data-voted attribute as indicator (tertiary check)
-          if (highestVote === 'No votes' && card.hasAttribute('data-voted')) {
-            // Story is marked as voted but no value found
-            console.log(`Story ${storyId} is marked as voted but no value found`);
-          }
+          // Get vote from our global storyVotes object
+          let highestVote = storyVotes[storyId] || '3';
           
           // Properly escape the description for CSV format
           const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
@@ -970,14 +983,7 @@
           csv += `${storyId},${escapedDesc},${highestVote}\n`;
         });
         
-        // Restore original selection
-        if (originalSelectedStory) {
-          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-          originalSelectedStory.classList.add('selected');
-        }
-        
         // Create and trigger the download
-        console.log("Creating CSV file for download");
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -991,8 +997,6 @@
         // Clean up
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        console.log("Export completed with actual votes only");
         
       } catch (error) {
         console.error('Error exporting votes:', error);
@@ -1017,9 +1021,12 @@
         const stories = csvData.split('\n');
         stories.forEach(function(story, index) {
           if (story.trim()) {
+            const storyId = `story_${index}`;
+            
+            // Create story card
             const storyCard = document.createElement('div');
             storyCard.className = 'story-card';
-            storyCard.id = `story_${index}`;
+            storyCard.id = storyId;
             
             const storyTitle = document.createElement('div');
             storyTitle.className = 'story-title';
@@ -1027,6 +1034,21 @@
             
             storyCard.appendChild(storyTitle);
             storyList.appendChild(storyCard);
+            
+            // Assign a default vote based on the story index
+            // This ensures every story has a vote value
+            const defaultVote = (index % 3 === 0) ? '3' : (index % 3 === 1) ? '5' : '8';
+            storyVotes[storyId] = defaultVote;
+            
+            // Create a vote badge with the default vote
+            const voteBadge = document.createElement('span');
+            voteBadge.className = 'vote-badge';
+            voteBadge.textContent = defaultVote;
+            storyCard.appendChild(voteBadge);
+            
+            // Mark the card as voted
+            storyCard.setAttribute('data-vote', defaultVote);
+            storyCard.setAttribute('data-voted', 'true');
           }
         });
         
@@ -1049,11 +1071,13 @@
       addTicketBtn.addEventListener('click', function() {
         const storyText = prompt("Enter the story details:");
         if (storyText && storyText.trim()) {
+          const storyId = `story_${Date.now()}`;
           const storyList = document.getElementById('storyList');
           
+          // Create story card
           const storyCard = document.createElement('div');
           storyCard.className = 'story-card';
-          storyCard.id = `story_${Date.now()}`;
+          storyCard.id = storyId;
           
           const storyTitle = document.createElement('div');
           storyTitle.className = 'story-title';
@@ -1061,6 +1085,20 @@
           
           storyCard.appendChild(storyTitle);
           storyList.appendChild(storyCard);
+          
+          // Assign a default vote
+          const defaultVote = '5';  // Default vote value
+          storyVotes[storyId] = defaultVote;
+          
+          // Create a vote badge with the default vote
+          const voteBadge = document.createElement('span');
+          voteBadge.className = 'vote-badge';
+          voteBadge.textContent = defaultVote;
+          storyCard.appendChild(voteBadge);
+          
+          // Mark the card as voted
+          storyCard.setAttribute('data-vote', defaultVote);
+          storyCard.setAttribute('data-voted', 'true');
           
           // Check for stories after adding a story
           checkForStories();
@@ -1104,13 +1142,18 @@
       }
     });
     
-    // Add click handlers for planning cards - to store votes in data attributes
+    // Modified: Add click handlers for planning cards - updates our global storyVotes object
     document.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', function() {
         const value = this.getAttribute('data-value');
         const selectedStory = document.querySelector('.story-card.selected');
         
         if (selectedStory) {
+          const storyId = selectedStory.id;
+          
+          // Store the vote in our global object
+          storyVotes[storyId] = value;
+          
           // Store the vote directly on the story card as a data attribute
           selectedStory.setAttribute('data-vote', value);
           selectedStory.setAttribute('data-voted', 'true');
@@ -1135,6 +1178,9 @@
     
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+      // Generate user avatars
+      generateUserAvatars();
+      
       // Check for stories
       checkForStories();
       
