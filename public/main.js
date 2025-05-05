@@ -866,3 +866,21 @@ document.addEventListener('DOMContentLoaded', () => {
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
 });
+
+
+window.addEventListener('load', () => {
+  const modal = document.getElementById('usernameModal');
+  const input = document.getElementById('usernameInput');
+  const submit = document.getElementById('usernameSubmit');
+
+  submit.addEventListener('click', () => {
+    const username = input.value.trim();
+    if (username) {
+      modal.style.display = 'none';
+      window.username = username;
+      if (typeof initializeChat === 'function') {
+        initializeChat(username);
+      }
+    }
+  });
+});
