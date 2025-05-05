@@ -194,9 +194,11 @@
         alert("Please enter a name.");
         return;
       }
-
-      const roomId = Math.random().toString(36).substring(2, 10); // generate 8-char room id
-      window.location.href = `/index.html?name=${encodeURIComponent(name)}&roomId=${roomId}`;
+// Store name in sessionStorage instead of URL
+  sessionStorage.setItem("userName", name);
+     
+        const roomId = Math.random().toString(36).substring(2, 10); // generate 8-char room id
+  window.location.href = `/index.html?roomId=${roomId}`; // Only append roomId
     }
   </script>
 </body>
