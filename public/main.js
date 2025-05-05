@@ -884,3 +884,17 @@ window.addEventListener('load', () => {
     }
   });
 });
+
+
+function initializeChat(username) {
+  socket = io({ query: { username } });
+
+  socket.on('connect', () => {
+    console.log('Connected as', username);
+    // Add additional initialization logic here if needed
+  });
+
+  socket.on('someEvent', (data) => {
+    console.log('Received:', data);
+  });
+}
