@@ -1,11 +1,7 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
 
-// Now we assume roomId is already generated or parsed elsewhere
-// Join room logic must use the userName variable
-// Example (if room joining logic exists elsewhere):
-// socket.emit('joinRoom', { roomId, userName });
-
+// Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes } from './socket.js'; 
 
 // Global state variables
@@ -48,7 +44,9 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
+  // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
@@ -57,29 +55,6 @@ function initializeApp(roomId) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Add the current user to the user list immediately
-  addCurrentUserToList();
-}
-
-/**
- * Add the current user to the user list
- */
-function addCurrentUserToList() {
-  // Generate a unique ID for the current user
-  const currentUserId = 'user_' + Date.now();
-  
-  // Create a user object for the current user
-  const currentUser = {
-    id: currentUserId,
-    name: userName
-  };
-  
-  // Store the current user ID for future reference
-  window.currentUserId = currentUserId;
-  
-  // Update user lists with just the current user
-  updateUserList([currentUser]);
 }
 
 /**
@@ -375,11 +350,15 @@ function selectStory(index) {
  * Reset or restore votes for a story
  */
 function resetOrRestoreVotes(index) {
-  resetAllVoteVisuals();
+  if (typeof resetAllVoteVisuals === 'function') {
+    resetAllVoteVisuals();
+  }
   
   // If we have stored votes for this story and they've been revealed
   if (votesPerStory[index] && votesRevealed[index]) {
-    applyVotesToUI(votesPerStory[index], false);
+    if (typeof applyVotesToUI === 'function') {
+      applyVotesToUI(votesPerStory[index], false);
+    }
   }
 }
 
@@ -725,12 +704,21 @@ function handleSocketMessage(eventType, data) {
   console.log(`[SOCKET] Received ${eventType}:`, data);
   
   switch(eventType) {
-    case 'userJoined':
-      // Handle user joining
+    case 'userList':
+      // Update the user list when server sends an updated list
+      if (Array.isArray(data)) {
+        updateUserList(data);
+      }
       break;
+      
+    case 'userJoined':
+      // Individual user joined - could update existing list
+      break;
+      
     case 'userLeft':
       // Handle user leaving
       break;
+      
     case 'voteReceived':
       // Handle vote received
       if (data.userId && data.vote) {
@@ -741,6 +729,7 @@ function handleSocketMessage(eventType, data) {
         updateVoteVisuals(data.userId, votesRevealed[currentStoryIndex] ? data.vote : '✓', true);
       }
       break;
+      
     case 'votesRevealed':
       // Handle votes revealed
       votesRevealed[currentStoryIndex] = true;
@@ -748,6 +737,7 @@ function handleSocketMessage(eventType, data) {
         applyVotesToUI(votesPerStory[currentStoryIndex], false);
       }
       break;
+      
     case 'votesReset':
       // Handle votes reset
       if (votesPerStory[currentStoryIndex]) {
