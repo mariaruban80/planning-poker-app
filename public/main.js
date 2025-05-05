@@ -1,3 +1,11 @@
+
+// Extract user name from URL
+const urlParams = new URLSearchParams(window.location.search);
+let userName = urlParams.get('name');
+if (!userName) {
+  userName = prompt("Enter your name");
+}
+
 import { initializeWebSocket, emitCSVData, requestStoryVotes } from './socket.js'; 
 
 // Global state variables
