@@ -1,16 +1,5 @@
-// Get username from sessionStorage or prompt if not set
+// Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
-
-if (!userName || userName.trim() === "") {
-  userName = prompt("Enter your name");
-  if (userName) {
-    sessionStorage.setItem('userName', userName);
-  } else {
-    alert("Username is required!");
-    location.reload(); // Retry flow
-  }
-}
-
 
 // Now we assume roomId is already generated or parsed elsewhere
 // Join room logic must use the userName variable
@@ -33,8 +22,32 @@ let votesRevealed = {};     // Track which stories have revealed votes { storyIn
  * Extract room ID from URL parameters
  */
 function getRoomIdFromURL() {
- 
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('roomId');
+  
+  if (roomId) {
+    return roomId;
+  } else {
+    // If no roomId in URL, generate a new one (fallback behavior)
+    return 'room-' + Math.floor(Math.random() * 10000);
+  }
+}
 
+/**
+ * Append room ID to URL if not already present
+ */
+function appendRoomIdToURL(roomId) {
+  // Only modify URL if roomId isn't already in the URL
+  if (!window.location.href.includes('roomId=')) {
+    const newUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'roomId=' + roomId;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+  }
+}
+
+/**
+ * Initialize the application
+ */
+function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
   setupInviteButton();
@@ -333,6 +346,51 @@ function selectStory(index) {
       socket.emit('requestStoryVotes', { storyIndex: index });
     }
   }
+}
+
+/**
+ * Reset or restore votes for a story
+ */
+function resetOrRestoreVotes(index) {
+  // This function would need to be implemented to correctly handle
+  // vote displays when switching between stories
+  if (typeof resetAllVoteVisuals === 'function') {
+    resetAllVoteVisuals();
+  }
+  
+  // If we have stored votes for this story and they've been revealed
+  if (votesPerStory[index] && votesRevealed[index]) {
+    applyVotesToUI(votesPerStory[index], false);
+  }
+}
+
+/**
+ * Apply votes to UI
+ */
+function applyVotesToUI(votes, hideValues) {
+  // This function would need to be implemented to update the UI with votes
+  Object.entries(votes).forEach(([userId, vote]) => {
+    updateVoteVisuals(userId, hideValues ? '✓' : vote, true);
+  });
+}
+
+/**
+ * Reset all vote visuals
+ */
+function resetAllVoteVisuals() {
+  // This function would need to be implemented to reset all vote visuals
+  // Reset vote badges, avatar highlights, etc.
+  document.querySelectorAll('.vote-badge').forEach(badge => {
+    badge.textContent = '?';
+  });
+  
+  document.querySelectorAll('.has-vote').forEach(el => {
+    el.classList.remove('has-vote');
+  });
+  
+  document.querySelectorAll('.has-voted').forEach(el => {
+    el.classList.remove('has-voted');
+  });
 }
 
 /**
@@ -655,24 +713,47 @@ document.addEventListener('DOMContentLoaded', () => {
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
 });
-document.addEventListener("DOMContentLoaded", () => {
-  const createBtn = document.getElementById("createBtn");
-  const nameInput = document.getElementById("nameInput");
 
-  function handleCreate() {
-    const userName = nameInput.value.trim();
-    if (userName === "") {
-      alert("Please enter your name.");
-      return;
-    }
-    sessionStorage.setItem("userName", userName);
-    window.location.href = "index.html";
+/**
+ * Handler for socket messages
+ * This function would need to be implemented to handle various socket events
+ */
+function handleSocketMessage(eventType, data) {
+  // This would be implemented to handle socket events
+  console.log(`[SOCKET] Received ${eventType}:`, data);
+  
+  // Example handlers:
+  switch(eventType) {
+    case 'userJoined':
+      // Handle user joining
+      break;
+    case 'userLeft':
+      // Handle user leaving
+      break;
+    case 'voteReceived':
+      // Handle vote received
+      if (data.userId && data.vote) {
+        if (!votesPerStory[currentStoryIndex]) {
+          votesPerStory[currentStoryIndex] = {};
+        }
+        votesPerStory[currentStoryIndex][data.userId] = data.vote;
+        updateVoteVisuals(data.userId, votesRevealed[currentStoryIndex] ? data.vote : '✓', true);
+      }
+      break;
+    case 'votesRevealed':
+      // Handle votes revealed
+      votesRevealed[currentStoryIndex] = true;
+      if (votesPerStory[currentStoryIndex]) {
+        applyVotesToUI(votesPerStory[currentStoryIndex], false);
+      }
+      break;
+    case 'votesReset':
+      // Handle votes reset
+      if (votesPerStory[currentStoryIndex]) {
+        votesPerStory[currentStoryIndex] = {};
+      }
+      votesRevealed[currentStoryIndex] = false;
+      resetAllVoteVisuals();
+      break;
   }
-
-  createBtn.addEventListener("click", handleCreate);
-
-  // Cleanup to avoid memory leaks
-  window.addEventListener("beforeunload", () => {
-    createBtn.removeEventListener("click", handleCreate);
-  });
-});
+}
