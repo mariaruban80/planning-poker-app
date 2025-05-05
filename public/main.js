@@ -57,6 +57,29 @@ function initializeApp(roomId) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
+  
+  // Add the current user to the user list immediately
+  addCurrentUserToList();
+}
+
+/**
+ * Add the current user to the user list
+ */
+function addCurrentUserToList() {
+  // Generate a unique ID for the current user
+  const currentUserId = 'user_' + Date.now();
+  
+  // Create a user object for the current user
+  const currentUser = {
+    id: currentUserId,
+    name: userName
+  };
+  
+  // Store the current user ID for future reference
+  window.currentUserId = currentUserId;
+  
+  // Update user lists with just the current user
+  updateUserList([currentUser]);
 }
 
 /**
@@ -352,11 +375,7 @@ function selectStory(index) {
  * Reset or restore votes for a story
  */
 function resetOrRestoreVotes(index) {
-  // This function would need to be implemented to correctly handle
-  // vote displays when switching between stories
-  if (typeof resetAllVoteVisuals === 'function') {
-    resetAllVoteVisuals();
-  }
+  resetAllVoteVisuals();
   
   // If we have stored votes for this story and they've been revealed
   if (votesPerStory[index] && votesRevealed[index]) {
@@ -368,7 +387,6 @@ function resetOrRestoreVotes(index) {
  * Apply votes to UI
  */
 function applyVotesToUI(votes, hideValues) {
-  // This function would need to be implemented to update the UI with votes
   Object.entries(votes).forEach(([userId, vote]) => {
     updateVoteVisuals(userId, hideValues ? '✓' : vote, true);
   });
@@ -378,8 +396,6 @@ function applyVotesToUI(votes, hideValues) {
  * Reset all vote visuals
  */
 function resetAllVoteVisuals() {
-  // This function would need to be implemented to reset all vote visuals
-  // Reset vote badges, avatar highlights, etc.
   document.querySelectorAll('.vote-badge').forEach(badge => {
     badge.textContent = '?';
   });
@@ -703,26 +719,11 @@ function setupVoteCardsDrag() {
 }
 
 /**
- * Initialize on page load
- */
-document.addEventListener('DOMContentLoaded', () => {
-  let roomId = getRoomIdFromURL();
-  if (!roomId) {
-    roomId = 'room-' + Math.floor(Math.random() * 10000);
-  }
-  appendRoomIdToURL(roomId);
-  initializeApp(roomId);
-});
-
-/**
- * Handler for socket messages
- * This function would need to be implemented to handle various socket events
+ * Handle socket messages
  */
 function handleSocketMessage(eventType, data) {
-  // This would be implemented to handle socket events
   console.log(`[SOCKET] Received ${eventType}:`, data);
   
-  // Example handlers:
   switch(eventType) {
     case 'userJoined':
       // Handle user joining
@@ -757,3 +758,13 @@ function handleSocketMessage(eventType, data) {
       break;
   }
 }
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  let roomId = getRoomIdFromURL();
+  if (!roomId) {
+    roomId = 'room-' + Math.floor(Math.random() * 10000);
+  }
+  appendRoomIdToURL(roomId);
+  initializeApp(roomId);
+});
