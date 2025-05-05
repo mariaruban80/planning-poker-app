@@ -13,12 +13,12 @@ const io = new Server(httpServer, {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-app.use(express.static(join(__dirname, 'public')));
 // added to call the main.html file
 app.get('/', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'main.html'));
 });
+app.use(express.static(join(__dirname, 'public')));
+
 
 // Enhanced room structure with vote revealing state
 const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory, votesRevealed }
