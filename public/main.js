@@ -653,3 +653,24 @@ document.addEventListener('DOMContentLoaded', () => {
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
 });
+document.addEventListener("DOMContentLoaded", () => {
+  const createBtn = document.getElementById("createBtn");
+  const nameInput = document.getElementById("nameInput");
+
+  function handleCreate() {
+    const userName = nameInput.value.trim();
+    if (userName === "") {
+      alert("Please enter your name.");
+      return;
+    }
+    sessionStorage.setItem("userName", userName);
+    window.location.href = "index.html";
+  }
+
+  createBtn.addEventListener("click", handleCreate);
+
+  // Cleanup to avoid memory leaks
+  window.addEventListener("beforeunload", () => {
+    createBtn.removeEventListener("click", handleCreate);
+  });
+});
