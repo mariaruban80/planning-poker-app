@@ -898,29 +898,3 @@ function initializeChat(username) {
     console.log('Received:', data);
   });
 }
-
-
-
-window.addEventListener('load', () => {
-  const joinBtn = document.getElementById('joinBtn');
-  const usernameInput = document.getElementById('username');
-  const modal = document.getElementById('usernameModal');
-
-  joinBtn.addEventListener('click', () => {
-    const username = usernameInput.value.trim();
-    if (username) {
-      modal.style.display = 'none';
-      const socket = io({ query: { username } });
-
-      socket.on('connect', () => {
-        console.log('Connected to server as', username);
-      });
-
-      socket.on('someEvent', (data) => {
-        console.log('Received:', data);
-      });
-
-      // Add any additional socket listeners or logic here
-    }
-  });
-});
