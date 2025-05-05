@@ -39,7 +39,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('syncCSVData', (csvData) => {
-    console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) * csvData.length : 'invalid', 'rows');
+    console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
     handleMessage({ type: 'syncCSVData', csvData });
     
     // Notify server that CSV data is loaded
@@ -90,8 +90,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
   socket.on('exportData', (data) => {
     console.log('[SOCKET] Received export data with', 
-      data.stories * data.stories.length : 0, 'stories and',
-      data.votes * Object.keys(data.votes).length : 0, 'vote sets');
+      data.stories ? data.stories.length : 0, 'stories and',
+      data.votes ? Object.keys(data.votes).length : 0, 'vote sets');
     handleMessage({ type: 'exportData', data });
   });
 
