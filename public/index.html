@@ -747,14 +747,6 @@
 <!-- Scripts -->
 <script src="main.js" type="module"></script>
 <script>
-
-// Extract user name from URL
-const urlParams = new URLSearchParams(window.location.search);
-let userName = urlParams.get('name');
-if (!userName) {
-  userName = prompt("Enter your name");
-}
-
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -1197,5 +1189,16 @@ if (!userName) {
     }
   };
 </script>
+
+<script>
+  let userName = sessionStorage.getItem("userName");
+  if (!userName || userName.trim() === "") {
+    userName = prompt("Enter your name");
+    sessionStorage.setItem("userName", userName);
+  }
+
+  // Make sure this userName is used in your socket.emit('joinRoom') logic
+</script>
+
 </body>
 </html>
