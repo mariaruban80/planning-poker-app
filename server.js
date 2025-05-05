@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('userList', rooms[roomId].users);
 
     // Send CSV data if available
-    if (rooms[roomId].csvData*.length > 0) {
+    if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
   });
