@@ -866,35 +866,3 @@ document.addEventListener('DOMContentLoaded', () => {
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
 });
-
-
-window.addEventListener('load', () => {
-  const modal = document.getElementById('usernameModal');
-  const input = document.getElementById('usernameInput');
-  const submit = document.getElementById('usernameSubmit');
-
-  submit.addEventListener('click', () => {
-    const username = input.value.trim();
-    if (username) {
-      modal.style.display = 'none';
-      window.username = username;
-      if (typeof initializeChat === 'function') {
-        initializeChat(username);
-      }
-    }
-  });
-});
-
-
-function initializeChat(username) {
-  socket = io({ query: { username } });
-
-  socket.on('connect', () => {
-    console.log('Connected as', username);
-    // Add additional initialization logic here if needed
-  });
-
-  socket.on('someEvent', (data) => {
-    console.log('Received:', data);
-  });
-}
