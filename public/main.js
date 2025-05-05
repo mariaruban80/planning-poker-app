@@ -55,21 +55,158 @@ function initializeApp(roomId) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Request current state from server when joining
-  if (socket) {
-    setTimeout(() => {
-      console.log('[INIT] Requesting current session state');
-      socket.emit('requestSessionState');
-    }, 500); // Small delay to ensure connection is established
-  }
 }
 
 /**
  * Add CSS styles for the new layout
  */
 function addNewLayoutStyles() {
-  // CSS styles implementation (unchanged)
+  const style = document.createElement('style');
+  style.textContent = `
+    .poker-table-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      gap: 15px;
+      padding: 20px 0;
+    }
+    
+    .avatar-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .vote-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .avatar-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 80px;
+      transition: transform 0.2s;
+    }
+    
+    .avatar-container:hover {
+      transform: translateY(-3px);
+    }
+    
+    .avatar-circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #ccc;
+      background-color: white;
+      transition: all 0.3s ease;
+    }
+    
+    .has-voted .avatar-circle {
+      border-color: #4CAF50;
+      background-color: #c1e1c1;
+    }
+    
+    .user-name {
+      font-size: 12px;
+      margin-top: 5px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    
+    .vote-card-space {
+      width: 60px;
+      height: 90px;
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f9f9f9;
+      transition: all 0.2s ease;
+    }
+    
+    .vote-card-space:hover {
+      border-color: #999;
+      background-color: #f0f0f0;
+    }
+    
+    .vote-card-space.has-vote {
+      border-style: solid;
+      border-color: #673ab7;
+      background-color: #f0e6ff;
+    }
+    
+    .vote-badge {
+      font-size: 22px;
+      font-weight: bold;
+      color: #673ab7;
+    }
+    
+    .reveal-button-container {
+      margin: 10px 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .reveal-votes-button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      background-color: #ffffff;
+      color: #673ab7;
+      border: 2px solid #673ab7;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+    }
+    
+    .reveal-votes-button:hover {
+      background-color: #673ab7;
+      color: white;
+    }
+    
+    .cards {
+      margin-top: 30px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .card {
+      padding: 10px 20px;
+      background: #cfc6f7;
+      border-radius: 8px;
+      cursor: grab;
+      font-weight: bold;
+      font-size: 18px;
+      min-width: 40px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 /**
@@ -81,11 +218,7 @@ function setupRevealResetButtons() {
   if (revealVotesBtn) {
     revealVotesBtn.addEventListener('click', () => {
       if (socket) {
-        console.log('[UI] Requesting reveal votes for story:', currentStoryIndex);
-        // Emit reveal votes with the current story index
-        socket.emit('revealVotes', { storyIndex: currentStoryIndex });
-        
-        // Update local state
+        socket.emit('revealVotes');
         votesRevealed[currentStoryIndex] = true;
         
         // Update UI if we have votes for this story
@@ -101,9 +234,7 @@ function setupRevealResetButtons() {
   if (resetVotesBtn) {
     resetVotesBtn.addEventListener('click', () => {
       if (socket) {
-        console.log('[UI] Requesting reset votes for story:', currentStoryIndex);
-        // Emit reset votes with the current story index
-        socket.emit('resetVotes', { storyIndex: currentStoryIndex });
+        socket.emit('resetVotes');
         
         // Reset local state
         if (votesPerStory[currentStoryIndex]) {
@@ -122,29 +253,66 @@ function setupRevealResetButtons() {
  * Setup CSV file uploader
  */
 function setupCSVUploader() {
-  // CSV uploader implementation (unchanged)
+  const csvInput = document.getElementById('csvInput');
+  if (!csvInput) return;
+
+  csvInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const parsedData = parseCSV(e.target.result);
+      emitCSVData(parsedData);
+      csvData = parsedData;
+      displayCSVData(csvData);
+      
+      // Reset voting state when new CSV is loaded
+      votesPerStory = {};
+      votesRevealed = {};
+      currentStoryIndex = 0;
+      
+      renderCurrentStory();
+    };
+    reader.readAsText(file);
+  });
 }
 
 /**
  * Parse CSV text into array structure
  */
 function parseCSV(data) {
-  // CSV parsing implementation (unchanged)
+  const rows = data.trim().split('\n');
+  return rows.map(row => row.split(','));
 }
 
 /**
  * Display CSV data in the story list
  */
 function displayCSVData(data) {
-  // CSV display implementation (unchanged)
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer) return;
+
+  storyListContainer.innerHTML = '';
+
+  data.forEach((row, index) => {
+    const storyItem = document.createElement('div');
+    storyItem.classList.add('story-card');
+    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
+    storyItem.dataset.index = index;
+
+    storyItem.addEventListener('click', () => {
+      selectStory(index);
+    });
+
+    storyListContainer.appendChild(storyItem);
+  });
 }
 
 /**
  * Select a story by index
- * @param {number} index - Story index to select
- * @param {boolean} emitToServer - Whether to emit the selection to the server (default: true)
  */
-function selectStory(index, emitToServer = true) {
+function selectStory(index) {
   console.log('[UI] Story selected by user:', index);
   
   // Update UI first for responsiveness
@@ -164,8 +332,8 @@ function selectStory(index, emitToServer = true) {
   // Reset or restore vote badges for the current story
   resetOrRestoreVotes(index);
   
-  // Notify server about selection if requested
-  if (emitToServer && socket) {
+  // Notify server about selection
+  if (socket) {
     console.log('[EMIT] Broadcasting story selection:', index);
     socket.emit('storySelected', { storyIndex: index });
     
@@ -182,101 +350,356 @@ function selectStory(index, emitToServer = true) {
  * Reset or restore votes for a story
  */
 function resetOrRestoreVotes(index) {
-  // Implementation unchanged
+  resetAllVoteVisuals();
+  
+  // If we have stored votes for this story and they've been revealed
+  if (votesPerStory[index] && votesRevealed[index]) {
+    applyVotesToUI(votesPerStory[index], false);
+  }
 }
 
 /**
  * Apply votes to UI
  */
 function applyVotesToUI(votes, hideValues) {
-  // Implementation unchanged
+  Object.entries(votes).forEach(([userId, vote]) => {
+    updateVoteVisuals(userId, hideValues ? '✓' : vote, true);
+  });
 }
 
 /**
  * Reset all vote visuals
  */
 function resetAllVoteVisuals() {
-  // Implementation unchanged
+  document.querySelectorAll('.vote-badge').forEach(badge => {
+    badge.textContent = '?';
+  });
+  
+  document.querySelectorAll('.has-vote').forEach(el => {
+    el.classList.remove('has-vote');
+  });
+  
+  document.querySelectorAll('.has-voted').forEach(el => {
+    el.classList.remove('has-voted');
+  });
 }
 
 /**
  * Render the current story
  */
 function renderCurrentStory() {
-  // Implementation unchanged
+  const storyListContainer = document.getElementById('storyList');
+  if (!storyListContainer || csvData.length === 0) return;
+
+  const allStoryItems = storyListContainer.querySelectorAll('.story-card');
+  allStoryItems.forEach(card => card.classList.remove('active'));
+
+  const current = allStoryItems[currentStoryIndex];
+  if (current) current.classList.add('active');
+  
+  // Update the current story display, if present
+  const currentStoryDisplay = document.getElementById('currentStory');
+  if (currentStoryDisplay && csvData[currentStoryIndex]) {
+    currentStoryDisplay.textContent = csvData[currentStoryIndex].join(' | ');
+  }
 }
 
 /**
  * Update the user list display with the new layout
  */
 function updateUserList(users) {
-  // Implementation unchanged
+  const userListContainer = document.getElementById('userList');
+  const userCircleContainer = document.getElementById('userCircle');
+  
+  if (!userListContainer || !userCircleContainer) return;
+
+  // Clear existing content
+  userListContainer.innerHTML = '';
+  userCircleContainer.innerHTML = '';
+
+  // Create left sidebar user list
+  users.forEach(user => {
+    const userEntry = document.createElement('div');
+    userEntry.classList.add('user-entry');
+    userEntry.id = `user-${user.id}`;
+    userEntry.innerHTML = `
+      <img src="${generateAvatarUrl(user.name)}" class="avatar" alt="${user.name}">
+      <span class="username">${user.name}</span>
+      <span class="vote-badge">?</span>
+    `;
+    userListContainer.appendChild(userEntry);
+  });
+
+  // Create new grid layout for center area
+  const gridLayout = document.createElement('div');
+  gridLayout.classList.add('poker-table-layout');
+
+  // Split users into two rows
+  const halfPoint = Math.ceil(users.length / 2);
+  const topUsers = users.slice(0, halfPoint);
+  const bottomUsers = users.slice(halfPoint);
+
+  // Create top row of avatars
+  const topAvatarRow = document.createElement('div');
+  topAvatarRow.classList.add('avatar-row');
+  
+  topUsers.forEach(user => {
+    const avatarContainer = createAvatarContainer(user);
+    topAvatarRow.appendChild(avatarContainer);
+  });
+  
+  // Create top row of vote cards
+  const topVoteRow = document.createElement('div');
+  topVoteRow.classList.add('vote-row');
+  
+  topUsers.forEach(user => {
+    const voteCard = createVoteCardSpace(user);
+    topVoteRow.appendChild(voteCard);
+  });
+
+  // Create reveal button
+  const revealButtonContainer = document.createElement('div');
+  revealButtonContainer.classList.add('reveal-button-container');
+  
+  const revealBtn = document.createElement('button');
+  revealBtn.textContent = 'REVEAL VOTES';
+  revealBtn.classList.add('reveal-votes-button');
+  revealBtn.onclick = () => {
+    if (socket) {
+      socket.emit('revealVotes');
+      votesRevealed[currentStoryIndex] = true;
+      
+      // Update UI if we have votes for this story
+      if (votesPerStory[currentStoryIndex]) {
+        applyVotesToUI(votesPerStory[currentStoryIndex], false);
+      }
+    }
+  };
+  
+  revealButtonContainer.appendChild(revealBtn);
+
+  // Create bottom row of vote cards
+  const bottomVoteRow = document.createElement('div');
+  bottomVoteRow.classList.add('vote-row');
+  
+  bottomUsers.forEach(user => {
+    const voteCard = createVoteCardSpace(user);
+    bottomVoteRow.appendChild(voteCard);
+  });
+
+  // Create bottom row of avatars
+  const bottomAvatarRow = document.createElement('div');
+  bottomAvatarRow.classList.add('avatar-row');
+  
+  bottomUsers.forEach(user => {
+    const avatarContainer = createAvatarContainer(user);
+    bottomAvatarRow.appendChild(avatarContainer);
+  });
+
+  // Assemble the grid
+  gridLayout.appendChild(topAvatarRow);
+  gridLayout.appendChild(topVoteRow);
+  gridLayout.appendChild(revealButtonContainer);
+  gridLayout.appendChild(bottomVoteRow);
+  gridLayout.appendChild(bottomAvatarRow);
+  
+  userCircleContainer.appendChild(gridLayout);
 }
 
 /**
  * Create avatar container for a user
  */
 function createAvatarContainer(user) {
-  // Implementation unchanged
+  const avatarContainer = document.createElement('div');
+  avatarContainer.classList.add('avatar-container');
+  avatarContainer.id = `user-circle-${user.id}`;
+  
+  avatarContainer.innerHTML = `
+    <img src="${generateAvatarUrl(user.name)}" class="avatar-circle" alt="${user.name}" />
+    <div class="user-name">${user.name}</div>
+  `;
+  
+  avatarContainer.setAttribute('data-user-id', user.id);
+  
+  // Check if there's an existing vote for this user in the current story
+  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  if (existingVote) {
+    avatarContainer.classList.add('has-voted');
+  }
+  
+  return avatarContainer;
 }
 
 /**
  * Create vote card space for a user
  */
 function createVoteCardSpace(user) {
-  // Implementation unchanged
+  const voteCard = document.createElement('div');
+  voteCard.classList.add('vote-card-space');
+  voteCard.id = `vote-space-${user.id}`;
+  
+  // Add vote badge inside the card space
+  const voteBadge = document.createElement('span');
+  voteBadge.classList.add('vote-badge');
+  voteBadge.textContent = '?';
+  voteCard.appendChild(voteBadge);
+  
+  // Make it a drop target for vote cards
+  voteCard.addEventListener('dragover', (e) => e.preventDefault());
+  voteCard.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const vote = e.dataTransfer.getData('text/plain');
+    const userId = user.id;
+
+    if (socket && vote) {
+      socket.emit('castVote', { vote, targetUserId: userId });
+    }
+
+    // Store vote locally
+    if (!votesPerStory[currentStoryIndex]) {
+      votesPerStory[currentStoryIndex] = {};
+    }
+    votesPerStory[currentStoryIndex][userId] = vote;
+    
+    // Update UI - show checkmark if votes aren't revealed
+    updateVoteVisuals(userId, votesRevealed[currentStoryIndex] ? vote : '✓', true);
+  });
+  
+  // Check if there's an existing vote for this user in the current story
+  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  if (existingVote) {
+    voteCard.classList.add('has-vote');
+    voteBadge.textContent = votesRevealed[currentStoryIndex] ? existingVote : '✓';
+  }
+  
+  return voteCard;
 }
 
 /**
  * Update vote visuals for a user
  */
 function updateVoteVisuals(userId, vote, hasVoted = false) {
-  // Implementation unchanged
+  // Update badges in sidebar
+  const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
+  if (sidebarBadge) sidebarBadge.textContent = vote;
+  
+  // Update vote card space
+  const voteSpace = document.querySelector(`#vote-space-${userId}`);
+  if (voteSpace) {
+    const voteBadge = voteSpace.querySelector('.vote-badge');
+    if (voteBadge) voteBadge.textContent = vote;
+    
+    if (hasVoted) {
+      voteSpace.classList.add('has-vote');
+    } else {
+      voteSpace.classList.remove('has-vote');
+    }
+  }
+
+  // Update avatar to show they've voted
+  if (hasVoted) {
+    const avatarContainer = document.querySelector(`#user-circle-${userId}`);
+    if (avatarContainer) {
+      avatarContainer.classList.add('has-voted');
+      
+      const avatar = avatarContainer.querySelector('.avatar-circle');
+      if (avatar) {
+        avatar.style.backgroundColor = '#c1e1c1'; // Green background
+      }
+    }
+    
+    // Also update sidebar avatar
+    const sidebarAvatar = document.querySelector(`#user-${userId} img.avatar`);
+    if (sidebarAvatar) {
+      sidebarAvatar.style.backgroundColor = '#c1e1c1';
+    }
+  }
 }
 
 /**
  * Update story title
  */
 function updateStory(story) {
-  // Implementation unchanged
+  const storyTitle = document.getElementById('currentStory');
+  if (storyTitle) storyTitle.textContent = story;
 }
 
 /**
  * Setup story navigation
  */
 function setupStoryNavigation() {
-  // Implementation unchanged
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+
+  if (nextButton) {
+    nextButton.addEventListener('click', () => {
+      if (csvData.length === 0) return;
+      const newIndex = (currentStoryIndex + 1) % csvData.length;
+      console.log('[NAV] Next Story Clicked:', newIndex);
+      selectStory(newIndex);
+    });
+  }
+
+  if (prevButton) {
+    prevButton.addEventListener('click', () => {
+      if (csvData.length === 0) return;
+      const newIndex = (currentStoryIndex - 1 + csvData.length) % csvData.length;
+      console.log('[NAV] Previous Story Clicked:', newIndex);
+      selectStory(newIndex);
+    });
+  }
 }
 
 /**
  * Generate avatar URL
  */
 function generateAvatarUrl(name) {
-  // Implementation unchanged
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
 
 /**
  * Setup invite button
  */
 function setupInviteButton() {
-  // Implementation unchanged
+  const inviteButton = document.getElementById('inviteButton');
+  if (!inviteButton) return;
+
+  inviteButton.onclick = () => {
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.padding = '20px';
+    modal.style.backgroundColor = 'white';
+    modal.style.border = '1px solid #000';
+    modal.innerHTML = ` 
+      <h3>Invite URL</h3>
+      <p>Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
+      <button onclick="document.body.removeChild(this.parentNode)">Close</button>
+    `;
+    document.body.appendChild(modal);
+  };
 }
 
 /**
  * Setup vote cards drag functionality
  */
 function setupVoteCardsDrag() {
-  // Implementation unchanged
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', card.textContent.trim());
+    });
+  });
 }
 
 /**
- * Handle socket messages
+ * Handle socket messages - modified to properly handle story selection sync
  */
 function handleSocketMessage(message) {
-  // Extract type from the message object
   const eventType = message.type;
   
-  console.log(`[SOCKET] Received ${eventType}:`, message);
+  // console.log(`[SOCKET] Received ${eventType}:`, message);
   
   switch(eventType) {
     case 'userList':
@@ -307,47 +730,20 @@ function handleSocketMessage(message) {
       break;
       
     case 'votesRevealed':
-      // Handle votes revealed event
-      if (message.storyIndex !== undefined) {
-        console.log('[SOCKET] Votes revealed for story:', message.storyIndex);
-        
-        // Mark this story's votes as revealed
-        votesRevealed[message.storyIndex] = true;
-        
-        // Update UI if this is the current story and we have votes
-        if (message.storyIndex === currentStoryIndex && votesPerStory[currentStoryIndex]) {
-          applyVotesToUI(votesPerStory[currentStoryIndex], false);
-        }
-      } else {
-        // Legacy support for old format
-        votesRevealed[currentStoryIndex] = true;
-        if (votesPerStory[currentStoryIndex]) {
-          applyVotesToUI(votesPerStory[currentStoryIndex], false);
-        }
+      // Handle votes revealed
+      votesRevealed[currentStoryIndex] = true;
+      if (votesPerStory[currentStoryIndex]) {
+        applyVotesToUI(votesPerStory[currentStoryIndex], false);
       }
       break;
       
     case 'votesReset':
       // Handle votes reset
-      if (message.storyIndex !== undefined) {
-        // Reset votes for specific story
-        if (votesPerStory[message.storyIndex]) {
-          votesPerStory[message.storyIndex] = {};
-        }
-        votesRevealed[message.storyIndex] = false;
-        
-        // Update UI if this is the current story
-        if (message.storyIndex === currentStoryIndex) {
-          resetAllVoteVisuals();
-        }
-      } else {
-        // Legacy support for old format
-        if (votesPerStory[currentStoryIndex]) {
-          votesPerStory[currentStoryIndex] = {};
-        }
-        votesRevealed[currentStoryIndex] = false;
-        resetAllVoteVisuals();
+      if (votesPerStory[currentStoryIndex]) {
+        votesPerStory[currentStoryIndex] = {};
       }
+      votesRevealed[currentStoryIndex] = false;
+      resetAllVoteVisuals();
       break;
       
     case 'storyVotes':
@@ -367,42 +763,37 @@ function handleSocketMessage(message) {
         csvData = message.csvData;
         displayCSVData(csvData);
         
-        // Keep current story index if it exists in new data
-        if (currentStoryIndex >= csvData.length) {
-          currentStoryIndex = 0;
-        }
+        // Reset voting state when new CSV is loaded
+        votesPerStory = {};
+        votesRevealed = {};
+        currentStoryIndex = 0;
         
         renderCurrentStory();
       }
       break;
       
     case 'storySelected':
-      // Handle story selection from another user
+      // FIX: Handle story selection from another user
       if (message.storyIndex !== undefined) {
-        console.log('[SOCKET] Another user selected story:', message.storyIndex);
-        // Update UI without emitting back to server
-        selectStory(message.storyIndex, false);
-      }
-      break;
-      
-    case 'sessionState':
-      // Handle session state update
-      if (message.currentStoryIndex !== undefined) {
-        console.log('[SESSION] Received current story index:', message.currentStoryIndex);
-        // Update current story index and UI
-        currentStoryIndex = message.currentStoryIndex;
-        selectStory(currentStoryIndex, false); // Pass false to avoid emitting back to server
-      }
-      
-      // Handle votes reveal state
-      if (message.votesRevealed) {
-        console.log('[SESSION] Received votes revealed state:', message.votesRevealed);
-        // Update votes revealed state
-        Object.assign(votesRevealed, message.votesRevealed);
+        console.log('[SOCKET] Story selected by another user:', message.storyIndex);
         
-        // Apply revealed votes for current story if applicable
-        if (votesRevealed[currentStoryIndex] && votesPerStory[currentStoryIndex]) {
-          applyVotesToUI(votesPerStory[currentStoryIndex], false);
+        // If this is a different story than currently selected
+        if (message.storyIndex !== currentStoryIndex) {
+          // Update currentStoryIndex without emitting back to server
+          currentStoryIndex = message.storyIndex;
+          
+          // Update UI
+          document.querySelectorAll('.story-card').forEach(card => {
+            card.classList.remove('selected', 'active');
+          });
+          
+          const storyCard = document.querySelector(`.story-card[data-index="${currentStoryIndex}"]`);
+          if (storyCard) {
+            storyCard.classList.add('selected', 'active');
+          }
+          
+          renderCurrentStory();
+          resetOrRestoreVotes(currentStoryIndex);
         }
       }
       break;
