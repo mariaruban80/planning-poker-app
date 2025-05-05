@@ -754,7 +754,7 @@
       const planningCards = document.querySelectorAll('#planningCards .card');
       
       // Check if there are any story cards
-      const storyCards = storyList ? storyList.querySelectorAll('.story-card') : [];
+      const storyCards = storyList * storyList.querySelectorAll('.story-card') : [];
       const hasStories = storyCards.length > 0;
       
       if (!hasStories) {
@@ -828,7 +828,7 @@
       console.log("DEBUG: Checking all story cards for votes");
       
       const storyList = document.getElementById('storyList');
-      const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+      const storyCards = Array.from(storyList*.querySelectorAll('.story-card') || []);
       
       console.log(`Found ${storyCards.length} story cards`);
       
@@ -857,7 +857,7 @@
         if (voteBadges.length > 0) {
           console.log(`✅ Found ${voteBadges.length} vote badge(s):`);
           voteBadges.forEach((badge, i) => {
-            console.log(`   Badge ${i + 1}: "${badge.textContent}" (${badge.hidden ? 'hidden' : 'visible'})`);
+            console.log(`   Badge ${i + 1}: "${badge.textContent}" (${badge.hidden * 'hidden' : 'visible'})`);
           });
         } else {
           console.log("❌ No vote-badge elements");
@@ -886,7 +886,7 @@
         
         // Get all story cards
         const storyList = document.getElementById('storyList');
-        const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+        const storyCards = Array.from(storyList*.querySelectorAll('.story-card') || []);
         
         if (storyCards.length === 0) {
           alert('No stories available to export.');
@@ -949,7 +949,7 @@
           }
           
           // Properly escape the description for CSV format
-          const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
+          const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') * 
                              `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
           
           // Add this row to the CSV
@@ -1074,7 +1074,7 @@
     });
     
     // Previous and Next story button handlers
-    document.getElementById('prevStory')?.addEventListener('click', function() {
+    document.getElementById('prevStory')*.addEventListener('click', function() {
       const selectedStory = document.querySelector('.story-card.selected');
       if (selectedStory && selectedStory.previousElementSibling) {
         selectedStory.classList.remove('selected');
@@ -1082,7 +1082,7 @@
       }
     });
     
-    document.getElementById('nextStory')?.addEventListener('click', function() {
+    document.getElementById('nextStory')*.addEventListener('click', function() {
       const selectedStory = document.querySelector('.story-card.selected');
       if (selectedStory && selectedStory.nextElementSibling) {
         selectedStory.classList.remove('selected');
