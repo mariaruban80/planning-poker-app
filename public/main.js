@@ -700,14 +700,18 @@ function setupVoteCardsDrag() {
 /**
  * Handle socket messages
  */
-function handleSocketMessage(eventType, data) {
+function handleSocketMessage(message) {
+  // Extract type and data from the message object
+  const eventType = message.type;
+  const data = message.users || message.storyIndex || message.vote || message.votes || message;
+  
   console.log(`[SOCKET] Received ${eventType}:`, data);
   
   switch(eventType) {
     case 'userList':
       // Update the user list when server sends an updated list
-      if (Array.isArray(data)) {
-        updateUserList(data);
+      if (Array.isArray(message.users)) {
+        updateUserList(message.users);
       }
       break;
       
@@ -720,13 +724,14 @@ function handleSocketMessage(eventType, data) {
       break;
       
     case 'voteReceived':
+    case 'voteUpdate':
       // Handle vote received
-      if (data.userId && data.vote) {
+      if (message.userId && message.vote) {
         if (!votesPerStory[currentStoryIndex]) {
           votesPerStory[currentStoryIndex] = {};
         }
-        votesPerStory[currentStoryIndex][data.userId] = data.vote;
-        updateVoteVisuals(data.userId, votesRevealed[currentStoryIndex] ? data.vote : '✓', true);
+        votesPerStory[currentStoryIndex][message.userId] = message.vote;
+        updateVoteVisuals(message.userId, votesRevealed[currentStoryIndex] ? message.vote : '✓', true);
       }
       break;
       
@@ -746,9 +751,34 @@ function handleSocketMessage(eventType, data) {
       votesRevealed[currentStoryIndex] = false;
       resetAllVoteVisuals();
       break;
+      
+    case 'storyVotes':
+      // Handle received votes for a specific story
+      if (message.storyIndex !== undefined && message.votes) {
+        votesPerStory[message.storyIndex] = message.votes;
+        // Update UI if this is the current story and votes are revealed
+        if (message.storyIndex === currentStoryIndex && votesRevealed[currentStoryIndex]) {
+          applyVotesToUI(message.votes, false);
+        }
+      }
+      break;
+      
+    case 'syncCSVData':
+      // Handle CSV data sync
+      if (Array.isArray(message.csvData)) {
+        csvData = message.csvData;
+        displayCSVData(csvData);
+        
+        // Reset voting state when new CSV is loaded
+        votesPerStory = {};
+        votesRevealed = {};
+        currentStoryIndex = 0;
+        
+        renderCurrentStory();
+      }
+      break;
   }
 }
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   let roomId = getRoomIdFromURL();
