@@ -52,6 +52,7 @@ function initializeApp(roomId) {
   setupStoryNavigation();
   setupVoteCardsDrag();
   setupRevealResetButtons();
+  setupAddTicketButton(); // Add this new function
   
   // Add CSS for new layout
   addNewLayoutStyles();
@@ -210,6 +211,95 @@ function addNewLayoutStyles() {
 }
 
 /**
+ * Setup Add Ticket button
+ */
+function setupAddTicketButton() {
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (addTicketBtn) {
+    addTicketBtn.addEventListener('click', () => {
+      const storyText = prompt("Enter the story details:");
+      if (storyText && storyText.trim()) {
+        // Create ticket data
+        const ticketData = {
+          id: `story_${Date.now()}`,
+          text: storyText.trim()
+        };
+        
+        // Emit to server for synchronization
+        if (socket) {
+          socket.emit('addTicket', ticketData);
+        }
+        
+        // Add ticket locally
+        addTicketToUI(ticketData, true);
+      }
+    });
+  }
+}
+
+/**
+ * Add a ticket to the UI
+ * @param {Object} ticketData - Ticket data { id, text }
+ * @param {boolean} selectAfterAdd - Whether to select the ticket after adding
+ */
+function addTicketToUI(ticketData, selectAfterAdd = false) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  const storyList = document.getElementById('storyList');
+  if (!storyList) return;
+  
+  // Check if this ticket already exists (to avoid duplicates)
+  const existingTicket = document.getElementById(ticketData.id);
+  if (existingTicket) return;
+  
+  // Create new story card
+  const storyCard = document.createElement('div');
+  storyCard.className = 'story-card';
+  storyCard.id = ticketData.id;
+  
+  // Set data index attribute (for selection)
+  const newIndex = storyList.children.length;
+  storyCard.dataset.index = newIndex;
+  
+  // Create the story title element
+  const storyTitle = document.createElement('div');
+  storyTitle.className = 'story-title';
+  storyTitle.textContent = ticketData.text;
+  
+  // Add to DOM
+  storyCard.appendChild(storyTitle);
+  storyList.appendChild(storyCard);
+  
+  // Add click event listener
+  storyCard.addEventListener('click', () => {
+    selectStory(newIndex);
+  });
+  
+  // Select the new story if requested
+  if (selectAfterAdd) {
+    selectStory(newIndex);
+  }
+  
+  // Add this ticket to csvData
+  if (!Array.isArray(csvData)) {
+    csvData = [];
+  }
+  csvData.push([ticketData.text]);
+  
+  // Check for stories message
+  const noStoriesMessage = document.getElementById('noStoriesMessage');
+  if (noStoriesMessage) {
+    noStoriesMessage.style.display = 'none';
+  }
+  
+  // Enable planning cards if they were disabled
+  document.querySelectorAll('#planningCards .card').forEach(card => {
+    card.classList.remove('disabled');
+    card.setAttribute('draggable', 'true');
+  });
+}
+
+/**
  * Setup reveal and reset buttons
  */
 function setupRevealResetButtons() {
@@ -300,6 +390,7 @@ function displayCSVData(data) {
     storyItem.classList.add('story-card');
     storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
     storyItem.dataset.index = index;
+    storyItem.id = `story_csv_${index}`;
 
     storyItem.addEventListener('click', () => {
       selectStory(index);
@@ -694,7 +785,7 @@ function setupVoteCardsDrag() {
 }
 
 /**
- * Handle socket messages - modified to properly handle story selection sync
+ * Handle socket messages - updated to handle add ticket events
  */
 function handleSocketMessage(message) {
   const eventType = message.type;
@@ -795,6 +886,15 @@ function handleSocketMessage(message) {
           renderCurrentStory();
           resetOrRestoreVotes(currentStoryIndex);
         }
+      }
+      break;
+
+    case 'addTicket':
+      // Handle new ticket added by another user
+      if (message.ticketData) {
+        console.log('[SOCKET] New ticket received:', message.ticketData);
+        // Add ticket to UI without selecting it (to avoid loops)
+        addTicketToUI(message.ticketData, false);
       }
       break;
   }
