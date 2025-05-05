@@ -131,6 +131,31 @@
       cursor: pointer;
       font-size: 13px;
     }
+.start-new-game {
+  background-color: #3b82f6; /* Bright blue color similar to the image */
+  color: white;
+  padding: 15px 20px;
+  border: none;
+  border-radius: 12px; /* Rounded corners */
+  font-size: 18px;
+  font-weight: 600; /* Semi-bold text */
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: background-color 0.2s ease;
+  margin-top: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.start-new-game:hover {
+  background-color: #2563eb; /* Slightly darker blue on hover */
+}
+
+.start-new-game:active {
+  background-color: #1d4ed8; /* Even darker blue when clicked */
+  transform: translateY(1px); /* Slight push down effect */
+}
+    
   </style>
 </head>
 <body>
@@ -184,7 +209,8 @@
       </div>
 
 
-  <button onclick="createRoom()">Create</button>
+
+      <button class="start-new-game" onclick="createRoom()">Start new game</button>
     </div>
   </main>
 <script>
