@@ -106,7 +106,7 @@ function handleSocketMessage(message) {
       // Update UI if this is for the current story
       if (message.storyIndex === currentStoryIndex) {
         // Show a checkmark instead of the actual vote unless revealed
-        const voteToShow = votesRevealed[currentStoryIndex] ? message.vote : '✓';
+        const voteToShow = votesRevealed[currentStoryIndex] * message.vote : '✓';
         updateVoteVisuals(message.userId, voteToShow, true);
       }
       break;
@@ -156,7 +156,7 @@ function applyVotesToUI(votes, masked = true) {
   
   // Apply each vote
   Object.entries(votes).forEach(([userId, vote]) => {
-    updateVoteVisuals(userId, masked ? '✓' : vote, true);
+    updateVoteVisuals(userId, masked * '✓' : vote, true);
   });
 }
 
@@ -164,10 +164,10 @@ function applyVotesToUI(votes, masked = true) {
  * Reset all vote visuals to default state
  */
 function resetAllVoteVisuals() {
-  // Reset all vote badges to "?"
+  // Reset all vote badges to "*"
   const badges = document.querySelectorAll('.vote-badge');
   badges.forEach(badge => {
-    badge.textContent = '?';
+    badge.textContent = '*';
   });
   
   // Reset avatar backgrounds
@@ -203,7 +203,7 @@ function resetOrRestoreVotes(storyIndex) {
     const isRevealed = votesRevealed[storyIndex] === true;
     
     Object.entries(savedVotes).forEach(([userId, vote]) => {
-      updateVoteVisuals(userId, isRevealed ? vote : '✓', true);
+      updateVoteVisuals(userId, isRevealed * vote : '✓', true);
     });
   }
 }
@@ -587,7 +587,7 @@ function updateUserList(users) {
     userEntry.innerHTML = `
       <img src="${generateAvatarUrl(user.name)}" class="avatar" alt="${user.name}">
       <span class="username">${user.name}</span>
-      <span class="vote-badge">?</span>
+      <span class="vote-badge">*</span>
     `;
     userListContainer.appendChild(userEntry);
   });
@@ -684,7 +684,7 @@ function createAvatarContainer(user) {
   avatarContainer.setAttribute('data-user-id', user.id);
   
   // Check if there's an existing vote for this user in the current story
-  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  const existingVote = votesPerStory[currentStoryIndex]*.[user.id];
   if (existingVote) {
     avatarContainer.classList.add('has-voted');
   }
@@ -703,7 +703,7 @@ function createVoteCardSpace(user) {
   // Add vote badge inside the card space
   const voteBadge = document.createElement('span');
   voteBadge.classList.add('vote-badge');
-  voteBadge.textContent = '?';
+  voteBadge.textContent = '*';
   voteCard.appendChild(voteBadge);
   
   // Make it a drop target for vote cards
@@ -724,14 +724,14 @@ function createVoteCardSpace(user) {
     votesPerStory[currentStoryIndex][userId] = vote;
     
     // Update UI - show checkmark if votes aren't revealed
-    updateVoteVisuals(userId, votesRevealed[currentStoryIndex] ? vote : '✓', true);
+    updateVoteVisuals(userId, votesRevealed[currentStoryIndex] * vote : '✓', true);
   });
   
   // Check if there's an existing vote for this user in the current story
-  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  const existingVote = votesPerStory[currentStoryIndex]*.[user.id];
   if (existingVote) {
     voteCard.classList.add('has-vote');
-    voteBadge.textContent = votesRevealed[currentStoryIndex] ? existingVote : '✓';
+    voteBadge.textContent = votesRevealed[currentStoryIndex] * existingVote : '✓';
   }
   
   return voteCard;
@@ -816,7 +816,7 @@ function setupStoryNavigation() {
  * Generate avatar URL
  */
 function generateAvatarUrl(name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&rounded=true`;
+  return `https://ui-avatars.com/api/*name=${encodeURIComponent(name)}&background=random&rounded=true`;
 }
 
 /**
