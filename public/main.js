@@ -1,10 +1,16 @@
-// Extract user name from URL
-const urlParams = new URLSearchParams(window.location.search);
-let userName = urlParams.get('name');
+// Get username from sessionStorage or prompt if not set
+let userName = sessionStorage.getItem('userName');
 
 if (!userName || userName.trim() === "") {
   userName = prompt("Enter your name");
+  if (userName) {
+    sessionStorage.setItem('userName', userName);
+  } else {
+    alert("Username is required!");
+    location.reload(); // Retry flow
+  }
 }
+
 
 // Now we assume roomId is already generated or parsed elsewhere
 // Join room logic must use the userName variable
@@ -27,11 +33,7 @@ let votesRevealed = {};     // Track which stories have revealed votes { storyIn
  * Extract room ID from URL parameters
  */
 function getRoomIdFromURL() {
-  
-  while (!userName) {
-    userName = prompt("Enter your username:");
-    if (!userName) alert("Username is required!");
-  }
+ 
 
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   setupCSVUploader();
