@@ -671,10 +671,101 @@
       font-style: italic;
       max-width: 80%;
     }
+    
+    /* Username modal animation */
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      50% { transform: translateX(10px); }
+      75% { transform: translateX(-10px); }
+      100% { transform: translateX(0); }
+    }
+    
+    /* Username modal styling */
+    #usernameModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #usernameModal .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    
+    #usernameModal h3 {
+      color: #673ab7;
+      margin-top: 0;
+    }
+    
+    #usernameModal p {
+      color: #555;
+      margin-bottom: 20px;
+    }
+    
+    #usernameInput {
+      width: 100%;
+      padding: 12px;
+      margin: 15px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      box-sizing: border-box;
+      transition: all 0.3s;
+    }
+    
+    #usernameInput:focus {
+      border-color: #673ab7;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2);
+    }
+    
+    #joinSessionBtn {
+      background-color: #673ab7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.2s;
+      min-width: 150px;
+    }
+    
+    #joinSessionBtn:hover {
+      background-color: #5c33a4;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
 <div class="banner">Planning Poker</div>
+
+<!-- Custom Username Modal -->
+<div id="usernameModal">
+  <div class="modal-content">
+    <h3>Welcome to Planning Poker</h3>
+    <p>Please enter your name to join the session:</p>
+    <input type="text" id="usernameInput" placeholder="Your name">
+    <div class="button-group">
+      <button id="joinSessionBtn">Join Session</button>
+    </div>
+  </div>
+</div>
+
 <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
 <div id="inviteModalCustom">
 <div class="modal-content">
@@ -1119,8 +1210,67 @@
       });
     });
     
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
+    // Custom username modal function
+    function showUsernameModal(callback) {
+      const modal = document.getElementById("usernameModal");
+      const input = document.getElementById("usernameInput");
+      const joinBtn = document.getElementById("joinSessionBtn");
+      
+      // Show the modal
+      modal.style.display = "flex";
+      
+      // Focus the input field
+      setTimeout(() => input.focus(), 100);
+      
+      // Handle enter key
+      input.addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+          submitUsername();
+        }
+      });
+      
+      // Handle button click
+      joinBtn.onclick = submitUsername;
+      
+      function submitUsername() {
+        const username = input.value.trim();
+        if (username) {
+          modal.style.display = "none";
+          callback(username);
+        } else {
+          input.style.borderColor = "#ff3e3e";
+          input.placeholder = "Name is required";
+          
+          // Add shake animation
+          input.style.animation = "shake 0.5s";
+          setTimeout(() => {
+            input.style.animation = "";
+          }, 500);
+        }
+      }
+    }
+    
+    // Override the initializeApp function from main.js
+    window.addEventListener('DOMContentLoaded', function() {
+      // Store reference to the original function
+      const originalInitializeApp = window.initializeApp;
+      
+      // Override it with our custom version that uses the modal
+      window.initializeApp = function(roomId) {
+        showUsernameModal(function(userName) {
+          // Once we have the username, initialize socket with it
+          const socket = window.initializeWebSocket(roomId, userName, window.handleSocketMessage);
+          
+          // Continue with the rest of initialization
+          window.setupCSVUploader();
+          window.setupInviteButton();
+          window.setupStoryNavigation();
+          window.setupVoteCardsDrag();
+          window.setupRevealResetButtons();
+          window.addNewLayoutStyles();
+        });
+      };
+      
       // Check for stories
       checkForStories();
       
@@ -1159,35 +1309,5 @@
       });
     }
   </script>
-
-<script>
-  const inviteModal = document.getElementById("newInviteModal");
-  const openInviteBtn = document.getElementById("openInviteBtn");
-  const closeInviteModal = document.getElementById("closeInviteModal");
-  const copyInviteUrl = document.getElementById("copyInviteUrl");
-  const inviteUrlInput = document.getElementById("inviteUrl");
-
-  openInviteBtn.onclick = function() {
-    inviteModal.style.display = "block";
-  };
-
-  closeInviteModal.onclick = function() {
-    inviteModal.style.display = "none";
-  };
-
-  copyInviteUrl.onclick = function() {
-    inviteUrlInput.select();
-    inviteUrlInput.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("Invite URL copied!");
-    inviteModal.style.display = "none";
-  };
-
-  window.onclick = function(event) {
-    if (event.target == inviteModal) {
-      inviteModal.style.display = "none";
-    }
-  };
-</script>
 </body>
 </html>
