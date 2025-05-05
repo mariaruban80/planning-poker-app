@@ -1190,15 +1190,25 @@
   };
 </script>
 
-<script>
-  let userName = sessionStorage.getItem("userName");
-  if (!userName || userName.trim() === "") {
-    userName = prompt("Enter your name");
-    sessionStorage.setItem("userName", userName);
-  }
+  <script src="/socket.io/socket.io.js"></script>
+    <script>
+      let userName = sessionStorage.getItem("userName");
 
-  // Make sure this userName is used in your socket.emit('joinRoom') logic
-</script>
+      if (!userName) {
+        userName = prompt("Enter your name:");
+        if (userName) {
+          sessionStorage.setItem("userName", userName);
+        } else {
+          alert("A name is required to proceed.");
+          window.location.href = "main.html";
+        }
+      }
+
+      // Make the username available globally for your socket logic
+      window.userName = userName;
+    </script>
+    <script src="socket.js"></script>
+    <script src="main.js"></script>
 
 </body>
 </html>
