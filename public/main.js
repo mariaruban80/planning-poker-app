@@ -13,6 +13,8 @@ let socket = null;
 let csvDataLoaded = false;
 let votesPerStory = {};     // Track votes for each story { storyIndex: { userId: vote, ... }, ... }
 let votesRevealed = {};     // Track which stories have revealed votes { storyIndex: boolean }
+let manuallyAddedTickets = []; // Track tickets added manually
+let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 
 /**
  * Extract room ID from URL parameters
@@ -52,7 +54,7 @@ function initializeApp(roomId) {
   setupStoryNavigation();
   setupVoteCardsDrag();
   setupRevealResetButtons();
-  setupAddTicketButton(); // Add this new function
+  setupAddTicketButton();
   
   // Add CSS for new layout
   addNewLayoutStyles();
@@ -232,6 +234,9 @@ function setupAddTicketButton() {
         
         // Add ticket locally
         addTicketToUI(ticketData, true);
+        
+        // Store in manually added tickets
+        manuallyAddedTickets.push(ticketData);
       }
     });
   }
@@ -280,11 +285,18 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     selectStory(newIndex);
   }
   
-  // Add this ticket to csvData
+  // Add this ticket to csvData if not already there
   if (!Array.isArray(csvData)) {
     csvData = [];
   }
-  csvData.push([ticketData.text]);
+  
+  // Check if this ticket is already in csvData
+  const existingIndex = csvData.findIndex(row => 
+    row.length > 0 && row[0] === ticketData.text);
+  
+  if (existingIndex === -1) {
+    csvData.push([ticketData.text]);
+  }
   
   // Check for stories message
   const noStoriesMessage = document.getElementById('noStoriesMessage');
@@ -297,6 +309,40 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     card.classList.remove('disabled');
     card.setAttribute('draggable', 'true');
   });
+}
+
+/**
+ * Process multiple tickets at once (used when receiving all tickets from server)
+ * @param {Array} tickets - Array of ticket data objects
+ */
+function processAllTickets(tickets) {
+  if (!Array.isArray(tickets) || tickets.length === 0) return;
+  
+  console.log('[INFO] Processing all tickets received from server:', tickets.length);
+  
+  // Clear the story list first
+  const storyList = document.getElementById('storyList');
+  if (storyList) {
+    storyList.innerHTML = '';
+  }
+  
+  // Reset csvData
+  csvData = [];
+  
+  // Add all tickets to the UI
+  tickets.forEach((ticket, index) => {
+    // Only add if it has required properties
+    if (ticket && ticket.id && ticket.text) {
+      // Add to UI without selecting
+      addTicketToUI(ticket, false);
+    }
+  });
+  
+  // Select first story if any
+  if (tickets.length > 0) {
+    currentStoryIndex = 0;
+    selectStory(0, false); // Don't emit to avoid loops
+  }
 }
 
 /**
@@ -402,8 +448,10 @@ function displayCSVData(data) {
 
 /**
  * Select a story by index
+ * @param {number} index - Story index to select
+ * @param {boolean} emitToServer - Whether to emit to server (default: true)
  */
-function selectStory(index) {
+function selectStory(index, emitToServer = true) {
   console.log('[UI] Story selected by user:', index);
   
   // Update UI first for responsiveness
@@ -423,8 +471,8 @@ function selectStory(index) {
   // Reset or restore vote badges for the current story
   resetOrRestoreVotes(index);
   
-  // Notify server about selection
-  if (socket) {
+  // Notify server about selection if requested
+  if (emitToServer && socket) {
     console.log('[EMIT] Broadcasting story selection:', index);
     socket.emit('storySelected', { storyIndex: index });
     
@@ -595,6 +643,17 @@ function updateUserList(users) {
   gridLayout.appendChild(bottomAvatarRow);
   
   userCircleContainer.appendChild(gridLayout);
+  
+  // After updating users, check if we need to request tickets
+  if (!hasRequestedTickets && users.length > 0) {
+    setTimeout(() => {
+      if (socket && socket.connected) {
+        console.log('[INFO] Requesting all tickets after user list update');
+        socket.emit('requestAllTickets');
+        hasRequestedTickets = true;
+      }
+    }, 500);
+  }
 }
 
 /**
@@ -785,7 +844,7 @@ function setupVoteCardsDrag() {
 }
 
 /**
- * Handle socket messages - updated to handle add ticket events
+ * Handle socket messages
  */
 function handleSocketMessage(message) {
   const eventType = message.type;
@@ -864,7 +923,7 @@ function handleSocketMessage(message) {
       break;
       
     case 'storySelected':
-      // FIX: Handle story selection from another user
+      // Handle story selection from another user
       if (message.storyIndex !== undefined) {
         console.log('[SOCKET] Story selected by another user:', message.storyIndex);
         
@@ -896,6 +955,25 @@ function handleSocketMessage(message) {
         // Add ticket to UI without selecting it (to avoid loops)
         addTicketToUI(message.ticketData, false);
       }
+      break;
+      
+    case 'allTickets':
+      // Handle receiving all tickets (used when joining a room)
+      if (Array.isArray(message.tickets)) {
+        console.log('[SOCKET] Received all tickets:', message.tickets.length);
+        processAllTickets(message.tickets);
+      }
+      break;
+      
+    case 'connect':
+      // When connection is established, request tickets
+      setTimeout(() => {
+        if (socket && socket.connected && !hasRequestedTickets) {
+          console.log('[SOCKET] Connected, requesting all tickets');
+          socket.emit('requestAllTickets');
+          hasRequestedTickets = true;
+        }
+      }, 500);
       break;
   }
 }
