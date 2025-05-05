@@ -1261,11 +1261,13 @@
       setTimeout(() => input.focus(), 100);
       
       // Handle enter key
-      input.addEventListener("keypress", function(event) {
+      function handleKeyPress(event) {
         if (event.key === "Enter") {
           submitUsername();
         }
-      });
+      }
+      
+      input.addEventListener("keypress", handleKeyPress);
       
       // Handle button click
       joinBtn.onclick = submitUsername;
@@ -1273,7 +1275,13 @@
       function submitUsername() {
         const username = input.value.trim();
         if (username) {
+          // Clean up event listeners
+          input.removeEventListener("keypress", handleKeyPress);
+          
+          // Hide the modal
           modal.style.display = "none";
+          
+          // Call the callback with the username
           callback(username);
         } else {
           input.style.borderColor = "#ff3e3e";
@@ -1346,54 +1354,6 @@
         subtree: true
       });
     }
-  // Custom username modal function
-  function showUsernameModal(callback) {
-    const modal = document.getElementById("usernameModal");
-    const input = document.getElementById("usernameInput");
-    const joinBtn = document.getElementById("joinSessionBtn");
-    
-    // Show the modal
-    modal.style.display = "flex";
-    
-    // Focus the input field
-    setTimeout(() => input.focus(), 100);
-    
-    // Handle enter key
-    function handleKeyPress(event) {
-      if (event.key === "Enter") {
-        submitUsername();
-      }
-    }
-    
-    input.addEventListener("keypress", handleKeyPress);
-    
-    // Handle button click
-    joinBtn.onclick = submitUsername;
-    
-    function submitUsername() {
-      const username = input.value.trim();
-      if (username) {
-        // Clean up event listeners
-        input.removeEventListener("keypress", handleKeyPress);
-        
-        // Hide the modal
-        modal.style.display = "none";
-        
-        // Call the callback with the username
-        callback(username);
-      } else {
-        input.style.borderColor = "#ff3e3e";
-        input.placeholder = "Name is required";
-        
-        // Add shake animation
-        input.style.animation = "shake 0.5s";
-        setTimeout(() => {
-          input.style.animation = "";
-        }, 500);
-      }
-    }
-  }
-    
   </script>
 </body>
 </html>
