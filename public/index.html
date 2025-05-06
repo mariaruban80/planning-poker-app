@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Planning Poker Interactive</title>
 <style>
-    body { 
+      body { 
       background: white;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
@@ -796,18 +796,18 @@ header {
     <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
     <button id="logOffBtn" class="btn btn-danger">LOG OFF</button>     
   </div>
-</header>
-<!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
+        <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
 <div id="inviteModalCustom">
-<div class="modal-content">
-<h3>Invite Link</h3>
-<input id="inviteLinkCustom" readonly="" type="text"/>
-<div class="button-group">
-<button onclick="copyInviteLinkCustom()">Copy Link</button>
-<button onclick="hideInviteModalCustom()">Close</button>
+  <div class="modal-content">
+    <h3>Invite Link</h3>
+    <input type="text" id="inviteLinkCustom" readonly>
+    <div class="button-group">
+      <button onclick="copyInviteLinkCustom()">Copy Link</button>
+      <button onclick="hideInviteModalCustom()">Close</button>
+    </div>
+  </div>
 </div>
-</div>
-</div>
+</header>
 <!-- Updated Upload Section - moved to right side as per screenshot -->
 <div class="upload-section">
 <div class="upload-right">
@@ -1330,9 +1330,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       // Setup invite button
-      const inviteBtn = document.getElementById('inviteButton');
-      if (inviteBtn) {
-        inviteBtn.addEventListener('click', showInviteModalCustom);
+      const inviteButton  = document.getElementById('inviteButton');
+      if (inviteButton ) {
+        inviteButton .addEventListener('click', showInviteModalCustom);
       }
       
       // Hide original modals
