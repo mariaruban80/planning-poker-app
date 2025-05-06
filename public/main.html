@@ -49,11 +49,12 @@
       color: #333;
     }
 
-    .nav-links button {
+    .nav-btn {
       border: none;
       background: none;
       font-size: 14px;
       cursor: pointer;
+      padding: 5px 10px;
     }
 
     .nav-icons img {
@@ -69,15 +70,16 @@
     }
 
     .session-box {
-      background: white;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       width: 400px;
+      text-align: center;
     }
 
     .session-box h2 {
       margin-top: 0;
+      font-size: 28px;
+      margin-bottom: 30px;
+      color: #333;
     }
 
     .form-group {
@@ -86,14 +88,17 @@
 
     .form-group input {
       width: 100%;
-      padding: 8px;
-      font-size: 14px;
+      padding: 12px;
+      font-size: 16px;
       margin-top: 5px;
       box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 5px;
     }
 
     .radio-group {
       margin-bottom: 10px;
+      text-align: left;
     }
 
     .action-button {
@@ -101,7 +106,7 @@
       color: white;
       padding: 15px 20px;
       border: none;
-      border-radius: 12px;
+      border-radius: 25px;
       font-size: 18px;
       font-weight: 600;
       cursor: pointer;
@@ -110,6 +115,10 @@
       transition: background-color 0.2s ease;
       margin-top: 20px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .join-button {
+      background-color: #5c9ce6;
     }
 
     .action-button:hover {
@@ -123,6 +132,7 @@
 
     .checkbox {
       margin: 10px 0;
+      text-align: left;
     }
 
     .nav-icons {
@@ -142,6 +152,18 @@
     #joinSessionBox {
       display: none;
     }
+
+    /* Create session specific styles */
+    #createSessionBox {
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      text-align: left;
+    }
+
+    #createSessionBox h2 {
+      text-align: left;
+    }
   </style>
 </head>
 <body>
@@ -152,11 +174,14 @@
     </div>
     <div class="nav-links">
       <a href="#">WHAT IS PLANNING POKER?</a>
-      
-      <a href="#">ABOUT US</a>
-      
-      <a href="#" id="joinSessionBtn"><button>🧭 JOIN SESSION</button></a>
-     
+      <a href="#">GUIDE</a>
+      <a href="#">EXAMPLES</a>
+      <button id="newSessionBtn" class="nav-btn">➕ NEW SESSION</button>
+      <button id="joinSessionBtn" class="nav-btn">🧭 JOIN SESSION</button>
+      <div class="nav-icons">
+        <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" />
+        <div class="dropdown">US</div>
+      </div>
     </div>
   </header>
 
@@ -191,31 +216,30 @@
       <h2>Join a Session</h2>
       
       <div class="form-group">
-        <label>Session ID *</label>
-        <input type="text" id="sessionIdInput" placeholder="Session ID" />
+        <input type="text" id="sessionIdInput" placeholder="Session ID *" />
       </div>
       
       <div class="form-group">
-        <label>Your Name *</label>
-        <input type="text" id="joinNameInput" placeholder="Your Name" />
+        <input type="text" id="joinNameInput" placeholder="Your Name *" />
       </div>
       
-      <button class="action-button" onclick="joinRoom()">JOIN</button>
+      <button class="action-button join-button" onclick="joinRoom()">JOIN</button>
     </div>
   </main>
   
   <script>
-    // Add event listeners to the navigation buttons
-    document.getElementById("newSessionBtn").addEventListener("click", function(e) {
-      e.preventDefault();
-      document.getElementById("createSessionBox").style.display = "block";
-      document.getElementById("joinSessionBox").style.display = "none";
-    });
-    
-    document.getElementById("joinSessionBtn").addEventListener("click", function(e) {
-      e.preventDefault();
-      document.getElementById("createSessionBox").style.display = "none";
-      document.getElementById("joinSessionBox").style.display = "block";
+    // Add event listeners when the DOM is fully loaded
+    document.addEventListener("DOMContentLoaded", function() {
+      // Setup event listeners for the navigation buttons
+      document.getElementById("newSessionBtn").addEventListener("click", function() {
+        document.getElementById("createSessionBox").style.display = "block";
+        document.getElementById("joinSessionBox").style.display = "none";
+      });
+      
+      document.getElementById("joinSessionBtn").addEventListener("click", function() {
+        document.getElementById("createSessionBox").style.display = "none";
+        document.getElementById("joinSessionBox").style.display = "block";
+      });
     });
     
     function createRoom() {
