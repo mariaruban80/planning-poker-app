@@ -18,7 +18,7 @@
       align-items: center;
       padding: 10px 20px;
       background: white;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid #e5e7eb;
     }
 
     .logo {
@@ -33,7 +33,7 @@
     }
 
     .logo span {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
     }
 
@@ -46,209 +46,186 @@
 
     .nav-links a {
       text-decoration: none;
-      color: #333;
+      color: #6b7280;
       padding: 5px;
     }
 
-    .nav-btn {
-      border: none;
-      background: none;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 5px 10px;
-    }
-
-    .session-btn {
-      background-color: transparent;
-      border: none;
-      border-radius: 5px;
-      padding: 8px 12px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: bold;
+    .session-button {
       display: flex;
       align-items: center;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
     }
 
-    .new-session-btn {
-      background-color: #f0f0f0;
-      color: #333;
+    .new-session {
+      background-color: #f3f4f6;
+      color: #111827;
     }
 
-    .join-session-btn {
-      color: #333;
+    .new-session:before {
+      content: "+";
+      margin-right: 4px;
+      font-weight: bold;
     }
 
-    .nav-icons img {
+    .join-session {
+      background-color: transparent;
+      color: #111827;
+    }
+
+    .join-session:before {
+      content: "🧭";
+      margin-right: 4px;
+      font-size: 14px;
+    }
+
+    .github-icon {
       width: 20px;
       height: 20px;
-      cursor: pointer;
+      margin-right: 10px;
+    }
+
+    .country-selector {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-weight: 500;
+      font-size: 14px;
     }
 
     main {
       display: flex;
-      padding: 40px;
-      justify-content: center;
-      align-items: flex-start;
-      max-width: 1200px;
-      margin: 0 auto;
+      height: calc(100vh - 60px);
+      overflow: hidden;
     }
 
     .image-container {
       flex: 1;
-      text-align: center;
-      max-width: 60%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      max-width: 50%;
     }
 
     .image-container img {
       max-width: 100%;
-      height: auto;
+      max-height: 80vh;
+      object-fit: contain;
     }
 
     .forms-container {
       flex: 1;
-      margin-left: 40px;
-      max-width: 400px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
     }
 
     .session-box {
       background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+      width: 400px;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-      width: 100%;
     }
 
     .session-box h2 {
       margin-top: 0;
       font-size: 24px;
-      margin-bottom: 20px;
-      color: #333;
+      margin-bottom: 24px;
+      color: #111827;
       font-weight: 600;
     }
 
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 20px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 5px;
       font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: #374151;
     }
 
     .form-group input {
       width: 100%;
-      padding: 10px;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
       font-size: 14px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
       box-sizing: border-box;
     }
 
     .radio-group {
-      margin-bottom: 8px;
       display: flex;
       align-items: center;
-      font-size: 14px;
+      margin-bottom: 8px;
     }
 
     .radio-group input[type="radio"] {
       margin-right: 8px;
     }
 
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+    }
+
+    .checkbox-container input {
+      margin-right: 8px;
+    }
+
     .action-button {
       background-color: #3b82f6;
       color: white;
-      padding: 12px 20px;
+      padding: 12px;
       border: none;
       border-radius: 25px;
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       width: 100%;
       text-align: center;
-      transition: background-color 0.2s ease;
-      margin-top: 20px;
-    }
-
-    .join-button {
-      background-color: #3b82f6;
+      transition: background-color 0.2s;
     }
 
     .action-button:hover {
       background-color: #2563eb;
     }
 
-    .action-button:active {
-      background-color: #1d4ed8;
-      transform: translateY(1px);
-    }
-
-    .checkbox {
-      margin: 10px 0;
-      display: flex;
-      align-items: center;
-      font-size: 14px;
-    }
-
-    .checkbox input {
-      margin-right: 8px;
-    }
-
-    .nav-icons {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-
-    .dropdown {
-      border: 1px solid #ccc;
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: bold;
-    }
-
     #joinSessionBox {
       display: none;
+      text-align: center;
     }
 
-    .plus-icon:before {
-      content: "+";
-      margin-right: 5px;
-      font-size: 16px;
+    #joinSessionBox h2 {
+      text-align: center;
     }
 
-    .location-icon:before {
-      content: "🧭";
-      margin-right: 5px;
-      font-size: 16px;
-    }
-
-    .github-icon {
-      margin-right: 10px;
+    #joinSessionBox .action-button {
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="logo">
-      <img src="spade.png" alt="Planning Poker Logo" />
+      <img src="spade.png" alt="Planning Poker" />
       <span>Planning Poker</span>
     </div>
     <div class="nav-links">
-      <a href="#">WHAT IS PLANNING POKER?</a>
-      <a href="#">GUIDE</a>
-      <a href="#">EXAMPLES</a>
-      <button id="newSessionBtn" class="session-btn new-session-btn"><span class="plus-icon"></span>NEW SESSION</button>
-      <button id="joinSessionBtn" class="session-btn join-session-btn"><span class="location-icon"></span>JOIN SESSION</button>
-      <div class="nav-icons">
-        <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" class="github-icon" />
-        <div class="dropdown">US</div>
+      <a href="#">WHAT IS PLANNING POKER?</a>     
+      <button id="newSessionBtn" class="session-button new-session">NEW SESSION</button>
+      <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
       </div>
-    </div>
   </header>
 
   <main>
@@ -270,14 +247,29 @@
           <input type="text" id="createNameInput" placeholder="Your Name" />
         </div>
 
-        <div class="radio-group"><input type="radio" name="scale" checked /> Fibonacci (0, 1, 2, 3, 5, 8, 13, 21...)</div>
-        <div class="radio-group"><input type="radio" name="scale" /> Short Fibonacci (0, ½, 1, 2, 3...)</div>
-        <div class="radio-group"><input type="radio" name="scale" /> T-Shirt (XXS, XS, S, M...)</div>
-        <div class="radio-group"><input type="radio" name="scale" /> T-Shirt & Numbers</div>
-        <div class="radio-group"><input type="radio" name="scale" /> Custom</div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="fibonacci" checked />
+          <label for="fibonacci">Fibonacci (0, 1, 2, 3, 5, 8, 13, 21...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="shortFib" />
+          <label for="shortFib">Short Fibonacci (0, ½, 1, 2, 3...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="tshirt" />
+          <label for="tshirt">T-Shirt (XXS, XS, S, M...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="tshirtNum" />
+          <label for="tshirtNum">T-Shirt & Numbers</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="custom" />
+          <label for="custom">Custom</label>
+        </div>
 
-        <div class="checkbox">
-          <input type="checkbox" id="allowManage" /> 
+        <div class="checkbox-container">
+          <input type="checkbox" id="allowManage" />
           <label for="allowManage">Allow members to manage session</label>
         </div>
 
@@ -295,7 +287,7 @@
           <input type="text" id="joinNameInput" placeholder="Your Name *" />
         </div>
         
-        <button class="action-button join-button" onclick="joinRoom()">JOIN</button>
+        <button class="action-button" onclick="joinRoom()">JOIN</button>
       </div>
     </div>
   </main>
