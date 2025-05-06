@@ -916,13 +916,16 @@ header {
       });
     }
     function isGuestUser() {
-  // Check if URL contains 'roomId' parameter but not 'host=true'
+ // Check if URL contains 'roomId' parameter but not 'host=true'
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.has('roomId') && !urlParams.has('host');
+  
+  // Consider user a guest if:
+  // 1. There's no 'host' parameter, or
+  // 2. The 'host' parameter is anything other than 'true'
+  return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
 }
 
-// Add this function to your existing script in index.html
-function setupGuestModeOnLoad() {
+  function setupGuestModeOnLoad() {
   if (isGuestUser()) {
     console.log('Guest mode activated - hiding control elements');
     
@@ -939,6 +942,29 @@ function setupGuestModeOnLoad() {
     // Hide add ticket button 
     const addTicketBtn = document.getElementById('addTicketBtn');
     if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+    
+    // Add guest mode indicator if not already present
+    if (!document.getElementById('guestModeIndicator')) {
+      const header = document.querySelector('header');
+      if (header) {
+        const indicator = document.createElement('div');
+        indicator.id = 'guestModeIndicator';
+        indicator.style.marginLeft = 'auto';
+        indicator.style.marginRight = '15px';
+        indicator.style.color = '#673ab7';
+        indicator.style.fontSize = '14px';
+        indicator.style.fontWeight = '500';
+        indicator.textContent = 'Guest Mode';
+        
+        // Insert before the LOG OFF button
+        const logOffBtn = document.getElementById('logOffBtn');
+        if (logOffBtn) {
+          header.insertBefore(indicator, logOffBtn);
+        } else {
+          header.appendChild(indicator);
+        }
+      }
+    }
   }
 }
 
