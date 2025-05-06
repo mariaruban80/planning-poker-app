@@ -66,16 +66,16 @@
     main {
       display: flex;
       padding: 40px;
-      justify-content: center;
       align-items: center;
-      gap: 40px;
       max-width: 1200px;
       margin: 0 auto;
     }
 
     .image-container {
-      flex: 1;
+      flex: 1.5;
       text-align: center;
+      max-width: 60%;
+      padding-right: 40px;
     }
 
     .image-container img {
@@ -85,6 +85,8 @@
 
     .forms-container {
       flex: 1;
+      position: relative;
+      left: -40px; /* Move forms to the left */
     }
 
     .session-box {
@@ -206,7 +208,7 @@
 
   <main>
     <div class="image-container">
-      <img src="planning-poker-image.png" alt="Planning Poker Illustration" />
+      <img src="poker-session.jpg" alt="Planning Poker Session" />
     </div>
     
     <div class="forms-container">
