@@ -751,6 +751,25 @@ header {
   font-weight: 500;
   font-size: 14px;
 }
+ .action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+#logOffBtn {
+  background-color: #dc3545; /* Red color for the log off button */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+#logOffBtn:hover {
+  background-color: #c82333; /* Darker red on hover */
+}
   </style>
 </head>
 <body>
@@ -766,8 +785,7 @@ header {
     <a href="#">EXAMPLES</a>
     <button id="newSessionBtn" class="session-button new-session">NEW SESSION</button>
     <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
-    <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" class="github-icon" />
-    <div class="country-selector">US</div>
+    <button id="logOffBtn" class="btn btn-danger">LOG OFF</button>     
   </div>
 </header>
 <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
@@ -1283,6 +1301,20 @@ header {
       inviteModal.style.display = "none";
     }
   };
+document.getElementById('logOffBtn').addEventListener('click', function() {
+  // Clear all session storage
+  sessionStorage.clear();
+  
+  // Clear all local storage if you're using it
+  // localStorage.clear();
+  
+  // Alert the user that they have been logged out (optional)
+//  alert('You have been logged out');
+  
+  // Redirect to main.html
+  window.location.href = 'main.html';
+});
+    
 </script>
 
   <script src="/socket.io/socket.io.js"></script>
