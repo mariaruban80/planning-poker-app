@@ -341,7 +341,8 @@
       sessionStorage.setItem("isHost", "true");
       
       // Navigate to the room with the generated ID
-      window.location.href = `/index.html?roomId=${roomId}`;
+    //  window.location.href = `/index.html?roomId=${roomId}`;
+      window.location.href = `/index.html?roomId=${roomId}&host=true`;
     }
     
     function joinRoom() {
