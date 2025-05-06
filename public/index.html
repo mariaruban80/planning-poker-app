@@ -1322,21 +1322,23 @@ header {
       // Make the username available globally for your socket logic
       window.userName = userName;
     </script>
-    <script>
-document.getElementById('logOffBtn').addEventListener('click', function() {
-  // Clear all session storage
-  sessionStorage.clear();
-  
-  // Clear all local storage if you're using it
-  // localStorage.clear();
-  
-  // Alert the user that they have been logged out (optional)
- alert('You have been logged out');
-  
-  // Redirect to main.html
-  window.location.href = 'main.html';
-});
-        
+   <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if the button exists before trying to use it
+            const logOffBtn = document.getElementById('logOffBtn');
+            
+            if (logOffBtn) {
+                logOffBtn.addEventListener('click', function() {
+                    // Clear session storage
+                    sessionStorage.clear();
+                    
+                    // Redirect to main.html
+                    window.location.href = 'main.html';
+                });
+            } else {
+                console.error('Log Off button not found - make sure the button exists in HTML');
+            }
+        });
     </script>
     <script src="socket.js"></script>
     <script src="main.js"></script>
