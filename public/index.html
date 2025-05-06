@@ -652,7 +652,14 @@
     .hide-for-guests {
       display: none !important; /* Use !important to override any inline styles */
     }
-
+    /* Add disabled state for buttons */
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+      background-color: #f0f0f0;
+      color: #aaa;
+    }
     /* No stories message */
     .no-stories-message {
       display: none;
@@ -908,18 +915,63 @@ header {
         modal.style.pointerEvents = 'none';
       });
     }
+    function isGuestUser() {
+  // Check if URL contains 'roomId' parameter but not 'host=true'
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('roomId') && !urlParams.has('host');
+}
+
+// Add this function to your existing script in index.html
+function setupGuestModeOnLoad() {
+  if (isGuestUser()) {
+    console.log('Guest mode activated - hiding control elements');
     
+    // Hide control buttons in sidebar
+    const revealVotesBtn = document.getElementById('revealVotesBtn');
+    const resetVotesBtn = document.getElementById('resetVotesBtn');
+    if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
+    if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
+    
+    // Hide upload ticket button
+    const fileInputContainer = document.getElementById('fileInputContainer');
+    if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
+    
+    // Hide add ticket button 
+    const addTicketBtn = document.getElementById('addTicketBtn');
+    if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+  }
+}
+
     // Custom modal functions
     function showInviteModalCustom() {
       // First hide any existing modals from the original app
       hideAllOriginalModals();
-      
+          // Create a guest URL
+      const currentUrl = new URL(window.location.href);
+      const params = new URLSearchParams(currentUrl.search);
+      const roomId = params.get('roomId');
+      // Create clean guest URL (without host parameter)
+      const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
       // Set the link value
-      document.getElementById('inviteLinkCustom').value = window.location.href;
+      //document.getElementById('inviteLinkCustom').value = window.location.href;
+        document.getElementById('inviteLinkCustom').value = guestUrl;
       
       // Show our custom modal
       document.getElementById('inviteModalCustom').style.display = 'flex';
     }
+    // Update the NEW SESSION button to include host parameter
+document.addEventListener('DOMContentLoaded', function() {
+  // Run guest mode setup
+  setupGuestModeOnLoad();
+  
+  // Setup new session button
+  const newSessionBtn = document.getElementById('newSessionBtn');
+  if (newSessionBtn) {
+    newSessionBtn.addEventListener('click', function() {
+      const roomId = 'room-' + Math.floor(Math.random() * 10000);
+      window.location.href = `${window.location.origin}${window.location.pathname}?roomId=${roomId}&host=true`;
+    });
+  }
 
     function hideInviteModalCustom() {
       document.getElementById('inviteModalCustom').style.display = 'none';
