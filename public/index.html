@@ -1394,7 +1394,7 @@ header {
 document.addEventListener('DOMContentLoaded', function() {
   // Check if this is a new user joining via invite link (has roomId but no username)
   const urlParams = new URLSearchParams(window.location.search);
-  const isJoiningViaInvite = urlParams.has('roomId') && !sessionStorage.getItem('username');
+  const isJoiningViaInvite = urlParams.has('roomId') && !sessionStorage.getItem('userName');
   
   if (isJoiningViaInvite) {
     // Prompt for username before connecting
@@ -1402,14 +1402,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (username && username.trim()) {
       // Store the username in session storage
-      sessionStorage.setItem('username', username.trim());
+      sessionStorage.setItem('userName', username.trim());
       console.log(`User joined as: ${username.trim()}`);
       
       // The socket.js script should now use this username when connecting
       // You might need to reload the page or call an initialization function
     } else {
       // If no username provided, either redirect or set a default
-      sessionStorage.setItem('username', 'Guest ' + Math.floor(Math.random() * 1000));
+      sessionStorage.setItem('userName', 'Guest ' + Math.floor(Math.random() * 1000));
       alert('You will join as a guest user.');
     }
   }
