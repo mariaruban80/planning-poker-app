@@ -1,238 +1,220 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Planning Poker Interactive</title>
-<style>
-    body { 
-      background: white;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      line-height: 1.5;
-      color: #333;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Planning Poker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
-    }
-    
-    .container { 
-      display: flex; 
       background: white;
-      min-height: calc(100vh - 140px);
     }
-    
-    .sidebar, .rightbar { 
-      width: 20%; 
-      background: white; 
-      padding: 20px; 
-      overflow-y: auto;
-      border-right: white;
-      border-left-color: white;
-    }
-    
-    .rightbar {
-      border-right: none;
-      border-left: 1px solid white;
-    }
-    
-    .main { 
-      flex: 1; 
-      padding: 20px; 
-      display: flex; 
-      flex-direction: column; 
+
+    header {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
+      padding: 10px 20px;
       background: white;
-      border-right: white;
-      border-left-color: white;
-      box-shadow: none;
+      border-bottom: 1px solid #e5e7eb;
     }
-    
-    .banner { 
-      background-color: #003366; 
-      color: white; 
-      padding: 15px; 
-      text-align: center; 
-      font-size: 24px; 
+
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+
+    .logo img {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+
+    .logo span {
+      font-size: 18px;
       font-weight: bold;
     }
-    
-    /* Updated story card styling to match reference screenshot */
-    .story-card { 
+
+    .nav-links {
       display: flex;
       align-items: center;
-      justify-content: flex-start; /* Left align text */
-      margin-bottom: 10px; 
-      padding: 14px 16px; 
-      background-color: white; 
-      color: #333; /* Dark text color for better readability */
-      border: 1px solid #e0e0e0; /* Light gray border */
-      border-radius: 8px; /* Less rounded corners */
-      cursor: pointer; 
-      transition: all 0.2s ease;
-      font-size: 13px;
-      font-weight: normal; /* Regular font weight */
-      text-align: left; /* Left aligned text */
-      height: auto; /* Allow flexible height */
-      min-height: 42px; /* Minimum height */
-      width: 100%;
-      box-sizing: border-box;
-      white-space: normal;
-      line-height: 1.4;
-    }
-    
-    .story-card:hover {
-      background-color: #f5f5f5; /* Light gray background on hover */
-      border-color: #d0d0d0;
-    }
-    
-    .story-card.selected { 
-      background-color: #e8f0fe; /* Light blue background */
-      border-color: #4285f4; /* Google blue border */
-      color: #333;
-    }
-    
-    .story-card.active { 
-      background-color: #e8f0fe; /* Light blue color for active state */
-      border-color: #4285f4;
-      color: #333;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow to indicate active */
-    }
-    
-    /* Updated button styling to match the ADD TICKET reference */
-    .button { 
-      margin: 10px 0; 
-      padding: 12px 20px; 
-      background-color: white; 
-      color: #673ab7; 
-      border: 1px solid #673ab7; 
-      border-radius: 25px; /* More rounded corners like ADD TICKET */
-      cursor: pointer; 
-      width: 100%;
-      font-weight: 600;
-      transition: all 0.2s;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      gap: 15px;
       font-size: 14px;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #6b7280;
+      padding: 5px;
+    }
+
+    .session-button {
       display: flex;
-      justify-content: center;
       align-items: center;
-      text-align: center;
-      height: 42px; /* Fixed height for all buttons */
-      min-width: 140px; /* Minimum width to ensure buttons look good */
-      box-shadow: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
     }
-    
-    .button:hover { 
-      background-color: #f0e6ff; /* Lighter purple background on hover */
-      color: #673ab7;
+
+    .new-session {
+      background-color: #f3f4f6;
+      color: #111827;
     }
-    
-    /* Controls section with fixed height buttons */
-    .controls-section {
+
+    .new-session:before {
+      content: "+";
+      margin-right: 4px;
+      font-weight: bold;
+    }
+
+    .join-session {
+      background-color: transparent;
+      color: #111827;
+    }
+
+    .join-session:before {
+      content: "🧭";
+      margin-right: 4px;
+      font-size: 14px;
+    }
+
+    .github-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    .country-selector {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    main {
       display: flex;
-      flex-direction: column;
-      margin-top: 15px;
+      height: calc(100vh - 60px);
+      overflow: hidden;
     }
-    
-    .controls-section .button {
-      margin: 5px 0;
-    }
-    
-    /* Navigation button container for parallel display */
-    .navigation-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-      width: 100%;
-    }
-    
-    .navigation-buttons .button {
+
+    .image-container {
       flex: 1;
-      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      max-width: 50%;
     }
-    
-    /* Updated upload section to match reference screenshot */
-    .upload-section { 
-      padding: 15px 20px;
+
+    .image-container img {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+    }
+
+    .forms-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+    }
+
+    .session-box {
       background: white;
-      display: flex;
-      justify-content: flex-end; /* Align to right side */
-      border-bottom: 1px solid transparent;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+      width: 400px;
+      padding: 30px;
     }
-    
-    .upload-right { 
-      display: flex;
-      gap: 10px;
-      width: auto; /* Not full width anymore */
-    }
-    
-    /* Fixed width buttons to match reference screenshot */
-    .invite-button { 
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      font-size: 14px;
+
+    .session-box h2 {
+      margin-top: 0;
+      font-size: 24px;
+      margin-bottom: 24px;
+      color: #111827;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      height: 42px;
-      width: 140px; /* Fixed width */
-      box-sizing: border-box;
-      white-space: nowrap;
     }
 
-    .invite-button:hover {
-      background-color: #f0e6ff;
-    }
-    
-    /* File input container to match reference screenshot */
-    .file-input {
-      display: inline-flex;
-      position: relative;
-      height: 42px;
-      width: 140px; /* Fixed width */
+    .form-group {
+      margin-bottom: 20px;
     }
 
-    /* Fixed file button styling */
-    .file-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
+    .form-group label {
+      display: block;
       font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      height: 42px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: #374151;
+    }
+
+    .form-group input {
       width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
       box-sizing: border-box;
-      white-space: nowrap;
     }
 
-    .file-button:hover {
-      background-color: #f0e6ff;
+    .radio-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
     }
 
-    .file-input input[type="file"] {
-      opacity: 0;
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
+    .radio-group input[type="radio"] {
+      margin-right: 8px;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+    }
+
+    .checkbox-container input {
+      margin-right: 8px;
+    }
+
+    .action-button {
+      background-color: #3b82f6;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: 500;
       cursor: pointer;
-      z-index: 2;
+      width: 100%;
+      text-align: center;
+      transition: background-color 0.2s;
+    }
+
+    .action-button:hover {
+      background-color: #2563eb;
+    }
+
+    #joinSessionBox {
+      display: none;
+      text-align: center;
+    }
+
+    #joinSessionBox h2 {
+      text-align: center;
+    }
+
+    #joinSessionBox .action-button {
+      margin-top: 10px;
     }
     
-    /* Updated modal styling with higher z-index to ensure it appears on top */
+    /* Custom invite modal styling */
     #inviteModalCustom {
       position: fixed;
       top: 0;
@@ -243,10 +225,10 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 99999; /* Extremely high z-index */
     }
     
-    .modal-content {
+    #inviteModalCustom .modal-content {
       background-color: #fff;
       padding: 30px;
       border-radius: 10px;
@@ -255,12 +237,12 @@
       box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
-    .modal-content h3 {
+    #inviteModalCustom .modal-content h3 {
       margin-top: 0;
       color: #333;
     }
     
-    .modal-content input[type="text"] {
+    #inviteModalCustom .modal-content input[type="text"] {
       width: 100%;
       padding: 10px;
       margin: 15px 0;
@@ -270,16 +252,16 @@
       font-size: 14px;
     }
     
-    .modal-content .button-group {
+    #inviteModalCustom .modal-content .button-group {
       display: flex;
       justify-content: center;
       gap: 10px;
       margin-top: 20px;
     }
     
-    .modal-content button {
+    #inviteModalCustom .modal-content button {
       padding: 10px 15px;
-      background: #673ab7;
+      background: #3b82f6;
       color: white;
       border: none;
       border-radius: 4px;
@@ -289,925 +271,236 @@
       transition: all 0.2s;
     }
     
-    .modal-content button:hover {
-      background: #5c33a4;
-    }
-    
-    /* User list styling */
-    .sidebar h3, .rightbar h3 {
-      color: #333;
-      margin-top: 0;
-      padding-bottom: 10px;
-      border-bottom: 1px solid white; /* Changed to white */
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 15px;
-    }
-    
-    #userList {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 0.5rem 0;
-      width: 100%;
-    }
-
-    .user-entry {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: white;
-      border-radius: 30px;
-      padding: 8px 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .user-entry.voted {
-      background: linear-gradient(to right, #e5f7e5, #c1e1c1);
-    }
-
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      object-fit: cover;
-      margin-right: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-    }
-
-    .username {
-      font-weight: 600;
-      font-size: 14px;
-      color: #3b444b;
-      flex: 1;
-    }
-
-    /* Updated - Only change the opacity of question marks but keep original functionality */
-    .vote-badge {
-      background-color: transparent;
-      font-size: 14px; /* Match username font size */
-      font-weight: 600; /* Match username font weight */
-      padding: 2px 8px;
-      min-width: 28px;
-      text-align: center;
-      color: transparent; /* Hide question marks */
-    }
-    
-    /* When votes are revealed, show them with this color */
-    body.votes-revealed .vote-badge {
-      color: #673ab7 !important;
-      font-size: 14px;
-    }
-    
-    /* New poker table layout */
-    .poker-table-layout {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      gap: 20px;
-      padding: 20px 0;
-    }
-    
-    .current-story-display {
-      width: 100%;
-      max-width: 700px;
-      padding: 15px;
-      background-color: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: 600;
-      color: #333;
-    }
-    
-    .avatar-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .vote-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    
-    .avatar-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 70px;
-    }
-    
-    .avatar-circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-      font-size: 18px;
-      background-color: #673ab7;
-      transition: all 0.3s ease;
-    }
-    
-    .has-voted .avatar-circle {
-      border: 2px solid #4CAF50;
-    }
-    
-    .user-name {
-      font-size: 12px;
-      margin-top: 5px;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-      font-weight: 500;
-    }
-    
-    .vote-card-space {
-      width: 40px;
-      height: 90px;
-      border: 1px dashed #ccc;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: white;
-      transition: all 0.2s ease;
-    }
-    
-    .vote-card-space:hover {
-      border-color: #999;
-      background-color: #f9f9f9;
-    }
-    
-    .vote-card-space.has-vote {
-      border-style: solid;
-      border-color: #673ab7;
-      background-color: #f0e6ff;
-    }
-    
-    /* Updated - Make vote card question marks invisible but still functional */
-    .vote-card-space .vote-badge {
-     // font-size: 18px;
-      font-size: 14px;
-      font-weight: bold;
-      color: transparent; /* Make question marks invisible */
-    }
-    
-    /* Show vote values when votes are revealed */
-    body.votes-revealed .vote-card-space .vote-badge {
-      color: #333 !important;
-    }
-    
-    .reveal-button-container {
-      margin: 15px 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-    }
-    
-    .reveal-votes-button {
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      background-color: white;
-      color: #673ab7;
-      border: 2px solid #673ab7;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      letter-spacing: 1px;
-      min-width: 200px;
-      text-transform: uppercase;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    }
-    
-    .reveal-votes-button:hover {
-      background-color: #673ab7;
-      color: white;
-    }
-    
-    /* Vote cards styling */
-    .planning-cards-section {
-      width: 100%;
-      text-align: center;
-      margin-top: 20px;
-      padding: 15px;
-      background-color: white;
-    }
-    
-    .planning-cards-section h3 {
-      color: #333;
-      margin-bottom: 15px;
-      font-size: 18px;
-      font-weight: 600;
-      border-bottom: 1px solid white; /* Changed to white */
-    }
-    
-    .cards {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    
-    .card {
-      width: 55px; /* Decreased size */
-      height: 50px; /* Decreased size */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #e6e6fa; /* Light purple background */
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 16px; /* Smaller size */
-      text-align: center;
-      transition: all 0.2s;
-      color: #333;
-      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      margin: 4px; /* Small margin */
-    }
-    
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    /* Add disabled state for planning cards */
-    .card.disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      pointer-events: none;
-      background-color: #f0f0f0;
-      color: #aaa;
-    }
-    
-    .card.disabled:hover {
-      transform: none;
-      box-shadow: none;
-    }
-
-    /* Voted heading in sidebar */
-    .section-heading {
-      font-size: 14px;
-      font-weight: bold;
-      color: #333;
-      margin: 20px 0 10px 0;
-      padding-bottom: 5px;
-      border-bottom: 1px solid white; /* Changed to white */
-    }
-
-    /* User-friendly UI tweaks */
-    @media (max-width: 1200px) {
-      .container {
-        flex-direction: column;
-        height: auto;
-      }
-      .sidebar, .rightbar {
-        width: 100%;
-        max-width: 100%;
-        border: none;
-        border-bottom: 1px solid white; /* Changed to white */
-      }
-    }
-
-    /* User circle container styling */
-    #userCircle {
-      background-color: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      width: 100%;
-    }
-    
-    /* Add Ticket button styling - Updated to match image */
-    .add-ticket-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      background-color: white;
-      color: #673ab7;
-      border: 1px solid #673ab7;
-      border-radius: 25px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
-      margin: 0 0 20px 0;
-      height: 42px;
-    }
-    
-    .add-ticket-btn:hover {
-      background-color: #f0e6ff;
-    }
-    
-    .add-ticket-btn span {
-      margin-right: 5px;
-      font-size: 18px;
-      color: #673ab7;
-    }
-    
-    /* Story list container - no top heading */
-    .story-container {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-    }
-    
-    /* Hide any modal coming from main.js */
-    .modal-dialog, .modal-overlay {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-    
-    /* Updated story text to handle long content */
-    .story-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 3; /* Show max of 3 lines */
-      -webkit-box-orient: vertical;
-      max-height: none; /* Remove fixed height constraint */
-      width: 100%;
-      text-align: left;
-    }
-    
-    /* Hide elements for guest users */
-    .hide-for-guests {
-      display: none !important; /* Use !important to override any inline styles */
-    }
-
-    /* No stories message */
-    .no-stories-message {
-      display: none;
-      text-align: center;
-      margin: 20px auto;
-      padding: 10px 15px;
-      background-color: #f9f9f9;
-      border: 1px dashed #ccc;
-      border-radius: 8px;
-      color: #666;
-      font-style: italic;
-      max-width: 80%;
+    #inviteModalCustom .modal-content button:hover {
+      background: #2563eb;
     }
   </style>
 </head>
 <body>
-<div class="banner">Planning Poker</div>
-<!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
-<div id="inviteModalCustom">
-<div class="modal-content">
-<h3>Invite Link</h3>
-<input id="inviteLinkCustom" readonly="" type="text"/>
-<div class="button-group">
-<button id="copyInviteBtn">Copy Link</button>
-</div>
-</div>
-</div>
-<!-- Updated Upload Section - moved to right side as per screenshot -->
-<div class="upload-section">
-<div class="upload-right">
-<div class="file-input" id="fileInputContainer">
-<span class="file-button">Upload Ticket</span>
-<input accept=".csv" id="csvInput" type="file"/>
-</div>
-<button class="invite-button" id="inviteButton">Invite Others</button>
-</div>
-</div>
-<div class="container">
-<div class="sidebar">
-<h3>Current Members</h3>
-<div id="userList"></div>
-<h3 class="section-heading">Voting Controls</h3>
-<!-- Added controls-section for better styling of control buttons -->
-<div class="controls-section">
-<button class="button" id="revealVotesBtn">Reveal Votes</button>
-<button class="button" id="resetVotesBtn">Reset Votes</button>
-<!-- <button class="button" id="exportCsvBtn">Export All Votes</button> -->
-</div>
-</div>
-<div class="main">
-<!-- Story will be displayed in the poker-table-layout instead of here -->
-<!-- New poker table layout will be rendered here -->
-<div class="user-circle-container" id="userCircle"></div>
-<!-- Simple no stories message -->
-<div class="no-stories-message" id="noStoriesMessage">
-        No stories available. Please upload or add stories to start voting.
+  <header>
+    <div class="logo">
+      <img src="spade.png" alt="Planning Poker" />
+      <span>Planning Poker</span>
+    </div>
+    <div class="nav-links">
+      <a href="#">WHAT IS PLANNING POKER?</a>
+      <a href="#">GUIDE</a>
+      <a href="#">EXAMPLES</a>
+      <button id="newSessionBtn" class="session-button new-session">NEW SESSION</button>
+      <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
+      <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" class="github-icon" />
+      <div class="country-selector">US</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="image-container">
+      <img src="poker-session.jpg" alt="Planning Poker Session" />
+    </div>
+    
+    <div class="forms-container">
+      <div class="session-box" id="createSessionBox">
+        <h2>Create new session</h2>
+
+        <div class="form-group">
+          <label>Session name *</label>
+          <input type="text" id="sessionNameInput" placeholder="Session Name" />
+        </div>
+
+        <div class="form-group">
+          <label>Your name *</label>
+          <input type="text" id="createNameInput" placeholder="Your Name" />
+        </div>
+
+        <div class="radio-group">
+          <input type="radio" name="scale" id="fibonacci" checked value="fibonacci" />
+          <label for="fibonacci">Fibonacci (0, 1, 2, 3, 5, 8, 13, 21...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="shortFib" value="shortFib" />
+          <label for="shortFib">Short Fibonacci (0, ½, 1, 2, 3...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="tshirt" value="tshirt" />
+          <label for="tshirt">T-Shirt (XXS, XS, S, M...)</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="tshirtNum" value="tshirtNum" />
+          <label for="tshirtNum">T-Shirt & Numbers</label>
+        </div>
+        <div class="radio-group">
+          <input type="radio" name="scale" id="custom" value="custom" />
+          <label for="custom">Custom</label>
+        </div>
+
+        <div class="checkbox-container">
+          <input type="checkbox" id="allowManage" />
+          <label for="allowManage">Allow members to manage session</label>
+        </div>
+
+        <button class="action-button" onclick="createRoom()">Start new game</button>
       </div>
-<!-- Planning cards -->
-<div class="planning-cards-section">
-<h3>Planning Cards</h3>
-<div class="cards" id="planningCards">
-<div class="card" data-value="0" draggable="true">0</div>
-<div class="card" data-value="1" draggable="true">1</div>
-<div class="card" data-value="3" draggable="true">3</div>
-<div class="card" data-value="5" draggable="true">5</div>
-<div class="card" data-value="8" draggable="true">8</div>
-<div class="card" data-value="13" draggable="true">13</div>
-<div class="card" data-value="21" draggable="true">21</div>
-</div>
-</div>
-</div>
-<div class="rightbar" id="storyListContainer">
-<!-- Added ID to the ADD TICKET button -->
-<button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
-<!-- The story list CONTAINER with no hardcoded stories -->
-<div class="story-container" id="storyList">
-<!-- Stories will be loaded dynamically -->
-</div>
-<!-- Navigation buttons -->
-<div class="navigation-buttons">
-<button class="button" id="prevStory">Previous Story</button>
-<button class="button" id="nextStory">Next Story</button>
-</div>
-</div>
-</div>
-<!-- Scripts -->
-<script src="main.js" type="module"></script>
-<script>
-    // Function to check if there are any stories and update UI accordingly
-    function checkForStories() {
-      const storyList = document.getElementById('storyList');
-      const noStoriesMessage = document.getElementById('noStoriesMessage');
-      const planningCards = document.querySelectorAll('#planningCards .card');
       
-      // Check if there are any story cards
-      const storyCards = storyList ? storyList.querySelectorAll('.story-card') : [];
-      const hasStories = storyCards.length > 0;
-      
-      if (!hasStories) {
-        // No stories - disable planning cards
-        planningCards.forEach(card => {
-          card.classList.add('disabled');
-          card.setAttribute('draggable', 'false');
-        });
+      <div class="session-box" id="joinSessionBox">
+        <h2>Join a Session</h2>
         
-        // Show no stories message
-        if (noStoriesMessage) {
-          noStoriesMessage.style.display = 'block';
-        }
-      } else {
-        // Has stories - enable planning cards
-        planningCards.forEach(card => {
-          card.classList.remove('disabled');
-          card.setAttribute('draggable', 'true');
-        });
+        <div class="form-group">
+          <input type="text" id="sessionIdInput" placeholder="Session ID *" />
+        </div>
         
-        // Hide no stories message
-        if (noStoriesMessage) {
-          noStoriesMessage.style.display = 'none';
-        }
-      }
-    }
-
-    // Improved invite modal functionality
-    function showInviteModal() {
-      const inviteLinkInput = document.getElementById('inviteLinkCustom');
-      if (inviteLinkInput) {
-        inviteLinkInput.value = window.location.href;
-      }
-      
-      const inviteModal = document.getElementById('inviteModalCustom');
-      if (inviteModal) {
-        inviteModal.style.display = 'flex';
-      }
-    }
-    
-    function copyInviteLink() {
-      const inviteLinkInput = document.getElementById('inviteLinkCustom');
-      if (inviteLinkInput) {
-        inviteLinkInput.select();
-        document.execCommand('copy');
+        <div class="form-group">
+          <input type="text" id="joinNameInput" placeholder="Your Name *" />
+        </div>
         
-        const copyBtn = document.getElementById('copyInviteBtn');
-        if (copyBtn) {
-          // Show feedback and close automatically
-          const originalText = copyBtn.textContent;
-          copyBtn.textContent = 'Copied!';
-          copyBtn.style.backgroundColor = '#4CAF50';
-          
-          setTimeout(() => {
-            hideInviteModal();
-            // Reset button after modal closes
-            setTimeout(() => {
-              copyBtn.textContent = originalText;
-              copyBtn.style.backgroundColor = '';
-            }, 300);
-          }, 1000);
-        }
-      }
-    }
-    
-    function hideInviteModal() {
-      const inviteModal = document.getElementById('inviteModalCustom');
-      if (inviteModal) {
-        inviteModal.style.display = 'none';
-      }
-    }
-    
-    // Simple function to reveal votes - only toggles the body class
-    function revealVotes() {
-      document.body.classList.add('votes-revealed');
-    }
-
-    // Debugging function to help see what votes are stored
-    function debugVotes() {
-      console.clear();
-      console.log("DEBUG: Checking all story cards for votes");
-      
-      const storyList = document.getElementById('storyList');
-      const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
-      
-      console.log(`Found ${storyCards.length} story cards`);
-      
-      let totalVotes = 0;
-      
-      storyCards.forEach((card, index) => {
-        console.group(`Story ${index + 1}: ${card.id}`);
-        
-        // Check data-vote attribute
-        if (card.hasAttribute('data-vote')) {
-          console.log(`✅ data-vote attribute: "${card.getAttribute('data-vote')}"`);
-          totalVotes++;
-        } else {
-          console.log("❌ No data-vote attribute");
-        }
-        
-        // Check data-voted attribute
-        if (card.hasAttribute('data-voted')) {
-          console.log(`✅ data-voted attribute: "${card.getAttribute('data-voted')}"`);
-        } else {
-          console.log("❌ No data-voted attribute");
-        }
-        
-        // Check vote-badge elements
-        const voteBadges = card.querySelectorAll('.vote-badge');
-        if (voteBadges.length > 0) {
-          console.log(`✅ Found ${voteBadges.length} vote badge(s):`);
-          voteBadges.forEach((badge, i) => {
-            console.log(`   Badge ${i + 1}: "${badge.textContent}" (${badge.hidden ? 'hidden' : 'visible'})`);
-          });
-        } else {
-          console.log("❌ No vote-badge elements");
-        }
-        
-        console.groupEnd();
+        <button class="action-button" onclick="joinRoom()">JOIN</button>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Custom invite modal -->
+  <div id="inviteModalCustom">
+    <div class="modal-content">
+      <h3>Invite Link</h3>
+      <input id="inviteLinkCustom" readonly type="text"/>
+      <div class="button-group">
+        <button id="copyInviteBtn">Copy Link</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Add event listeners when the DOM is fully loaded
+    document.addEventListener("DOMContentLoaded", function() {
+      // Setup event listeners for the navigation buttons
+      document.getElementById("newSessionBtn").addEventListener("click", function() {
+        document.getElementById("createSessionBox").style.display = "block";
+        document.getElementById("joinSessionBox").style.display = "none";
       });
       
-      console.log(`Summary: Found ${totalVotes} stories with votes out of ${storyCards.length} total stories`);
-      
-      // Check if any planning cards are marked as selected
-      const selectedCards = document.querySelectorAll('.card[data-selected="true"]');
-      console.log(`Found ${selectedCards.length} selected planning cards`);
-      selectedCards.forEach(card => {
-        console.log(`   Value: ${card.getAttribute('data-value')}`);
+      document.getElementById("joinSessionBtn").addEventListener("click", function() {
+        document.getElementById("createSessionBox").style.display = "none";
+        document.getElementById("joinSessionBox").style.display = "block";
       });
-    }
-
-    // IMPROVED: Export function that retrieves ONLY actual votes
-    function exportAllVotes() {
-      try {
-        console.log("Export function started - retrieving actual votes only");
-        
-        // Force vote visibility for export
-        document.body.classList.add('votes-revealed');
-        
-        // Get all story cards
-        const storyList = document.getElementById('storyList');
-        const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
-        
-        if (storyCards.length === 0) {
-          alert('No stories available to export.');
-          return;
-        }
-        
-        console.log(`Found ${storyCards.length} story cards`);
-        
-        // Save current selection to restore later
-        const originalSelectedStory = document.querySelector('.story-card.selected');
-        
-        // Prepare CSV content
-        let csv = `Story ID,Story Description,Highest Vote\n`;
-        
-        // First, gather all existing votes
-        console.log("Gathering all votes from story cards");
-        
-        // Process each story card
-        storyCards.forEach((card, index) => {
-          // Get story ID
-          const storyId = card.id || `story_${index}`;
-          
-          // Get story description
-          let storyDesc = '';
-          const storyTitleElement = card.querySelector('.story-title');
-          if (storyTitleElement) {
-            storyDesc = storyTitleElement.textContent.trim();
-          } else {
-            storyDesc = card.textContent.trim();
-          }
-          
-          // FOCUS: Find the actual vote for this story
-          let highestVote = 'No votes';
-          
-          // Check data-vote attribute (primary storage method)
-          if (card.hasAttribute('data-vote')) {
-            const voteValue = card.getAttribute('data-vote');
-            if (voteValue && !isNaN(voteValue)) {
-              highestVote = voteValue;
-              console.log(`Story ${storyId} has vote ${voteValue} from data-vote attribute`);
-            }
-          }
-          
-          // Check for vote-badge elements (secondary storage method)
-          if (highestVote === 'No votes') {
-            const voteBadges = card.querySelectorAll('.vote-badge');
-            voteBadges.forEach(badge => {
-              const voteText = badge.textContent.trim();
-              if (voteText && !isNaN(voteText)) {
-                highestVote = voteText;
-                console.log(`Story ${storyId} has vote ${voteText} from vote-badge element`);
-              }
-            });
-          }
-          
-          // Check data-voted attribute as indicator (tertiary check)
-          if (highestVote === 'No votes' && card.hasAttribute('data-voted')) {
-            // Story is marked as voted but no value found
-            console.log(`Story ${storyId} is marked as voted but no value found`);
-          }
-          
-          // Properly escape the description for CSV format
-          const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
-                             `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
-          
-          // Add this row to the CSV
-          csv += `${storyId},${escapedDesc},${highestVote}\n`;
-        });
-        
-        // Restore original selection
-        if (originalSelectedStory) {
-          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
-          originalSelectedStory.classList.add('selected');
-        }
-        
-        // Create and trigger the download
-        console.log("Creating CSV file for download");
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'planning_poker_votes.csv');
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        console.log("Export completed with actual votes only");
-        
-      } catch (error) {
-        console.error('Error exporting votes:', error);
-        alert('Error exporting votes: ' + (error.message || 'Unknown error'));
-      }
-    }
-
-    // Monitor for CSV file uploads
-    document.getElementById('csvInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
       
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const csvData = event.target.result;
-        const storyList = document.getElementById('storyList');
+      // Add invite modal functionality
+      // This will be used when redirected to index.html
+      window.showInviteModal = function() {
+        const inviteLinkInput = document.getElementById('inviteLinkCustom');
+        if (inviteLinkInput) {
+          inviteLinkInput.value = window.location.href;
+        }
         
-        // Clear existing stories
-        if (storyList) storyList.innerHTML = '';
-        
-        // Simple CSV parsing (assumes each line is a story)
-        const stories = csvData.split('\n');
-        stories.forEach(function(story, index) {
-          if (story.trim()) {
-            const storyCard = document.createElement('div');
-            storyCard.className = 'story-card';
-            storyCard.id = `story_${index}`;
-            
-            const storyTitle = document.createElement('div');
-            storyTitle.className = 'story-title';
-            storyTitle.textContent = story.trim();
-            
-            storyCard.appendChild(storyTitle);
-            storyList.appendChild(storyCard);
-          }
-        });
-        
-        // Check for stories again after CSV upload
-        checkForStories();
-        
-        // Select the first story if there are any
-        const firstStory = storyList.querySelector('.story-card');
-        if (firstStory) {
-          firstStory.classList.add('selected');
+        const inviteModal = document.getElementById('inviteModalCustom');
+        if (inviteModal) {
+          inviteModal.style.display = 'flex';
         }
       };
       
-      reader.readAsText(file);
-    });
-    
-    // Add ticket button functionality
-    const addTicketBtn = document.getElementById('addTicketBtn');
-    if (addTicketBtn) {
-      addTicketBtn.addEventListener('click', function() {
-        const storyText = prompt("Enter the story details:");
-        if (storyText && storyText.trim()) {
-          const storyList = document.getElementById('storyList');
+      window.copyInviteLink = function() {
+        const inviteLinkInput = document.getElementById('inviteLinkCustom');
+        if (inviteLinkInput) {
+          inviteLinkInput.select();
+          document.execCommand('copy');
           
-          const storyCard = document.createElement('div');
-          storyCard.className = 'story-card';
-          storyCard.id = `story_${Date.now()}`;
-          
-          const storyTitle = document.createElement('div');
-          storyTitle.className = 'story-title';
-          storyTitle.textContent = storyText.trim();
-          
-          storyCard.appendChild(storyTitle);
-          storyList.appendChild(storyCard);
-          
-          // Check for stories after adding a story
-          checkForStories();
-          
-          // If this is the first story, select it
-          if (storyList.querySelectorAll('.story-card').length === 1) {
-            storyCard.classList.add('selected');
+          const copyBtn = document.getElementById('copyInviteBtn');
+          if (copyBtn) {
+            // Show feedback and close automatically
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            copyBtn.style.backgroundColor = '#4CAF50';
+            
+            setTimeout(() => {
+              const inviteModal = document.getElementById('inviteModalCustom');
+              if (inviteModal) {
+                inviteModal.style.display = 'none';
+              }
+              
+              // Reset button after modal closes
+              setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.backgroundColor = '#3b82f6';
+              }, 300);
+            }, 1000);
           }
         }
-      });
-    }
-    
-    // Story selection functionality
-    document.addEventListener('click', function(e) {
-      const clickedStory = e.target.closest('.story-card');
-      if (clickedStory) {
-        // Deselect all stories
-        document.querySelectorAll('.story-card').forEach(story => {
-          story.classList.remove('selected');
-        });
-        
-        // Select the clicked story
-        clickedStory.classList.add('selected');
-      }
-    });
-    
-    // Previous and Next story button handlers
-    document.getElementById('prevStory')?.addEventListener('click', function() {
-      const selectedStory = document.querySelector('.story-card.selected');
-      if (selectedStory && selectedStory.previousElementSibling) {
-        selectedStory.classList.remove('selected');
-        selectedStory.previousElementSibling.classList.add('selected');
-      }
-    });
-    
-    document.getElementById('nextStory')?.addEventListener('click', function() {
-      const selectedStory = document.querySelector('.story-card.selected');
-      if (selectedStory && selectedStory.nextElementSibling) {
-        selectedStory.classList.remove('selected');
-        selectedStory.nextElementSibling.classList.add('selected');
-      }
-    });
-    
-    // Add click handlers for planning cards - to store votes in data attributes
-    document.querySelectorAll('.card').forEach(card => {
-      card.addEventListener('click', function() {
-        const value = this.getAttribute('data-value');
-        const selectedStory = document.querySelector('.story-card.selected');
-        
-        if (selectedStory) {
-          // Store the vote directly on the story card as a data attribute
-          selectedStory.setAttribute('data-vote', value);
-          selectedStory.setAttribute('data-voted', 'true');
-          
-          // Store which card was selected
-          document.querySelectorAll('.card').forEach(c => {
-            c.removeAttribute('data-selected');
-          });
-          this.setAttribute('data-selected', 'true');
-          
-          // Update any vote badge if it exists
-          let voteBadge = selectedStory.querySelector('.vote-badge');
-          if (!voteBadge) {
-            voteBadge = document.createElement('span');
-            voteBadge.className = 'vote-badge';
-            selectedStory.appendChild(voteBadge);
-          }
-          voteBadge.textContent = value;
-        }
-      });
-    });
-    
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      // Check for stories
-      checkForStories();
+      };
       
-      // Setup reveal button click handler
-      const revealBtn = document.getElementById('revealVotesBtn');
-      if (revealBtn) {
-        revealBtn.addEventListener('click', revealVotes);
-      }
-      
-      // Setup export button with direct onclick handler
-      const exportBtn = document.getElementById('exportCsvBtn');
-      if (exportBtn) {
-        exportBtn.onclick = exportAllVotes;
-      }
-      
-      // Setup invite button with our new function
-      const inviteBtn = document.getElementById('inviteButton');
-      if (inviteBtn) {
-        // Remove any existing event listeners by cloning and replacing
-        const newInviteBtn = inviteBtn.cloneNode(true);
-        if (inviteBtn.parentNode) {
-          inviteBtn.parentNode.replaceChild(newInviteBtn, inviteBtn);
-        }
-        
-        // Add our custom invite handler
-        newInviteBtn.addEventListener('click', showInviteModal);
-      }
-      
-      // Setup copy link button
+      // Setup copy button
       const copyBtn = document.getElementById('copyInviteBtn');
       if (copyBtn) {
-        copyBtn.addEventListener('click', copyInviteLink);
+        copyBtn.addEventListener('click', window.copyInviteLink);
       }
       
-      // Close modal when clicking outside
+      // Add click outside to close
       const inviteModal = document.getElementById('inviteModalCustom');
       if (inviteModal) {
         inviteModal.addEventListener('click', function(e) {
           if (e.target === inviteModal) {
-            hideInviteModal();
+            inviteModal.style.display = 'none';
           }
         });
       }
     });
     
-    // Watch for story list changes
-    const storyList = document.getElementById('storyList');
-    if (storyList) {
-      const observer = new MutationObserver(function(mutations) {
-        checkForStories();
-      });
+    function createRoom() {
+      const name = document.getElementById("createNameInput").value.trim();
+      const sessionName = document.getElementById("sessionNameInput").value.trim();
       
-      observer.observe(storyList, { 
-        childList: true,
-        subtree: true
-      });
+      if (!name) {
+        alert("Please enter your name.");
+        return;
+      }
+      
+      if (!sessionName) {
+        alert("Please enter a session name.");
+        return;
+      }
+      
+      // Get selected voting system
+      const selectedScale = document.querySelector('input[name="scale"]:checked').value;
+      // Check if members can manage session
+      const allowMemberManage = document.getElementById("allowManage").checked;
+      
+      // Generate room ID
+      const roomId = Math.random().toString(36).substring(2, 10); 
+      
+      // Store session data in sessionStorage
+      sessionStorage.setItem("userName", name);
+      sessionStorage.setItem("sessionName", sessionName);
+      sessionStorage.setItem("votingSystem", selectedScale);
+      sessionStorage.setItem("allowMemberManage", allowMemberManage);
+      sessionStorage.setItem("isHost", "true");
+      
+      // Navigate to the room with the generated ID
+      window.location.href = `/index.html?roomId=${roomId}`;
     }
+    
+    function joinRoom() {
+      const name = document.getElementById("joinNameInput").value.trim();
+      const sessionId = document.getElementById("sessionIdInput").value.trim();
+      
+      if (!name) {
+        alert("Please enter your name.");
+        return;
+      }
+      
+      if (!sessionId) {
+        alert("Please enter a session ID.");
+        return;
+      }
+      
+      // Store user data in sessionStorage
+      sessionStorage.setItem("userName", name);
+      sessionStorage.setItem("isHost", "false");
+      
+      // Navigate to the room with the provided ID
+      window.location.href = `/index.html?roomId=${sessionId}`;
+    }
+    
+    // Fix for index.html invite modal
+    // This makes the functions globally available so they can be used in index.html
+    window.showInviteModal = window.showInviteModal || function() {};
+    window.copyInviteLink = window.copyInviteLink || function() {};
   </script>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  let userName = sessionStorage.getItem("userName");
-
-  if (!userName) {
-    userName = prompt("Enter your name:");
-    if (userName) {
-      sessionStorage.setItem("userName", userName);
-    } else {
-      alert("A name is required to proceed.");
-      window.location.href = "main.html";
-    }
-  }
-
-  // Make the username available globally for your socket logic
-  window.userName = userName;
-</script>
-<script src="socket.js"></script>
-<script src="main.js"></script>
-
 </body>
 </html>
