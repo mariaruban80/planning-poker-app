@@ -17,6 +17,38 @@ let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 
 /**
+ * Determines if current user is a guest
+ */
+function isGuestUser() {
+  // Check if URL contains 'roomId' parameter but not 'host=true'
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('roomId') && !urlParams.has('host');
+}
+
+/**
+ * Set up guest mode restrictions
+ */
+function setupGuestModeRestrictions() {
+  if (isGuestUser()) {
+    // Hide sidebar control buttons
+    const revealVotesBtn = document.getElementById('revealVotesBtn');
+    const resetVotesBtn = document.getElementById('resetVotesBtn');
+    if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
+    if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
+    
+    // Hide upload ticket button
+    const fileInputContainer = document.getElementById('fileInputContainer');
+    if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
+    
+    // Hide add ticket button
+    const addTicketBtn = document.getElementById('addTicketBtn');
+    if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+    
+    console.log('Guest mode activated - voting controls restricted');
+  }
+}
+
+/**
  * Extract room ID from URL parameters
  */
 function getRoomIdFromURL() {
@@ -55,6 +87,7 @@ function initializeApp(roomId) {
   setupVoteCardsDrag();
   setupRevealResetButtons();
   setupAddTicketButton();
+  setupGuestModeRestrictions(); // Add guest mode restrictions
   
   // Add CSS for new layout
   addNewLayoutStyles();
@@ -207,6 +240,11 @@ function addNewLayoutStyles() {
     .card:hover {
       transform: translateY(-5px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Add hide-for-guests class if not already defined in index.html */
+    .hide-for-guests {
+      display: none !important;
     }
   `;
   document.head.appendChild(style);
@@ -603,17 +641,23 @@ function updateUserList(users) {
   const revealBtn = document.createElement('button');
   revealBtn.textContent = 'REVEAL VOTES';
   revealBtn.classList.add('reveal-votes-button');
-  revealBtn.onclick = () => {
-    if (socket) {
-      socket.emit('revealVotes');
-      votesRevealed[currentStoryIndex] = true;
-      
-      // Update UI if we have votes for this story
-      if (votesPerStory[currentStoryIndex]) {
-        applyVotesToUI(votesPerStory[currentStoryIndex], false);
+  
+  // Handle guest mode for the reveal button
+  if (isGuestUser()) {
+    revealBtn.classList.add('hide-for-guests');
+  } else {
+    revealBtn.onclick = () => {
+      if (socket) {
+        socket.emit('revealVotes');
+        votesRevealed[currentStoryIndex] = true;
+        
+        // Update UI if we have votes for this story
+        if (votesPerStory[currentStoryIndex]) {
+          applyVotesToUI(votesPerStory[currentStoryIndex], false);
+        }
       }
-    }
-  };
+    };
+  }
   
   revealButtonContainer.appendChild(revealBtn);
 
@@ -815,20 +859,20 @@ function setupInviteButton() {
   if (!inviteButton) return;
 
   inviteButton.onclick = () => {
-    const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.top = '50%';
-    modal.style.left = '50%';
-    modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.padding = '20px';
-    modal.style.backgroundColor = 'white';
-    modal.style.border = '1px solid #000';
-    modal.innerHTML = ` 
-      <h3>Invite URL</h3>
-      <p>Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
-      <button onclick="document.body.removeChild(this.parentNode)">Close</button>
-    `;
-    document.body.appendChild(modal);
+    // Use the custom invite modal rather than creating a new one
+    if (typeof showInviteModalCustom === 'function') {
+      showInviteModalCustom();
+    } else {
+      // Fallback if custom function not available
+      const currentUrl = new URL(window.location.href);
+      const params = new URLSearchParams(currentUrl.search);
+      const roomId = params.get('roomId') || getRoomIdFromURL();
+      
+      // Create guest URL (remove any host parameter)
+      const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+      
+      alert(`Share this invite link: ${guestUrl}`);
+    }
   };
 }
 
