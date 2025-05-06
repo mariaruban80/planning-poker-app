@@ -47,14 +47,6 @@
       box-shadow: none;
     }
     
-    .banner { 
-      background-color: #003366; 
-      color: white; 
-      padding: 15px; 
-      text-align: center; 
-      font-size: 24px; 
-      font-weight: bold;
-    }
     
     /* Updated story card styling to match reference screenshot */
     .story-card { 
@@ -671,10 +663,110 @@
       font-style: italic;
       max-width: 80%;
     }
+    /* Add these styles to the existing style section */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo img {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+}
+
+.logo span {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 14px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #6b7280;
+  padding: 5px;
+}
+
+.session-button {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.new-session {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.new-session:before {
+  content: "+";
+  margin-right: 4px;
+  font-weight: bold;
+}
+
+.join-session {
+  background-color: transparent;
+  color: #111827;
+}
+
+.join-session:before {
+  content: "🧭";
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+.github-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.country-selector {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-weight: 500;
+  font-size: 14px;
+}
   </style>
 </head>
 <body>
-<div class="banner">Planning Poker</div>
+
+    <header>
+  <div class="logo">
+    <img src="spade.png" alt="Planning Poker" />
+    <span>Planning Poker</span>
+  </div>
+  <div class="nav-links">
+    <a href="#">WHAT IS PLANNING POKER?</a>
+    <a href="#">GUIDE</a>
+    <a href="#">EXAMPLES</a>
+    <button id="newSessionBtn" class="session-button new-session">NEW SESSION</button>
+    <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
+    <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" class="github-icon" />
+    <div class="country-selector">US</div>
+  </div>
+</header>
 <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
 <div id="inviteModalCustom">
 <div class="modal-content">
