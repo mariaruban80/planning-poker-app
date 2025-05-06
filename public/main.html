@@ -9,7 +9,7 @@
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background: #f9f9f9;
+      background: white;
     }
 
     header {
@@ -66,7 +66,6 @@
       display: flex;
       padding: 40px;
       justify-content: center;
-      gap: 30px;
     }
 
     .session-box {
@@ -139,6 +138,10 @@
       cursor: pointer;
       font-size: 13px;
     }
+    
+    #joinSessionBox {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -149,19 +152,16 @@
     </div>
     <div class="nav-links">
       <a href="#">WHAT IS PLANNING POKER?</a>
-      <a href="#">GUIDE</a>
-      <a href="#">EXAMPLES</a>
-      <a href="#"><button>➕ NEW SESSION</button></a>
-      <a href="#"><button>🧭 JOIN SESSION</button></a>
-      <div class="nav-icons">
-        <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" />
-        <div class="dropdown">US</div>
-      </div>
+      
+      <a href="#">ABOUT US</a>
+      
+      <a href="#" id="joinSessionBtn"><button>🧭 JOIN SESSION</button></a>
+     
     </div>
   </header>
 
   <main>
-    <div class="session-box">
+    <div class="session-box" id="createSessionBox">
       <h2>Create new session</h2>
 
       <div class="form-group">
@@ -187,7 +187,7 @@
       <button class="action-button" onclick="createRoom()">Start new game</button>
     </div>
     
-    <div class="session-box">
+    <div class="session-box" id="joinSessionBox">
       <h2>Join a Session</h2>
       
       <div class="form-group">
@@ -205,6 +205,19 @@
   </main>
   
   <script>
+    // Add event listeners to the navigation buttons
+    document.getElementById("newSessionBtn").addEventListener("click", function(e) {
+      e.preventDefault();
+      document.getElementById("createSessionBox").style.display = "block";
+      document.getElementById("joinSessionBox").style.display = "none";
+    });
+    
+    document.getElementById("joinSessionBtn").addEventListener("click", function(e) {
+      e.preventDefault();
+      document.getElementById("createSessionBox").style.display = "none";
+      document.getElementById("joinSessionBox").style.display = "block";
+    });
+    
     function createRoom() {
       const name = document.getElementById("createNameInput").value.trim();
       if (!name) {
