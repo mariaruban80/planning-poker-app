@@ -1301,19 +1301,7 @@ header {
       inviteModal.style.display = "none";
     }
   };
-document.getElementById('logOffBtn').addEventListener('click', function() {
-  // Clear all session storage
-  sessionStorage.clear();
-  
-  // Clear all local storage if you're using it
-  // localStorage.clear();
-  
-  // Alert the user that they have been logged out (optional)
- alert('You have been logged out');
-  
-  // Redirect to main.html
-  window.location.href = 'main.html';
-});
+
     
 </script>
 
@@ -1333,6 +1321,22 @@ document.getElementById('logOffBtn').addEventListener('click', function() {
 
       // Make the username available globally for your socket logic
       window.userName = userName;
+    </script>
+    <script>
+document.getElementById('logOffBtn').addEventListener('click', function() {
+  // Clear all session storage
+  sessionStorage.clear();
+  
+  // Clear all local storage if you're using it
+  // localStorage.clear();
+  
+  // Alert the user that they have been logged out (optional)
+ alert('You have been logged out');
+  
+  // Redirect to main.html
+  window.location.href = 'main.html';
+});
+        
     </script>
     <script src="socket.js"></script>
     <script src="main.js"></script>
