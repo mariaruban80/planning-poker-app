@@ -14,7 +14,6 @@
       margin: 0;
       padding: 0;
     }
-    
     .container { 
       display: flex; 
       background: white;
@@ -674,111 +673,112 @@
       max-width: 80%;
     }
     /* Add these styles to the existing style section */
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background: white;
-  border-bottom: 1px solid white;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-}
-
-.logo img {
-  width: 24px;
-  height: 24px;
-  margin-right: 8px;
-}
-
-.logo span {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  font-size: 14px;
-}
-
-.nav-links a {
-  text-decoration: none;
-  color: #6b7280;
-  padding: 5px;
-}
-
-.session-button {
-  display: flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-}
-
-.new-session {
-  background-color: #f3f4f6;
-  color: #111827;
-}
-
-.new-session:before {
-  content: "+";
-  margin-right: 4px;
-  font-weight: bold;
-}
-
-.join-session {
-  background-color: transparent;
-  color: #111827;
-}
-
-.join-session:before {
-  content: "🧭";
-  margin-right: 4px;
-  font-size: 14px;
-}
-
-.github-icon {
-  width: 20px;
-  height: 20px;
-  margin-right: 10px;
-}
-
-.country-selector {
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-weight: 500;
-  font-size: 14px;
-}
- .action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-#logOffBtn {
-  background-color: white;
-  color: black;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: white;
+      border-bottom: 1px solid white;
+    }
     
-}
-
-#logOffBtn:hover {
-  background-color: white; 
-}
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+    
+    .logo img {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+    
+    .logo span {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 14px;
+    }
+    
+    .nav-links a {
+      text-decoration: none;
+      color: #6b7280;
+      padding: 5px;
+    }
+    
+    .session-button {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .new-session {
+      background-color: #f3f4f6;
+      color: #111827;
+    }
+    
+    .new-session:before {
+      content: "+";
+      margin-right: 4px;
+      font-weight: bold;
+    }
+    
+    .join-session {
+      background-color: transparent;
+      color: #111827;
+    }
+    
+    .join-session:before {
+      content: "🧭";
+      margin-right: 4px;
+      font-size: 14px;
+    }
+    
+    .github-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    
+    .country-selector {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+     .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    #logOffBtn {
+      background-color: white;
+      color: black;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    
+        
+    }
+    
+    #logOffBtn:hover {
+      background-color: white; 
+    }        
+    
   </style>
 </head>
 <body>
@@ -1389,34 +1389,47 @@ header {
             }
         });
     </script>
-       <script>
-           // Add this to your script section
-document.addEventListener('DOMContentLoaded', function() {
-  // Check if this is a new user joining via invite link (has roomId but no username)
-  const urlParams = new URLSearchParams(window.location.search);
-  const isJoiningViaInvite = urlParams.has('roomId') && !sessionStorage.getItem('userName');
-  
-  if (isJoiningViaInvite) {
-    // Prompt for username before connecting
-    const username = prompt('Please enter your name to join the planning poker session:');
-    
-    if (username && username.trim()) {
-      // Store the username in session storage
-      sessionStorage.setItem('userName', username.trim());
-      console.log(`User joined as: ${username.trim()}`);
-      
-      // The socket.js script should now use this username when connecting
-      // You might need to reload the page or call an initialization function
-    } else {
-      // If no username provided, either redirect or set a default
-      sessionStorage.setItem('userName', 'Guest ' + Math.floor(Math.random() * 1000));
-      alert('You will join as a guest user.');
-    }
-  }
-});
-       </script>
+    <!-- FIXED SCRIPT FOR USERNAME HANDLING -->
+    <script>
+        // Handle username synchronization and prompt for invited users
+        document.addEventListener('DOMContentLoaded', function() {
+            // STEP 1: Check for username from main.html (userName with capital N)
+            const storedUserName = sessionStorage.getItem('userName');
+            
+            // STEP 2: Check if this is a new user joining via invite link
+            const urlParams = new URLSearchParams(window.location.search);
+            const isJoiningViaInvite = urlParams.has('roomId') && !storedUserName;
+            
+            if (isJoiningViaInvite) {
+                // This is someone joining via invite link who doesn't have a userName yet
+                const username = prompt('Please enter your name to join the planning poker session:');
+                
+                if (username && username.trim()) {
+                    // Store with both key formats for compatibility
+                    sessionStorage.setItem('userName', username.trim());
+                    console.log(`User joined as: ${username.trim()}`);
+                } else {
+                    // If no username provided, set a default
+                    const guestName = 'Guest ' + Math.floor(Math.random() * 1000);
+                    sessionStorage.setItem('userName', guestName);
+                    alert(`You will join as "${guestName}"`);
+                }
+                
+                // Reload the page to ensure the socket connection picks up the new username
+                window.location.reload();
+            }
+            
+            // Debugging info
+            console.log('Username from sessionStorage:', sessionStorage.getItem('userName'));
+        });
+        
+        // Make getUserName function available globally for socket.js
+        window.getUserName = function() {
+            return sessionStorage.getItem('userName') || 'Anonymous';
+        };
+    </script>
+    <!-- The socket.js script should use getUserName() to get the username -->
     <script src="socket.js"></script>
     <script src="main.js"></script>
-
 </body>
 </html>
