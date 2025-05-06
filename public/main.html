@@ -222,10 +222,14 @@
       <span>Planning Poker</span>
     </div>
     <div class="nav-links">
-      <a href="#">WHAT IS PLANNING POKER?</a>     
+      <a href="#">WHAT IS PLANNING POKER?</a>
+      <a href="#">GUIDE</a>
+      <a href="#">EXAMPLES</a>
       <button id="newSessionBtn" class="session-button new-session">NEW SESSION</button>
       <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
-      </div>
+      <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" class="github-icon" />
+      <div class="country-selector">US</div>
+    </div>
   </header>
 
   <main>
@@ -239,7 +243,7 @@
 
         <div class="form-group">
           <label>Session name *</label>
-          <input type="text" placeholder="Session Name" />
+          <input type="text" id="sessionNameInput" placeholder="Session Name" />
         </div>
 
         <div class="form-group">
@@ -248,23 +252,23 @@
         </div>
 
         <div class="radio-group">
-          <input type="radio" name="scale" id="fibonacci" checked />
+          <input type="radio" name="scale" id="fibonacci" checked value="fibonacci" />
           <label for="fibonacci">Fibonacci (0, 1, 2, 3, 5, 8, 13, 21...)</label>
         </div>
         <div class="radio-group">
-          <input type="radio" name="scale" id="shortFib" />
+          <input type="radio" name="scale" id="shortFib" value="shortFib" />
           <label for="shortFib">Short Fibonacci (0, ½, 1, 2, 3...)</label>
         </div>
         <div class="radio-group">
-          <input type="radio" name="scale" id="tshirt" />
+          <input type="radio" name="scale" id="tshirt" value="tshirt" />
           <label for="tshirt">T-Shirt (XXS, XS, S, M...)</label>
         </div>
         <div class="radio-group">
-          <input type="radio" name="scale" id="tshirtNum" />
+          <input type="radio" name="scale" id="tshirtNum" value="tshirtNum" />
           <label for="tshirtNum">T-Shirt & Numbers</label>
         </div>
         <div class="radio-group">
-          <input type="radio" name="scale" id="custom" />
+          <input type="radio" name="scale" id="custom" value="custom" />
           <label for="custom">Custom</label>
         </div>
 
@@ -309,15 +313,35 @@
     
     function createRoom() {
       const name = document.getElementById("createNameInput").value.trim();
+      const sessionName = document.getElementById("sessionNameInput").value.trim();
+      
       if (!name) {
-        alert("Please enter a name.");
+        alert("Please enter your name.");
         return;
       }
-      // Store name in sessionStorage instead of URL
+      
+      if (!sessionName) {
+        alert("Please enter a session name.");
+        return;
+      }
+      
+      // Get selected voting system
+      const selectedScale = document.querySelector('input[name="scale"]:checked').value;
+      // Check if members can manage session
+      const allowMemberManage = document.getElementById("allowManage").checked;
+      
+      // Generate room ID
+      const roomId = Math.random().toString(36).substring(2, 10); 
+      
+      // Store session data in sessionStorage
       sessionStorage.setItem("userName", name);
-     
-      const roomId = Math.random().toString(36).substring(2, 10); // generate 8-char room id
-      window.location.href = `/index.html?roomId=${roomId}`; // Only append roomId
+      sessionStorage.setItem("sessionName", sessionName);
+      sessionStorage.setItem("votingSystem", selectedScale);
+      sessionStorage.setItem("allowMemberManage", allowMemberManage);
+      sessionStorage.setItem("isHost", "true");
+      
+      // Navigate to the room with the generated ID
+      window.location.href = `/index.html?roomId=${roomId}`;
     }
     
     function joinRoom() {
@@ -334,8 +358,9 @@
         return;
       }
       
-      // Store name in sessionStorage
+      // Store user data in sessionStorage
       sessionStorage.setItem("userName", name);
+      sessionStorage.setItem("isHost", "false");
       
       // Navigate to the room with the provided ID
       window.location.href = `/index.html?roomId=${sessionId}`;
