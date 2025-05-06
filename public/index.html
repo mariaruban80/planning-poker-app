@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Planning Poker Interactive</title>
 <style>
-      body { 
+    body { 
       background: white;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
@@ -796,18 +796,18 @@ header {
     <button id="joinSessionBtn" class="session-button join-session">JOIN SESSION</button>
     <button id="logOffBtn" class="btn btn-danger">LOG OFF</button>     
   </div>
-        <!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
-<div id="inviteModalCustom">
-  <div class="modal-content">
-    <h3>Invite Link</h3>
-    <input type="text" id="inviteLinkCustom" readonly>
-    <div class="button-group">
-      <button onclick="copyInviteLinkCustom()">Copy Link</button>
-      <button onclick="hideInviteModalCustom()">Close</button>
-    </div>
-  </div>
-</div>
 </header>
+<!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
+<div id="inviteModalCustom">
+<div class="modal-content">
+<h3>Invite Link</h3>
+<input id="inviteLinkCustom" readonly="" type="text"/>
+<div class="button-group">
+<button onclick="copyInviteLinkCustom()">Copy Link</button>
+<button onclick="hideInviteModalCustom()">Close</button>
+</div>
+</div>
+</div>
 <!-- Updated Upload Section - moved to right side as per screenshot -->
 <div class="upload-section">
 <div class="upload-right">
@@ -915,58 +915,59 @@ header {
         modal.style.pointerEvents = 'none';
       });
     }
-    function isGuestUser() {
- // Check if URL contains 'roomId' parameter but not 'host=true'
-  const urlParams = new URLSearchParams(window.location.search);
-  
-  // Consider user a guest if:
-  // 1. There's no 'host' parameter, or
-  // 2. The 'host' parameter is anything other than 'true'
-  return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
-}
 
-  function setupGuestModeOnLoad() {
-  if (isGuestUser()) {
-    console.log('Guest mode activated - hiding control elements');
-    
-    // Hide control buttons in sidebar
-    const revealVotesBtn = document.getElementById('revealVotesBtn');
-    const resetVotesBtn = document.getElementById('resetVotesBtn');
-    if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
-    if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
-    
-    // Hide upload ticket button
-    const fileInputContainer = document.getElementById('fileInputContainer');
-    if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
-    
-    // Hide add ticket button 
-    const addTicketBtn = document.getElementById('addTicketBtn');
-    if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
-    
-    // Add guest mode indicator if not already present
-    if (!document.getElementById('guestModeIndicator')) {
-      const header = document.querySelector('header');
-      if (header) {
-        const indicator = document.createElement('div');
-        indicator.id = 'guestModeIndicator';
-        indicator.style.marginLeft = 'auto';
-        indicator.style.marginRight = '15px';
-        indicator.style.color = '#673ab7';
-        indicator.style.fontSize = '14px';
-        indicator.style.fontWeight = '500';
-        indicator.textContent = 'Guest Mode';
+    function isGuestUser() {
+     // Check if URL contains 'roomId' parameter but not 'host=true'
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Consider user a guest if:
+      // 1. There's no 'host' parameter, or
+      // 2. The 'host' parameter is anything other than 'true'
+      return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
+    }
+
+    function setupGuestModeOnLoad() {
+      if (isGuestUser()) {
+        console.log('Guest mode activated - hiding control elements');
         
-        // Insert before the LOG OFF button
-        const logOffBtn = document.getElementById('logOffBtn');
-        if (logOffBtn) {
-          header.insertBefore(indicator, logOffBtn);
-        } else {
-          header.appendChild(indicator);
+        // Hide control buttons in sidebar
+        const revealVotesBtn = document.getElementById('revealVotesBtn');
+        const resetVotesBtn = document.getElementById('resetVotesBtn');
+        if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
+        if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
+        
+        // Hide upload ticket button
+        const fileInputContainer = document.getElementById('fileInputContainer');
+        if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
+        
+        // Hide add ticket button 
+        const addTicketBtn = document.getElementById('addTicketBtn');
+        if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+        
+        // Add guest mode indicator if not already present
+        if (!document.getElementById('guestModeIndicator')) {
+          const header = document.querySelector('header');
+          if (header) {
+            const indicator = document.createElement('div');
+            indicator.id = 'guestModeIndicator';
+            indicator.style.marginLeft = 'auto';
+            indicator.style.marginRight = '15px';
+            indicator.style.color = '#673ab7';
+            indicator.style.fontSize = '14px';
+            indicator.style.fontWeight = '500';
+            indicator.textContent = 'Guest Mode';
+            
+            // Insert before the LOG OFF button
+            const logOffBtn = document.getElementById('logOffBtn');
+            if (logOffBtn) {
+              header.insertBefore(indicator, logOffBtn);
+            } else {
+              header.appendChild(indicator);
+            }
+          }
         }
       }
     }
-  }
-}
 
     // Custom modal functions
     function showInviteModalCustom() {
@@ -980,24 +981,11 @@ header {
       const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
       // Set the link value
       //document.getElementById('inviteLinkCustom').value = window.location.href;
-        document.getElementById('inviteLinkCustom').value = guestUrl;
+      document.getElementById('inviteLinkCustom').value = guestUrl;
       
       // Show our custom modal
       document.getElementById('inviteModalCustom').style.display = 'flex';
     }
-    // Update the NEW SESSION button to include host parameter
-document.addEventListener('DOMContentLoaded', function() {
-  // Run guest mode setup
-  setupGuestModeOnLoad();
-  
-  // Setup new session button
-  const newSessionBtn = document.getElementById('newSessionBtn');
-  if (newSessionBtn) {
-    newSessionBtn.addEventListener('click', function() {
-      const roomId = 'room-' + Math.floor(Math.random() * 10000);
-      window.location.href = `${window.location.origin}${window.location.pathname}?roomId=${roomId}&host=true`;
-    });
-  }
 
     function hideInviteModalCustom() {
       document.getElementById('inviteModalCustom').style.display = 'none';
@@ -1329,11 +1317,32 @@ document.addEventListener('DOMContentLoaded', function() {
         exportBtn.onclick = exportAllVotes;
       }
       
-      // Setup invite button
-      const inviteButton  = document.getElementById('inviteButton');
-      if (inviteButton ) {
-        inviteButton .addEventListener('click', showInviteModalCustom);
+      // Setup invite button with direct handler to ensure it uses our custom modal
+      const inviteBtn = document.getElementById('inviteButton');
+      if (inviteBtn) {
+        // Remove any existing handlers first by cloning and replacing
+        const newInviteBtn = inviteBtn.cloneNode(true);
+        inviteBtn.parentNode.replaceChild(newInviteBtn, inviteBtn);
+        
+        // Add our custom handler
+        newInviteBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showInviteModalCustom();
+        });
       }
+      
+      // Setup NEW SESSION button to include host parameter
+      const newSessionBtn = document.getElementById('newSessionBtn');
+      if (newSessionBtn) {
+        newSessionBtn.addEventListener('click', function() {
+          const roomId = 'room-' + Math.floor(Math.random() * 10000);
+          window.location.href = `${window.location.origin}${window.location.pathname}?roomId=${roomId}&host=true`;
+        });
+      }
+      
+      // Setup guest mode restrictions
+      setupGuestModeOnLoad();
       
       // Hide original modals
       hideAllOriginalModals();
@@ -1351,57 +1360,17 @@ document.addEventListener('DOMContentLoaded', function() {
         subtree: true
       });
     }
+    
+    // Override existing invite functions if they exist
+    if (typeof openInviteModal === 'function') {
+      console.log('Overriding existing openInviteModal function');
+      window.openInviteModal = function() {
+        showInviteModalCustom();
+        return false;
+      };
+    }
   </script>
 
-<script>
-  const inviteModal = document.getElementById("newInviteModal");
-  const openInviteBtn = document.getElementById("openInviteBtn");
-  const closeInviteModal = document.getElementById("closeInviteModal");
-  const copyInviteUrl = document.getElementById("copyInviteUrl");
-  const inviteUrlInput = document.getElementById("inviteUrl");
-
-  openInviteBtn.onclick = function() {
-    inviteModal.style.display = "block";
-  };
-
-  closeInviteModal.onclick = function() {
-    inviteModal.style.display = "none";
-  };
-
-  copyInviteUrl.onclick = function() {
-    inviteUrlInput.select();
-    inviteUrlInput.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("Invite URL copied!");
-    inviteModal.style.display = "none";
-  };
-
-  window.onclick = function(event) {
-    if (event.target == inviteModal) {
-      inviteModal.style.display = "none";
-    }
-  };
-
-    
-</script>
-
-  <script src="/socket.io/socket.io.js"></script>
-    <script>
-      let userName = sessionStorage.getItem("userName");
-
-      if (!userName) {
-        userName = prompt("Enter your name:");
-        if (userName) {
-          sessionStorage.setItem("userName", userName);
-        } else {
-          alert("A name is required to proceed.");
-          window.location.href = "main.html";
-        }
-      }
-
-      // Make the username available globally for your socket logic
-      window.userName = userName;
-    </script>
    <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Check if the button exists before trying to use it
