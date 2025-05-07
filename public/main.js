@@ -1,6 +1,7 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
+let debugCSVUploads = true; 
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket  } from './socket.js'; 
 
@@ -562,7 +563,7 @@ function setupRevealResetButtons() {
  */
 /**
  * Setup CSV file uploader
- */
+ 
 function setupCSVUploader() {
   const csvInput = document.getElementById('csvInput');
   if (!csvInput) return;
@@ -627,7 +628,25 @@ function setupCSVUploader() {
     };
     reader.readAsText(file);
   });
+}  */
+
+function setupCSVUploader() {
+  const csvInput = document.getElementById('csvInput');
+  if (!csvInput) return;
+
+  csvInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      handleCSVUpload(file);
+      
+      // Reset the file input so the same file can be uploaded again if needed
+      csvInput.value = '';
+    }
+  });
 }
+
+
+
 /**
  * Parse CSV text into array structure
  */
@@ -1158,6 +1177,117 @@ function setupVoteCardsDrag() {
   });
 }
 
+// Add this function to main.js - this is a new implementation
+function handleCSVUpload(file) {
+  if (!file) return;
+  console.log('[CSV] Starting CSV upload processing');
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // 1. Parse the CSV data
+    const csvContent = e.target.result;
+    const csvRows = csvContent.trim().split('\n');
+    const parsedCSV = csvRows.map(row => row.split(','));
+    console.log(`[CSV] Parsed ${parsedCSV.length} rows from uploaded file`);
+    
+    // 2. Save ALL existing story cards (both manual and previous CSV)
+    const storyList = document.getElementById('storyList');
+    if (!storyList) {
+      console.error('[CSV] Story list container not found');
+      return;
+    }
+    
+    const existingStories = [];
+    const storyCards = storyList.querySelectorAll('.story-card');
+    storyCards.forEach(card => {
+      const titleElem = card.querySelector('.story-title');
+      if (titleElem) {
+        existingStories.push({
+          id: card.id,
+          text: titleElem.textContent,
+          isManual: !card.id.includes('story_csv_')
+        });
+      }
+    });
+    console.log(`[CSV] Saved ${existingStories.length} existing stories (${existingStories.filter(s => s.isManual).length} manual)`)
+    
+    // 3. Create new story items for the CSV data
+    const newCsvStories = parsedCSV.map((row, index) => ({
+      id: `story_csv_${Date.now()}_${index}`,
+      text: row.join(' | '),
+      isManual: false
+    }));
+    
+    // 4. Combine existing manual stories with new CSV stories
+    const manualStories = existingStories.filter(story => story.isManual);
+    const combinedStories = [...manualStories, ...newCsvStories];
+    console.log(`[CSV] Combined: ${manualStories.length} manual + ${newCsvStories.length} CSV = ${combinedStories.length} total`);
+    
+    // 5. Set the module's CSV data for state tracking
+    csvData = parsedCSV;
+    
+    // 6. Clear the story list and rebuild it with all stories
+    storyList.innerHTML = '';
+    
+    // 7. Rebuild the list with all stories
+    combinedStories.forEach((story, index) => {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = story.id;
+      storyCard.dataset.index = index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = story.text;
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
+      
+      // Add click event listener
+      storyCard.addEventListener('click', () => {
+        selectStory(index);
+      });
+    });
+    
+    // 8. Ensure we select a story if none is selected
+    const selectedStory = storyList.querySelector('.story-card.selected');
+    if (!selectedStory && storyList.children.length > 0) {
+      storyList.children[0].classList.add('selected');
+      currentStoryIndex = 0;
+    }
+    
+    // 9. Hide "no stories" message if we have stories
+    const noStoriesMessage = document.getElementById('noStoriesMessage');
+    if (noStoriesMessage) {
+      noStoriesMessage.style.display = storyList.children.length > 0 ? 'none' : 'block';
+    }
+    
+    // 10. Enable planning cards if we have stories
+    document.querySelectorAll('#planningCards .card').forEach(card => {
+      if (storyList.children.length > 0) {
+        card.classList.remove('disabled');
+        card.setAttribute('draggable', 'true');
+      } else {
+        card.classList.add('disabled');
+        card.setAttribute('draggable', 'false');
+      }
+    });
+    
+    // 11. Emit the CSV data to server AFTER UI is updated
+    if (typeof emitCSVData === 'function') {
+      console.log('[CSV] Emitting parsed CSV data to server');
+      emitCSVData(parsedCSV);
+    } else if (socket) {
+      console.log('[CSV] Falling back to socket.emit for CSV data');
+      socket.emit('syncCSVData', parsedCSV);
+    }
+    
+    console.log('[CSV] CSV processing complete');
+  };
+  
+  reader.readAsText(file);
+}
+
 /**
  * Handle socket messages
  */
@@ -1238,45 +1368,60 @@ function handleSocketMessage(message) {
         }
       }
       break;
-      
-    case 'syncCSVData':
-       // Handle CSV data sync with improved handling
+  case 'syncCSVData':
+  // Handle CSV data sync from server
   if (Array.isArray(message.csvData)) {
-    console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
+    console.log('[SOCKET] Received CSV data from server, length:', message.csvData.length);
     
-    // Store the CSV data
+    // Store the CSV data in module state
     csvData = message.csvData;
-    csvDataLoaded = true;
     
-    // Temporarily save manually added tickets to preserve them
+    // Create story items for the CSV data
     const storyList = document.getElementById('storyList');
+    if (!storyList) return;
+    
+    // Save existing MANUAL tickets only
     const manualTickets = [];
+    storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])').forEach(card => {
+      const title = card.querySelector('.story-title');
+      if (title) {
+        manualTickets.push({
+          id: card.id,
+          text: title.textContent
+        });
+      }
+    });
+    console.log(`[SOCKET] Preserved ${manualTickets.length} manual tickets`);
     
-    if (storyList) {
-      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-      manualStoryCards.forEach(card => {
-        const title = card.querySelector('.story-title');
-        if (title) {
-          manualTickets.push({
-            id: card.id,
-            text: title.textContent
-          });
-        }
+    // Remove only CSV stories
+    storyList.querySelectorAll('.story-card[id^="story_csv_"]').forEach(card => card.remove());
+    
+    // Add CSV stories
+    let startIndex = manualTickets.length;
+    message.csvData.forEach((row, index) => {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = `story_csv_${Date.now()}_${index}`;
+      storyCard.dataset.index = startIndex + index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = row.join(' | ');
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
+      
+      // Add click handler
+      storyCard.addEventListener('click', () => {
+        selectStory(startIndex + index);
       });
-    }
+    });
     
-    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
-    
-    // Display CSV data (this will clear CSV stories but preserve manual ones)
-    displayCSVData(csvData);
-    
-    // We don't need to re-add manual tickets because displayCSVData now preserves them
-    
-    // Update UI
+    // Update the current story if needed
     renderCurrentStory();
   }
-  break;
-
+  break;    
+  
     case 'addTicket':
       // Handle new ticket added by another user
       if (message.ticketData) {
