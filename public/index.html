@@ -1488,8 +1488,11 @@
             }
         });
     </script>
-    <!-- ENHANCED SCRIPT FOR USERNAME HANDLING -->
+   <!-- ENHANCED SCRIPT FOR USERNAME HANDLING -->
 <script>
+  // Global flag to track if username is ready
+  window.userNameReady = false;
+  
   // Handle username synchronization and prompt for invited users
   document.addEventListener('DOMContentLoaded', function() {
     // STEP 1: Check for username from main.html (userName with capital N)
@@ -1502,11 +1505,38 @@
     if (isJoiningViaInvite) {
       // This is someone joining via invite link who doesn't have a userName yet
       showLoginModal();
+      
+      // Important: Mark username as not ready to prevent socket connection
+      window.userNameReady = false;
+      
+      // Hide main content until user provides name
+      hideMainContent();
+    } else {
+      // User already has a name, mark as ready
+      window.userNameReady = true;
     }
     
     // Debugging info
     console.log('Username from sessionStorage:', sessionStorage.getItem('userName'));
   });
+  
+  // Function to hide main content until user provides name
+  function hideMainContent() {
+    const container = document.querySelector('.container');
+    const uploadSection = document.querySelector('.upload-section');
+    
+    if (container) container.style.display = 'none';
+    if (uploadSection) uploadSection.style.display = 'none';
+  }
+  
+  // Function to show main content after user provides name
+  function showMainContent() {
+    const container = document.querySelector('.container');
+    const uploadSection = document.querySelector('.upload-section');
+    
+    if (container) container.style.display = 'flex';
+    if (uploadSection) uploadSection.style.display = 'flex';
+  }
   
   // Function to show custom login modal
   function showLoginModal() {
@@ -1546,8 +1576,14 @@
       // Hide the modal
       document.getElementById('loginModalCustom').style.display = 'none';
       
-      // Reload the page to ensure the socket connection picks up the new username
-      window.location.reload();
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content
+      showMainContent();
+      
+      // Initialize the app now that we have a username
+      initializeAppWithName(username);
     } else {
       // Show validation error - shake the input
       const input = document.getElementById('userNameInput');
@@ -1560,6 +1596,20 @@
     }
   }
   
+  // Initialize the app with the provided username
+  function initializeAppWithName(username) {
+    // Initialize socket connection with the username
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+    
+    if (window.initializeSocketWithName) {
+      window.initializeSocketWithName(roomId, username);
+    } else {
+      // Fallback to reloading if the function isn't available
+      window.location.reload();
+    }
+  }
+  
   // Fallback to browser prompt if modal doesn't exist
   function fallbackToPrompt() {
     const username = prompt('Please enter your name to join the planning poker session:');
@@ -1568,15 +1618,26 @@
       // Store with both key formats for compatibility
       sessionStorage.setItem('userName', username.trim());
       console.log(`User joined as: ${username.trim()}`);
+      
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content and initialize
+      showMainContent();
+      initializeAppWithName(username.trim());
     } else {
       // If no username provided, set a default
       const guestName = 'Guest ' + Math.floor(Math.random() * 1000);
       sessionStorage.setItem('userName', guestName);
       alert(`You will join as "${guestName}"`);
+      
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content and initialize
+      showMainContent();
+      initializeAppWithName(guestName);
     }
-    
-    // Reload the page to ensure the socket connection picks up the new username
-    window.location.reload();
   }
   
   // Make getUserName function available globally for socket.js
@@ -1598,7 +1659,7 @@
     }
   `;
   document.head.appendChild(style);
-</script>
+</script> 
     
     <script>
   // Expose modal functions to window scope for main.js to use
