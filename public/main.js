@@ -1,8 +1,107 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
-
+let processingCSVData = false;
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket  } from './socket.js'; 
+
+// Flag to track manually added tickets that need to be preserved
+let preservedManualTickets = [];
+
+// Add a window function for index.html to call
+window.notifyStoriesUpdated = function() {
+  const storyList = document.getElementById('storyList');
+  if (!storyList) return;
+  
+  // Collect current stories from DOM
+  const allTickets = [];
+  const storyCards = storyList.querySelectorAll('.story-card');
+  
+  storyCards.forEach((card, index) => {
+    const titleElement = card.querySelector('.story-title');
+    if (titleElement) {
+      allTickets.push({
+        id: card.id,
+        text: titleElement.textContent
+      });
+    }
+  });
+  
+  // Update our manually added tickets tracker
+  preservedManualTickets = allTickets.filter(ticket => 
+    ticket.id && !ticket.id.includes('story_csv_')
+  );
+  
+  console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
+};
+/**
+ * Handle adding a ticket from the modal
+ * @param {Object} ticketData - Ticket data {id, text}
+ */
+window.addTicketFromModal = function(ticketData) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  console.log('[MODAL] Adding ticket from modal:', ticketData);
+  
+  // Emit to server for synchronization
+  if (typeof emitAddTicket === 'function') {
+    emitAddTicket(ticketData);
+  } else if (socket) {
+    socket.emit('addTicket', ticketData);
+  }
+  
+  // Add ticket locally
+  addTicketToUI(ticketData, true);
+  
+  // Store in manually added tickets
+  manuallyAddedTickets.push(ticketData);
+};
+
+
+/**
+ * Initialize socket with a specific name (used when joining via invite)
+ * @param {string} roomId - Room ID to join 
+ * @param {string} name - Username to use
+ */
+window.initializeSocketWithName = function(roomId, name) {
+  if (!roomId || !name) return;
+  
+  console.log(`[APP] Initializing socket with name: ${name} for room: ${roomId}`);
+  
+  // Set username in the module scope
+  userName = name;
+  
+  // Initialize socket with the name
+  socket = initializeWebSocket(roomId, name, handleSocketMessage);
+  
+  // Continue with other initialization steps
+  setupCSVUploader();
+  setupInviteButton();
+  setupStoryNavigation();
+  setupVoteCardsDrag();
+  setupRevealResetButtons();
+  setupAddTicketButton();
+  setupGuestModeRestrictions();
+  
+  // Add CSS for new layout
+  addNewLayoutStyles();
+};
+
+// Modify the existing DOMContentLoaded event handler to check if username is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Check if we're waiting for a username (joining via invite)
+  if (window.userNameReady === false) {
+    console.log('[APP] Waiting for username before initializing app');
+    return; // Exit early, we'll initialize after username is provided
+  }
+  
+  // Normal initialization for users who already have a name
+  let roomId = getRoomIdFromURL();
+  if (!roomId) {
+    roomId = 'room-' + Math.floor(Math.random() * 10000);
+  }
+  appendRoomIdToURL(roomId);
+  initializeApp(roomId);
+});
 
 // Global state variables
 let pendingStoryIndex = null;
@@ -252,10 +351,12 @@ function addNewLayoutStyles() {
 
 /**
  * Setup Add Ticket button
- */
+ 
 function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
   if (addTicketBtn) {
+      // Set flag to prevent double handling
+    window.ticketHandlerAttached = true;
     addTicketBtn.addEventListener('click', () => {
       const storyText = prompt("Enter the story details:");
       if (storyText && storyText.trim()) {
@@ -266,9 +367,10 @@ function setupAddTicketButton() {
         };
         
         // Emit to server for synchronization
-        if (socket) {
-          socket.emit('addTicket', ticketData);
-        }
+         emitAddTicket(ticketData);
+       // if (socket) {
+          //socket.emit('addTicket', ticketData);
+        //}
         
         // Add ticket locally
         addTicketToUI(ticketData, true);
@@ -278,6 +380,38 @@ function setupAddTicketButton() {
       }
     });
   }
+} */
+/**
+ * Setup Add Ticket button
+ */
+function setupAddTicketButton() {
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (!addTicketBtn) return;
+
+  // Use the modal instead of prompt
+  addTicketBtn.addEventListener('click', () => {
+    if (typeof window.showAddTicketModal === 'function') {
+      window.showAddTicketModal();
+    } else {
+      // Fallback to the old prompt method if modal function isn't available
+      const storyText = prompt("Enter the story details:");
+      if (storyText && storyText.trim()) {
+        const ticketData = {
+          id: `story_${Date.now()}`,
+          text: storyText.trim()
+        };
+        
+        if (typeof emitAddTicket === 'function') {
+          emitAddTicket(ticketData);
+        } else if (socket) {
+          socket.emit('addTicket', ticketData);
+        }
+        
+        addTicketToUI(ticketData, true);
+        manuallyAddedTickets.push(ticketData);
+      }
+    }
+  });
 }
 
 /**
@@ -426,6 +560,9 @@ function setupRevealResetButtons() {
 /**
  * Setup CSV file uploader
  */
+/**
+ * Setup CSV file uploader
+ */
 function setupCSVUploader() {
   const csvInput = document.getElementById('csvInput');
   if (!csvInput) return;
@@ -436,22 +573,61 @@ function setupCSVUploader() {
 
     const reader = new FileReader();
     reader.onload = (e) => {
+      // Save existing manually added tickets before processing CSV
+      const storyList = document.getElementById('storyList');
+      const existingTickets = [];
+      
+      if (storyList) {
+        const manualTickets = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+        manualTickets.forEach(card => {
+          const title = card.querySelector('.story-title');
+          if (title) {
+            existingTickets.push({
+              id: card.id, 
+              text: title.textContent
+            });
+          }
+        });
+      }
+      
+      console.log(`[CSV] Saved ${existingTickets.length} manual tickets before processing upload`);
+      
+      // Parse the CSV data
       const parsedData = parseCSV(e.target.result);
-      emitCSVData(parsedData);
+      
+      // Store in the module state
       csvData = parsedData;
+      
+      // Display CSV data - this will clear and rebuild the story list
       displayCSVData(csvData);
       
-      // Reset voting state when new CSV is loaded
+      // Re-add the preserved manual tickets
+      existingTickets.forEach((ticket, index) => {
+        // Make sure this ticket isn't already in the list to avoid duplicates
+        if (!document.getElementById(ticket.id)) {
+          addTicketToUI(ticket, false);
+        }
+      });
+      
+      // Store these for future preservation
+      preservedManualTickets = [...existingTickets];
+      
+      // Emit the CSV data to server AFTER ensuring all UI is updated
+      emitCSVData(parsedData);
+      
+      // Reset voting state for new data
       votesPerStory = {};
       votesRevealed = {};
-      currentStoryIndex = 0;
       
-      renderCurrentStory();
+      // Reset current story index only if no stories were selected before
+      if (!document.querySelector('.story-card.selected')) {
+        currentStoryIndex = 0;
+        renderCurrentStory();
+      }
     };
     reader.readAsText(file);
   });
 }
-
 /**
  * Parse CSV text into array structure
  */
@@ -464,26 +640,118 @@ function parseCSV(data) {
  * Display CSV data in the story list
  */
 function displayCSVData(data) {
-  const storyListContainer = document.getElementById('storyList');
-  if (!storyListContainer) return;
+  // Prevent reentrant calls that could cause flickering or data loss
+  if (processingCSVData) {
+    console.log('[CSV] Already processing CSV data, ignoring reentrant call');
+    return;
+  }
+  
+  processingCSVData = true;
+  
+  try {
+    const storyListContainer = document.getElementById('storyList');
+    if (!storyListContainer) {
+      return;
+    }
 
-  storyListContainer.innerHTML = '';
+    console.log(`[CSV] Displaying ${data.length} rows of CSV data`);
 
-  data.forEach((row, index) => {
-    const storyItem = document.createElement('div');
-    storyItem.classList.add('story-card');
-    storyItem.textContent = `Story ${index + 1}: ${row.join(' | ')}`;
-    storyItem.dataset.index = index;
-    storyItem.id = `story_csv_${index}`;
-
-    storyItem.addEventListener('click', () => {
-      selectStory(index);
+    // First, identify and save all manually added stories
+    const existingStories = [];
+    const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+    
+    manualStories.forEach(card => {
+      const title = card.querySelector('.story-title');
+      if (title) {
+        existingStories.push({
+          id: card.id,
+          text: title.textContent
+        });
+      }
     });
-
-    storyListContainer.appendChild(storyItem);
-  });
+    
+    console.log(`[CSV] Saved ${existingStories.length} existing manual stories`);
+    
+    // Clear ONLY the CSV-based stories, not manual ones
+    const csvStories = storyListContainer.querySelectorAll('.story-card[id^="story_csv_"]');
+    csvStories.forEach(card => card.remove());
+    
+    // Re-add all stories to ensure they have proper indices
+    storyListContainer.innerHTML = '';
+    
+    // First add back manually added stories
+    existingStories.forEach((story, index) => {
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card');
+      storyItem.id = story.id;
+      storyItem.dataset.index = index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.classList.add('story-title');
+      storyTitle.textContent = story.text;
+      
+      storyItem.appendChild(storyTitle);
+      storyListContainer.appendChild(storyItem);
+      
+      storyItem.addEventListener('click', () => {
+        selectStory(index);
+      });
+    });
+    
+    // Then add CSV data
+    let startIndex = existingStories.length;
+    data.forEach((row, index) => {
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card');
+      storyItem.id = `story_csv_${index}`;
+      storyItem.dataset.index = startIndex + index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.classList.add('story-title');
+      storyTitle.textContent = row.join(' | ');
+      
+      storyItem.appendChild(storyTitle);
+      storyListContainer.appendChild(storyItem);
+      
+      storyItem.addEventListener('click', () => {
+        selectStory(startIndex + index);
+      });
+    });
+    
+    // Update preserved tickets list
+    preservedManualTickets = existingStories;
+    
+    console.log(`[CSV] Display complete: ${existingStories.length} manual + ${data.length} CSV = ${storyListContainer.children.length} total`);
+    
+    // Check if there are any stories and show/hide message accordingly
+    const noStoriesMessage = document.getElementById('noStoriesMessage');
+    if (noStoriesMessage) {
+      noStoriesMessage.style.display = storyListContainer.children.length === 0 ? 'block' : 'none';
+    }
+    
+    // Enable/disable planning cards based on story availability
+    const planningCards = document.querySelectorAll('#planningCards .card');
+    planningCards.forEach(card => {
+      if (storyListContainer.children.length === 0) {
+        card.classList.add('disabled');
+        card.setAttribute('draggable', 'false');
+      } else {
+        card.classList.remove('disabled');
+        card.setAttribute('draggable', 'true');
+      }
+    });
+    
+    // Select first story if none is selected
+    const selectedStory = storyListContainer.querySelector('.story-card.selected');
+    if (!selectedStory && storyListContainer.children.length > 0) {
+      storyListContainer.children[0].classList.add('selected');
+      currentStoryIndex = 0;
+    }
+  } finally {
+    // Always release the processing flag
+    processingCSVData = false;
+  }
 }
-
 /**
  * Select a story by index
  * @param {number} index - Story index to select
@@ -854,16 +1122,19 @@ function generateAvatarUrl(name) {
 /**
  * Setup invite button
  */
+
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
 
   inviteButton.onclick = () => {
-    // Use the custom invite modal rather than creating a new one
-    if (typeof showInviteModalCustom === 'function') {
+    // Check if the custom function exists in window scope
+    if (typeof window.showInviteModalCustom === 'function') {
+      window.showInviteModalCustom();
+    } else if (typeof showInviteModalCustom === 'function') {
       showInviteModalCustom();
     } else {
-      // Fallback if custom function not available
+      // Fallback if function isn't available
       const currentUrl = new URL(window.location.href);
       const params = new URLSearchParams(currentUrl.search);
       const roomId = params.get('roomId') || getRoomIdFromURL();
@@ -900,6 +1171,23 @@ function handleSocketMessage(message) {
       // Update the user list when server sends an updated list
       if (Array.isArray(message.users)) {
         updateUserList(message.users);
+      }
+      break;
+
+    case 'addTicket':
+      // Handle ticket added by another user
+      if (message.ticketData) {
+        console.log('[SOCKET] New ticket received:', message.ticketData);
+        // Add ticket to UI without selecting it (to avoid loops)
+        addTicketToUI(message.ticketData, false);
+      }
+      break;
+
+      case 'allTickets':
+      // Handle receiving all tickets (used when joining a room)
+      if (Array.isArray(message.tickets)) {
+        console.log('[SOCKET] Received all tickets:', message.tickets.length);
+        processAllTickets(message.tickets);
       }
       break;
       
@@ -952,45 +1240,42 @@ function handleSocketMessage(message) {
       break;
       
     case 'syncCSVData':
-      // Handle CSV data sync
-      if (Array.isArray(message.csvData)) {
-        csvData = message.csvData;
-        displayCSVData(csvData);
-        
-        // Reset voting state when new CSV is loaded
-        votesPerStory = {};
-        votesRevealed = {};
-        currentStoryIndex = 0;
-        
-        renderCurrentStory();
-      }
-      break;
-      
-    case 'storySelected':
-      // Handle story selection from another user
-      if (message.storyIndex !== undefined) {
-        console.log('[SOCKET] Story selected by another user:', message.storyIndex);
-        
-        // If this is a different story than currently selected
-        if (message.storyIndex !== currentStoryIndex) {
-          // Update currentStoryIndex without emitting back to server
-          currentStoryIndex = message.storyIndex;
-          
-          // Update UI
-          document.querySelectorAll('.story-card').forEach(card => {
-            card.classList.remove('selected', 'active');
+       // Handle CSV data sync with improved handling
+  if (Array.isArray(message.csvData)) {
+    console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
+    
+    // Store the CSV data
+    csvData = message.csvData;
+    csvDataLoaded = true;
+    
+    // Temporarily save manually added tickets to preserve them
+    const storyList = document.getElementById('storyList');
+    const manualTickets = [];
+    
+    if (storyList) {
+      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+      manualStoryCards.forEach(card => {
+        const title = card.querySelector('.story-title');
+        if (title) {
+          manualTickets.push({
+            id: card.id,
+            text: title.textContent
           });
-          
-          const storyCard = document.querySelector(`.story-card[data-index="${currentStoryIndex}"]`);
-          if (storyCard) {
-            storyCard.classList.add('selected', 'active');
-          }
-          
-          renderCurrentStory();
-          resetOrRestoreVotes(currentStoryIndex);
         }
-      }
-      break;
+      });
+    }
+    
+    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+    
+    // Display CSV data (this will clear CSV stories but preserve manual ones)
+    displayCSVData(csvData);
+    
+    // We don't need to re-add manual tickets because displayCSVData now preserves them
+    
+    // Update UI
+    renderCurrentStory();
+  }
+  break;
 
     case 'addTicket':
       // Handle new ticket added by another user
