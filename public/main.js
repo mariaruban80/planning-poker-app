@@ -40,7 +40,6 @@ window.notifyStoriesUpdated = function() {
   
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
-
 /**
  * Handle adding a ticket from the modal
  * @param {Object} ticketData - Ticket data {id, text}
@@ -56,6 +55,12 @@ window.addTicketFromModal = function(ticketData) {
     text: ticketData.text
   });
   
+  // Rebuild the UI after adding the story
+  rebuildStoryList();
+  
+  // Select the newly added story (it will be at the end of manual stories)
+  selectStory(manualStories.length - 1, true);
+  
   // Emit to server for synchronization
   if (typeof emitAddTicket === 'function') {
     emitAddTicket(ticketData);
@@ -63,12 +68,44 @@ window.addTicketFromModal = function(ticketData) {
     socket.emit('addTicket', ticketData);
   }
   
-  // Add ticket locally
-  addTicketToUI(ticketData, true);
-  
   // Store in manually added tickets
   manuallyAddedTickets.push(ticketData);
 };
+
+/**
+ * Add a ticket to the UI
+ * @param {Object} ticketData - Ticket data { id, text }
+ * @param {boolean} selectAfterAdd - Whether to select the ticket after adding
+ */
+function addTicketToUI(ticketData, selectAfterAdd = false) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  // Check if this ticket already exists in our manual stories
+  const existingIndex = manualStories.findIndex(story => story.id === ticketData.id);
+  if (existingIndex >= 0) {
+    console.log(`[TICKET] Ticket ${ticketData.id} already exists in manual stories, skipping`);
+    return;
+  }
+  
+  // Add to our manual stories tracking
+  manualStories.push({
+    id: ticketData.id,
+    text: ticketData.text
+  });
+  
+  console.log(`[TICKET] Added manual story: ${ticketData.id}`);
+  console.log(`[TICKET] Manual stories count: ${manualStories.length}`);
+  
+  // Rebuild the UI
+  rebuildStoryList();
+  
+  // Select the added story if requested
+  if (selectAfterAdd) {
+    // Find index of the story we just added
+    const index = manualStories.length - 1;
+    selectStory(index, true);
+  }
+} 
 
 /**
  * Initialize socket with a specific name (used when joining via invite)
@@ -748,7 +785,6 @@ function parseCSV(data) {
   const rows = data.trim().split('\n');
   return rows.map(row => row.split(','));
 }
-
 /**
  * Select a story by index
  * @param {number} index - Story index to select
@@ -765,6 +801,9 @@ function selectStory(index, emitToServer = true) {
   const storyCard = document.querySelector(`.story-card[data-index="${index}"]`);
   if (storyCard) {
     storyCard.classList.add('selected', 'active');
+    console.log('[UI] Selected story element ID:', storyCard.id);
+  } else {
+    console.log('[UI] Warning: Could not find story element with index:', index);
   }
   
   // Update local state
@@ -787,6 +826,7 @@ function selectStory(index, emitToServer = true) {
     }
   }
 }
+
 
 /**
  * Reset or restore votes for a story
@@ -1257,7 +1297,41 @@ function handleSocketMessage(message) {
         }
       }
       break;
+    // Add this case to the handleSocketMessage function's switch statement
+case 'storySelected':
+  // Handle story selection from another user
+  if (message.storyIndex !== undefined) {
+    console.log('[SOCKET] Received story selection from another user, index:', message.storyIndex);
+    
+    // Update UI to show the selected story
+    currentStoryIndex = message.storyIndex;
+    
+    // Update UI with deferred execution to ensure DOM is ready
+    setTimeout(() => {
+      // Remove selected class from all stories
+      document.querySelectorAll('.story-card').forEach(card => {
+        card.classList.remove('selected', 'active');
+      });
       
+      // Add selected class to the correct story
+      const storyCard = document.querySelector(`.story-card[data-index="${currentStoryIndex}"]`);
+      if (storyCard) {
+        storyCard.classList.add('selected', 'active');
+        console.log('[SOCKET] Highlighted story at index:', currentStoryIndex);
+      } else {
+        console.log('[SOCKET] Could not find story with index:', currentStoryIndex);
+      }
+      
+      // Update current story display
+      renderCurrentStory();
+      
+      // Request votes for this story
+      if (typeof requestStoryVotes === 'function') {
+        requestStoryVotes(currentStoryIndex);
+      }
+    }, 50);
+  }
+  break;  
     case 'syncCSVData':
       // Handle CSV data sync from server - completely rewritten
       if (!Array.isArray(message.csvData)) {
