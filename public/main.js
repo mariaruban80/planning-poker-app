@@ -601,6 +601,7 @@ function displayCSVData(data) {
   const storyListContainer = document.getElementById('storyList');
   if (!storyListContainer) return;
 
+  storyListContainer.innerHTML = '';
   // Save existing manually added stories
   const existingStories = [];
   const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
