@@ -42,6 +42,7 @@ io.on('connection', (socket) => {
         selectedIndex: 0, // Default to first story
         votesPerStory: {},
         votesRevealed: {} // Track which stories have revealed votes
+        tickets: [] // Ensure tickets array exists
       };
     }
 
@@ -59,6 +60,10 @@ io.on('connection', (socket) => {
     if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
+   // Send all tickets immediately after joining
+  if (rooms[roomId].tickets?.length > 0) {
+    socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+  }
   });
 // Handle ticket synchronization - add THIS inside the connection handler
   socket.on('addTicket', (ticketData) => {
