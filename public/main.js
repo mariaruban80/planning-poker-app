@@ -1151,67 +1151,72 @@ function handleSocketMessage(message) {
       break;
       
     case 'syncCSVData':
-      // Handle CSV data sync
-       // Handle CSV data sync
-  if (Array.isArray(message.csvData)) {
-    console.log('[SOCKET] Received CSV data, preserving manual tickets');
-    
-    // Store original CSV data
-    csvData = message.csvData;
-    
-    // Temporarily save any manually added tickets
-    const manualTickets = [...manuallyAddedTickets];
-    
-    // Also include any previously preserved tickets
-    if (preservedManualTickets.length > 0) {
-      manualTickets.push(...preservedManualTickets);
-    }
-    console.log(`[SOCKET] Will preserve ${manualTickets.length} manual tickets`);
-    
-    // First display CSV data
-    displayCSVData(csvData);
-    
-    // Then re-add preserved manual tickets to UI
-    manualTickets.forEach(ticket => {
-      if (typeof ticket === 'object' && ticket.id && ticket.text) {
-        // Some preserved tickets may be in different format
-        addTicketToUI(ticket, false);
-      }
-    });
-    
-    // Reset voting state when new CSV is loaded
-    votesPerStory = {};
-    votesRevealed = {};
-    currentStoryIndex = 0;
-    
-    renderCurrentStory();
+       // Handle CSV data sync with improved handling
+      if (Array.isArray(message.csvData)) {
+        console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
+        
+        // Store the CSV data
+        csvData = message.csvData;
+        csvDataLoaded = true;
+        
+        // Temporarily save manually added tickets to preserve them
+        // This includes tickets added via the "Add Ticket" button
+        const storyList = document.getElementById('storyList');
+        const manualTickets = [];
+        
+        if (storyList) {
+          const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+          manualStoryCards.forEach(card => {
+            const title = card.querySelector('.story-title');
+            if (title) {
+              manualTickets.push({
+                id: card.id,
+                text: title.textContent
+              });
+            }
+          });
+        }
+        
+        console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+        
+        // Display CSV data (this will clear and rebuild the story list)
+        displayCSVData(csvData);
+        
+        // Re-add any manually added tickets that weren't from CSV
+        manualTickets.forEach(ticket => {
+          // Check if this ticket already exists (to avoid duplicates)
+          const existingTicket = document.getElementById(ticket.id);
+          if (!existingTicket) {
+            addTicketToUI(ticket, false);
+          }
+        });
+        
+        // Also add previously preserved tickets from other operations
+        if (Array.isArray(preservedManualTickets) && preservedManualTickets.length > 0) {
+          preservedManualTickets.forEach(ticket => {
+            // Only add if not already added
+            const existingTicket = document.getElementById(ticket.id);
+            if (!existingTicket) {
+              addTicketToUI(ticket, false);
+            }
+          });
+        }
+        
+        // Reset voting state when new CSV is loaded
+        // But don't reset currentStoryIndex to maintain story selection
+        
+        // Update UI
+        renderCurrentStory();
+        
+        // Request all tickets again to ensure consistency
+        setTimeout(() => {
+          if (socket && socket.connected) {
+            console.log('[APP] Requesting all tickets after CSV data processing');
+            socket.emit('requestAllTickets');
+          }
+        }, 300);
       }
       break;
-      
-    case 'storySelected':
-      // Handle story selection from another user
-      if (message.storyIndex !== undefined) {
-        console.log('[SOCKET] Story selected by another user:', message.storyIndex);
-        
-        // If this is a different story than currently selected
-        if (message.storyIndex !== currentStoryIndex) {
-          // Update currentStoryIndex without emitting back to server
-          currentStoryIndex = message.storyIndex;
-          
-          // Update UI
-          document.querySelectorAll('.story-card').forEach(card => {
-            card.classList.remove('selected', 'active');
-          });
-          
-          const storyCard = document.querySelector(`.story-card[data-index="${currentStoryIndex}"]`);
-          if (storyCard) {
-            storyCard.classList.add('selected', 'active');
-          }
-          
-          renderCurrentStory();
-          resetOrRestoreVotes(currentStoryIndex);
-        }
-      }
       break;
 
     case 'addTicket':
