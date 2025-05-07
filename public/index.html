@@ -6,6 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Planning Poker Interactive</title>
 <style>
+    
     body { 
       background: white;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -777,7 +778,85 @@
     
     #logOffBtn:hover {
       background-color: white; 
-    }        
+    }    
+    /* Custom Login Modal Styling */
+#loginModalCustom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+#loginModalCustom .modal-content {
+  background-color: white;
+  border-radius: 10px;
+  padding: 30px 40px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#loginModalCustom h3 {
+  color: #673ab7;
+  margin-top: 0;
+  font-size: 22px;
+  margin-bottom: 15px;
+}
+
+#loginModalCustom p {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+#loginModalCustom input {
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 20px;
+  border: 1px solid #d0d0d0;
+  border-radius: 25px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+#loginModalCustom input:focus {
+  outline: none;
+  border-color: #673ab7;
+  box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2);
+}
+
+#loginModalCustom .button-group {
+  display: flex;
+  justify-content: center;
+}
+
+#loginModalCustom .action-button {
+  background-color: #673ab7;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#loginModalCustom .action-button:hover {
+  background-color: #5c33a4;
+  transform: translateY(-2px);
+}
+
+#loginModalCustom .action-button:active {
+  transform: translateY(0);
+}
     
   </style>
 </head>
@@ -808,6 +887,17 @@
 </div>
 </div>
 </div>
+<!-- Custom Login Modal -->
+<div id="loginModalCustom" style="display: none;">
+  <div class="modal-content">
+    <h3>Join Planning Poker Session</h3>
+    <p>Please enter your name to join the session</p>
+    <input id="userNameInput" type="text" placeholder="Your name" />
+    <div class="button-group">
+      <button id="joinSessionWithName" class="action-button">Join Session</button>
+    </div>
+  </div>
+</div>    
 <!-- Updated Upload Section - moved to right side as per screenshot -->
 <div class="upload-section">
 <div class="upload-right">
@@ -1398,45 +1488,117 @@
             }
         });
     </script>
-    <!-- FIXED SCRIPT FOR USERNAME HANDLING -->
-    <script>
-        // Handle username synchronization and prompt for invited users
-        document.addEventListener('DOMContentLoaded', function() {
-            // STEP 1: Check for username from main.html (userName with capital N)
-            const storedUserName = sessionStorage.getItem('userName');
-            
-            // STEP 2: Check if this is a new user joining via invite link
-            const urlParams = new URLSearchParams(window.location.search);
-            const isJoiningViaInvite = urlParams.has('roomId') && !storedUserName;
-            
-            if (isJoiningViaInvite) {
-                // This is someone joining via invite link who doesn't have a userName yet
-                const username = prompt('Please enter your name to join the planning poker session:');
-                
-                if (username && username.trim()) {
-                    // Store with both key formats for compatibility
-                    sessionStorage.setItem('userName', username.trim());
-                    console.log(`User joined as: ${username.trim()}`);
-                } else {
-                    // If no username provided, set a default
-                    const guestName = 'Guest ' + Math.floor(Math.random() * 1000);
-                    sessionStorage.setItem('userName', guestName);
-                    alert(`You will join as "${guestName}"`);
-                }
-                
-                // Reload the page to ensure the socket connection picks up the new username
-                window.location.reload();
-            }
-            
-            // Debugging info
-            console.log('Username from sessionStorage:', sessionStorage.getItem('userName'));
-        });
-        
-        // Make getUserName function available globally for socket.js
-        window.getUserName = function() {
-            return sessionStorage.getItem('userName') || 'Anonymous';
-        };
-    </script>
+    <!-- ENHANCED SCRIPT FOR USERNAME HANDLING -->
+<script>
+  // Handle username synchronization and prompt for invited users
+  document.addEventListener('DOMContentLoaded', function() {
+    // STEP 1: Check for username from main.html (userName with capital N)
+    const storedUserName = sessionStorage.getItem('userName');
+    
+    // STEP 2: Check if this is a new user joining via invite link
+    const urlParams = new URLSearchParams(window.location.search);
+    const isJoiningViaInvite = urlParams.has('roomId') && !storedUserName;
+    
+    if (isJoiningViaInvite) {
+      // This is someone joining via invite link who doesn't have a userName yet
+      showLoginModal();
+    }
+    
+    // Debugging info
+    console.log('Username from sessionStorage:', sessionStorage.getItem('userName'));
+  });
+  
+  // Function to show custom login modal
+  function showLoginModal() {
+    const loginModal = document.getElementById('loginModalCustom');
+    if (loginModal) {
+      loginModal.style.display = 'flex';
+      
+      // Focus on the input field
+      setTimeout(() => {
+        document.getElementById('userNameInput').focus();
+      }, 100);
+      
+      // Add event listener to join button
+      document.getElementById('joinSessionWithName').addEventListener('click', handleLoginSubmit);
+      
+      // Add event listener for enter key
+      document.getElementById('userNameInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          handleLoginSubmit();
+        }
+      });
+    } else {
+      // Fallback to prompt if modal doesn't exist
+      fallbackToPrompt();
+    }
+  }
+  
+  // Function to handle login form submission
+  function handleLoginSubmit() {
+    const username = document.getElementById('userNameInput').value.trim();
+    
+    if (username) {
+      // Store with both key formats for compatibility
+      sessionStorage.setItem('userName', username);
+      console.log(`User joined as: ${username}`);
+      
+      // Hide the modal
+      document.getElementById('loginModalCustom').style.display = 'none';
+      
+      // Reload the page to ensure the socket connection picks up the new username
+      window.location.reload();
+    } else {
+      // Show validation error - shake the input
+      const input = document.getElementById('userNameInput');
+      input.style.borderColor = '#ff4d4f';
+      input.classList.add('shake');
+      
+      setTimeout(() => {
+        input.classList.remove('shake');
+      }, 500);
+    }
+  }
+  
+  // Fallback to browser prompt if modal doesn't exist
+  function fallbackToPrompt() {
+    const username = prompt('Please enter your name to join the planning poker session:');
+    
+    if (username && username.trim()) {
+      // Store with both key formats for compatibility
+      sessionStorage.setItem('userName', username.trim());
+      console.log(`User joined as: ${username.trim()}`);
+    } else {
+      // If no username provided, set a default
+      const guestName = 'Guest ' + Math.floor(Math.random() * 1000);
+      sessionStorage.setItem('userName', guestName);
+      alert(`You will join as "${guestName}"`);
+    }
+    
+    // Reload the page to ensure the socket connection picks up the new username
+    window.location.reload();
+  }
+  
+  // Make getUserName function available globally for socket.js
+  window.getUserName = function() {
+    return sessionStorage.getItem('userName') || 'Anonymous';
+  };
+  
+  // Add a little shake animation for validation errors
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    .shake {
+      animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+  `;
+  document.head.appendChild(style);
+</script>
     
     <script>
   // Expose modal functions to window scope for main.js to use
