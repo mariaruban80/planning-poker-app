@@ -173,7 +173,7 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId;
     if (!roomId || !rooms[roomId]) return;
     
-    logInfo(roomId, `Story ${storyIndex} selected by user ${socket.id}`);
+  //  logInfo(roomId, `Story ${storyIndex} selected by user ${socket.id}`);
     
     // Store the selected index in room state
     rooms[roomId].selectedIndex = storyIndex;
