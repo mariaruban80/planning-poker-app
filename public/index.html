@@ -857,6 +857,125 @@
 #loginModalCustom .action-button:active {
   transform: translateY(0);
 }
+ /* Custom Add Ticket Modal Styling */
+#addTicketModalCustom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.add-ticket-modal {
+  background-color: white;
+  border-radius: 12px;
+  padding: 20px 25px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  border: 2px solid #673ab7;
+}
+
+.add-ticket-modal h3 {
+  color: #673ab7;
+  margin-top: 0;
+  font-size: 20px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  display: block;
+  color: #673ab7;
+  font-size: 14px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #673ab7;
+  box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2);
+}
+
+.add-ticket-modal .button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 25px;
+}
+
+.cancel-button {
+  background-color: white;
+  color: #666;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 48%;
+}
+
+.cancel-button:hover {
+  background-color: #f5f5f5;
+}
+
+.confirm-button {
+  background-color: #673ab7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 48%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-button:hover {
+  background-color: #5c33a4;
+}
+
+.plus-icon {
+  margin-right: 5px;
+  font-weight: bold;
+}
+
+/* Add input shake animation for validation if not already present */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}   
     
   </style>
 </head>
@@ -895,6 +1014,29 @@
     <input id="userNameInput" type="text" placeholder="Your name" />
     <div class="button-group">
       <button id="joinSessionWithName" class="action-button">Join Session</button>
+    </div>
+  </div>
+</div>    
+<!-- Custom Add Ticket Modal -->
+<div id="addTicketModalCustom" style="display: none;">
+  <div class="modal-content add-ticket-modal">
+    <h3>Add New Ticket</h3>
+    
+    <div class="input-group">
+      <label for="ticketNameInput">Name</label>
+      <input id="ticketNameInput" type="text" placeholder="Enter ticket name">
+    </div>
+    
+    <div class="input-group">
+      <label for="ticketDescriptionInput">Description</label>
+      <input id="ticketDescriptionInput" type="text" placeholder="Enter ticket description">
+    </div>
+    
+    <div class="button-group">
+      <button id="cancelAddTicket" class="cancel-button">CANCEL</button>
+      <button id="confirmAddTicket" class="confirm-button">
+        <span class="plus-icon">+</span> ADD
+      </button>
     </div>
   </div>
 </div>    
@@ -1005,7 +1147,111 @@
         modal.style.pointerEvents = 'none';
       });
     }
+// Add Ticket Modal Functions
+function showAddTicketModal() {
+  // Clear previous input values
+  document.getElementById('ticketNameInput').value = '';
+  document.getElementById('ticketDescriptionInput').value = '';
+  
+  // Show the modal
+  document.getElementById('addTicketModalCustom').style.display = 'flex';
+  
+  // Focus on the name input
+  setTimeout(() => {
+    document.getElementById('ticketNameInput').focus();
+  }, 100);
+}
 
+function hideAddTicketModal() {
+  document.getElementById('addTicketModalCustom').style.display = 'none';
+}
+
+function handleAddTicketSubmit() {
+  const ticketName = document.getElementById('ticketNameInput').value.trim();
+  const ticketDescription = document.getElementById('ticketDescriptionInput').value.trim();
+  
+  // Validate input
+  if (!ticketName) {
+    const nameInput = document.getElementById('ticketNameInput');
+    nameInput.classList.add('shake');
+    nameInput.style.borderColor = '#ff4d4f';
+    
+    setTimeout(() => {
+      nameInput.classList.remove('shake');
+    }, 500);
+    
+    return;
+  }
+  
+  // Prepare ticket text (combine name and description if provided)
+  let ticketText = ticketName;
+  if (ticketDescription) {
+    ticketText = ticketName + ': ' + ticketDescription;
+  }
+  
+  // Create ticket data
+  const ticketData = {
+    id: `story_${Date.now()}`,
+    text: ticketText
+  };
+  
+  // Hide the modal
+  hideAddTicketModal();
+  
+  // If we have access to main.js functions
+  if (window.addTicketFromModal) {
+    window.addTicketFromModal(ticketData);
+  } else {
+    // Fallback implementation
+    const storyList = document.getElementById('storyList');
+    
+    if (storyList) {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = ticketData.id;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = ticketData.text;
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
+      
+      // Try to emit to socket if available
+      if (window.socket) {
+        window.socket.emit('addTicket', ticketData);
+      }
+    }
+  }
+}
+
+// Set up event listeners for the add ticket modal
+document.addEventListener('DOMContentLoaded', function() {
+  // Set up Add Ticket button to use modal
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (addTicketBtn) {
+    // Remove any existing click handlers by cloning the button
+    const newBtn = addTicketBtn.cloneNode(true);
+    addTicketBtn.parentNode.replaceChild(newBtn, addTicketBtn);
+    
+    // Add new click handler for the modal
+    newBtn.addEventListener('click', showAddTicketModal);
+  }
+  
+  // Set up modal buttons
+  document.getElementById('cancelAddTicket').addEventListener('click', hideAddTicketModal);
+  document.getElementById('confirmAddTicket').addEventListener('click', handleAddTicketSubmit);
+  
+  // Set up enter key in description field
+  document.getElementById('ticketDescriptionInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      handleAddTicketSubmit();
+    }
+  });
+});
+
+// Expose function for main.js
+window.showAddTicketModal = showAddTicketModal;
     function isGuestUser() {
      // Check if URL contains 'roomId' parameter but not 'host=true'
       const urlParams = new URLSearchParams(window.location.search);
