@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
         csvData: [],
         selectedIndex: 0, // Default to first story
         votesPerStory: {},
-        votesRevealed: {} // Track which stories have revealed votes
+        votesRevealed: {}, // Track which stories have revealed votes
         tickets: [] // Ensure tickets array exists
       };
     }
