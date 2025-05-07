@@ -57,7 +57,7 @@ socket.on('allTickets', ({ tickets }) => {
     handleMessage({ type: 'userList', users });
   });
 
-  socket.on('syncCSVData', (csvData) => {
+/**  socket.on('syncCSVData', (csvData) => {
     console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
     handleMessage({ type: 'syncCSVData', csvData });
     
@@ -66,7 +66,20 @@ socket.on('allTickets', ({ tickets }) => {
       console.log('[SOCKET] Notifying server that CSV data is loaded');
       socket.emit('csvDataLoaded');
     }, 100);
-  });
+  }); */
+
+ socket.on('syncCSVData', (csvData) => {
+  console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
+  
+  // Pass to the message handler
+  handleMessage({ type: 'syncCSVData', csvData });
+  
+  // After receiving CSV data, wait before requesting all tickets to ensure proper sequence
+  setTimeout(() => {
+    console.log('[SOCKET] Requesting all tickets after CSV data');
+    socket.emit('requestAllTickets');
+  }, 300);
+});
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
