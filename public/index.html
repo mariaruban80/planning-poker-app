@@ -983,9 +983,16 @@
       //document.getElementById('inviteLinkCustom').value = window.location.href;
       document.getElementById('inviteLinkCustom').value = guestUrl;
       
-      // Show our custom modal
-      document.getElementById('inviteModalCustom').style.display = 'flex';
-    }
+    // Show our custom modal
+  const modalElement = document.getElementById('inviteModalCustom');
+  if (modalElement) {
+    modalElement.style.display = 'flex';
+  } else {
+    console.error('Modal element not found!');
+    // Fallback to alert if modal element is missing
+    alert(`Share this invite link: ${guestUrl}`);
+  }
+}
 
     function hideInviteModalCustom() {
       document.getElementById('inviteModalCustom').style.display = 'none';
@@ -1430,6 +1437,50 @@
             return sessionStorage.getItem('userName') || 'Anonymous';
         };
     </script>
+    
+    <script>
+  // Expose modal functions to window scope for main.js to use
+  window.showInviteModalCustom = function() {
+    // First hide any existing modals from the original app
+    if (typeof hideAllOriginalModals === 'function') {
+      hideAllOriginalModals();
+    }
+    
+    // Create a guest URL
+    const currentUrl = new URL(window.location.href);
+    const params = new URLSearchParams(currentUrl.search);
+    const roomId = params.get('roomId');
+    
+    // Create clean guest URL (without host parameter)
+    const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+    
+    // Set the link value
+    document.getElementById('inviteLinkCustom').value = guestUrl;
+    
+    // Show our custom modal
+    document.getElementById('inviteModalCustom').style.display = 'flex';
+  };
+  
+  window.hideInviteModalCustom = function() {
+    document.getElementById('inviteModalCustom').style.display = 'none';
+  };
+  
+  window.copyInviteLinkCustom = function() {
+    const inviteInput = document.getElementById('inviteLinkCustom');
+    inviteInput.select();
+    document.execCommand('copy');
+    alert('Invite link copied!');
+  };
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Ensure the invite button uses our custom modal function
+    const inviteBtn = document.getElementById('inviteButton');
+    if (inviteBtn) {
+      inviteBtn.onclick = window.showInviteModalCustom;
+    }
+  });
+</script>
     <!-- The socket.js script should use getUserName() to get the username -->
     <script src="socket.js"></script>
     <script src="main.js"></script>
