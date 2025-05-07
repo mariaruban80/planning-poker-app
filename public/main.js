@@ -4,6 +4,52 @@ let userName = sessionStorage.getItem('userName');
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket  } from './socket.js'; 
 
+/**
+ * Initialize socket with a specific name (used when joining via invite)
+ * @param {string} roomId - Room ID to join 
+ * @param {string} name - Username to use
+ */
+window.initializeSocketWithName = function(roomId, name) {
+  if (!roomId || !name) return;
+  
+  console.log(`[APP] Initializing socket with name: ${name} for room: ${roomId}`);
+  
+  // Set username in the module scope
+  userName = name;
+  
+  // Initialize socket with the name
+  socket = initializeWebSocket(roomId, name, handleSocketMessage);
+  
+  // Continue with other initialization steps
+  setupCSVUploader();
+  setupInviteButton();
+  setupStoryNavigation();
+  setupVoteCardsDrag();
+  setupRevealResetButtons();
+  setupAddTicketButton();
+  setupGuestModeRestrictions();
+  
+  // Add CSS for new layout
+  addNewLayoutStyles();
+};
+
+// Modify the existing DOMContentLoaded event handler to check if username is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Check if we're waiting for a username (joining via invite)
+  if (window.userNameReady === false) {
+    console.log('[APP] Waiting for username before initializing app');
+    return; // Exit early, we'll initialize after username is provided
+  }
+  
+  // Normal initialization for users who already have a name
+  let roomId = getRoomIdFromURL();
+  if (!roomId) {
+    roomId = 'room-' + Math.floor(Math.random() * 10000);
+  }
+  appendRoomIdToURL(roomId);
+  initializeApp(roomId);
+});
+
 // Global state variables
 let pendingStoryIndex = null;
 let csvData = [];
