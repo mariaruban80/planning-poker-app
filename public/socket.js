@@ -140,17 +140,28 @@ socket.on('allTickets', ({ tickets }) => {
   // Return socket for external operations if needed
   return socket;
 }
-
 /**
  * Send CSV data to server for synchronization
  * @param {Array} data - CSV data to synchronize
  */
 export function emitCSVData(data) {
-  if (socket) {
-    console.log('[SOCKET] Sending CSV data:', data.length, 'rows');
-    socket.emit('syncCSVData', data);
-  }
+  if (!socket) return;
+  
+  // Make a deep copy to avoid any reference issues
+  const dataCopy = JSON.parse(JSON.stringify(data));
+  
+  console.log('[SOCKET] Sending CSV data:', dataCopy.length, 'rows');
+  socket.emit('syncCSVData', dataCopy);
+  
+  // Request existing tickets after a delay to ensure everything is synced
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      console.log('[SOCKET] Requesting tickets after CSV sync');
+      socket.emit('requestAllTickets');
+    }
+  }, 500);
 }
+
 
 /**
  * Emit story selection to server
