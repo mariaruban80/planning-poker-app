@@ -905,6 +905,23 @@ function handleSocketMessage(message) {
         updateUserList(message.users);
       }
       break;
+
+    case 'addTicket':
+      // Handle ticket added by another user
+      if (message.ticketData) {
+        console.log('[SOCKET] New ticket received:', message.ticketData);
+        // Add ticket to UI without selecting it (to avoid loops)
+        addTicketToUI(message.ticketData, false);
+      }
+      break;
+
+      case 'allTickets':
+      // Handle receiving all tickets (used when joining a room)
+      if (Array.isArray(message.tickets)) {
+        console.log('[SOCKET] Received all tickets:', message.tickets.length);
+        processAllTickets(message.tickets);
+      }
+      break;
       
     case 'userJoined':
       // Individual user joined - could update existing list
