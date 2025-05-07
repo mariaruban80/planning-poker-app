@@ -204,6 +204,17 @@ export function isConnected() {
 }
 
 /**
+ * Add a new ticket and sync with other users
+ * @param {Object} ticketData - The ticket data {id, text}
+ */
+export function emitAddTicket(ticketData) {
+  if (socket) {
+    console.log('[SOCKET] Adding new ticket:', ticketData);
+    socket.emit('addTicket', ticketData);
+  }
+}
+
+/**
  * Force reconnection if disconnected
  * @returns {boolean} - Whether reconnection was attempted
  */
@@ -211,8 +222,7 @@ export function reconnect() {
   if (!socket) {
     console.warn('[SOCKET] Cannot reconnect: no socket instance');
     return false;
-  }
-  
+  }   
   if (!socket.connected && roomId && userName) {
     console.log('[SOCKET] Attempting to reconnect...');
     socket.connect();
