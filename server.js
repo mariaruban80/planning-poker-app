@@ -53,11 +53,16 @@ io.on('connection', (socket) => {
     }
 
     // Update user list
-    rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
+    const existingUserIndex = rooms[roomId].users.findIndex(u => u.id === socket.id);
+if (existingUserIndex >= 0) {
+   rooms[roomId].users[existingUserIndex].name = userName;
+  } else {
+    // Add new user
     rooms[roomId].users.push({ id: socket.id, name: userName });
+  }
     socket.join(roomId);
 
-    logInfo(roomId, `User ${userName} (${socket.id}) joined, total users: ${rooms[roomId].users.length}`);
+    //logInfo(roomId, `User ${userName} (${socket.id}) joined, total users: ${rooms[roomId].users.length}`);
     
     // Send user list to everyone in the room
     io.to(roomId).emit('userList', rooms[roomId].users);
