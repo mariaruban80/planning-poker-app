@@ -28,6 +28,16 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     query: { roomId: roomIdentifier, userName: userNameValue }
   });
 
+  socket.on('addTicket', ({ ticketData }) => {
+  console.log('[SOCKET] Received new ticket from another user:', ticketData);
+  handleMessage({ type: 'addTicket', ticketData });
+});
+
+socket.on('allTickets', ({ tickets }) => {
+  console.log('[SOCKET] Received all tickets:', tickets.length);
+  handleMessage({ type: 'allTickets', tickets });
+});
+
   // Socket event handlers
   socket.on('connect', () => {
     console.log('[SOCKET] Connected to server with ID:', socket.id);
