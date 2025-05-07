@@ -857,16 +857,19 @@ function generateAvatarUrl(name) {
 /**
  * Setup invite button
  */
+
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
 
   inviteButton.onclick = () => {
-    // Use the custom invite modal rather than creating a new one
-    if (typeof showInviteModalCustom === 'function') {
+    // Check if the custom function exists in window scope
+    if (typeof window.showInviteModalCustom === 'function') {
+      window.showInviteModalCustom();
+    } else if (typeof showInviteModalCustom === 'function') {
       showInviteModalCustom();
     } else {
-      // Fallback if custom function not available
+      // Fallback if function isn't available
       const currentUrl = new URL(window.location.href);
       const params = new URLSearchParams(currentUrl.search);
       const roomId = params.get('roomId') || getRoomIdFromURL();
