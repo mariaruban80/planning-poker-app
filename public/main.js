@@ -34,6 +34,30 @@ window.notifyStoriesUpdated = function() {
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
 /**
+ * Handle adding a ticket from the modal
+ * @param {Object} ticketData - Ticket data {id, text}
+ */
+window.addTicketFromModal = function(ticketData) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  console.log('[MODAL] Adding ticket from modal:', ticketData);
+  
+  // Emit to server for synchronization
+  if (typeof emitAddTicket === 'function') {
+    emitAddTicket(ticketData);
+  } else if (socket) {
+    socket.emit('addTicket', ticketData);
+  }
+  
+  // Add ticket locally
+  addTicketToUI(ticketData, true);
+  
+  // Store in manually added tickets
+  manuallyAddedTickets.push(ticketData);
+};
+
+
+/**
  * Initialize socket with a specific name (used when joining via invite)
  * @param {string} roomId - Room ID to join 
  * @param {string} name - Username to use
@@ -357,7 +381,6 @@ function setupAddTicketButton() {
     });
   }
 } */
-
 /**
  * Setup Add Ticket button
  */
@@ -365,36 +388,28 @@ function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
   if (!addTicketBtn) return;
 
-  // Remove any existing click handlers by cloning the button
-  const newBtn = addTicketBtn.cloneNode(true);
-  addTicketBtn.parentNode.replaceChild(newBtn, addTicketBtn);
-  
-  // Set flag to prevent double handling
-  window.ticketHandlerAttached = true;
-  
-  // Add single click handler
-  newBtn.addEventListener('click', () => {
-    const storyText = prompt("Enter the story details:");
-    if (storyText && storyText.trim()) {
-      // Create ticket data
-      const ticketData = {
-        id: `story_${Date.now()}`,
-        text: storyText.trim()
-      };
-      
-      // Emit to server for synchronization
-      if (typeof emitAddTicket === 'function') {
-        emitAddTicket(ticketData);
-      } else if (socket) {
-        // Fallback if emitAddTicket isn't available
-        socket.emit('addTicket', ticketData);
+  // Use the modal instead of prompt
+  addTicketBtn.addEventListener('click', () => {
+    if (typeof window.showAddTicketModal === 'function') {
+      window.showAddTicketModal();
+    } else {
+      // Fallback to the old prompt method if modal function isn't available
+      const storyText = prompt("Enter the story details:");
+      if (storyText && storyText.trim()) {
+        const ticketData = {
+          id: `story_${Date.now()}`,
+          text: storyText.trim()
+        };
+        
+        if (typeof emitAddTicket === 'function') {
+          emitAddTicket(ticketData);
+        } else if (socket) {
+          socket.emit('addTicket', ticketData);
+        }
+        
+        addTicketToUI(ticketData, true);
+        manuallyAddedTickets.push(ticketData);
       }
-      
-      // Add ticket locally
-      addTicketToUI(ticketData, true);
-      
-      // Store in manually added tickets
-      manuallyAddedTickets.push(ticketData);
     }
   });
 }
