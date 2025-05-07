@@ -2,7 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket  } from './socket.js'; 
 
 // Global state variables
 let pendingStoryIndex = null;
@@ -256,6 +256,8 @@ function addNewLayoutStyles() {
 function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
   if (addTicketBtn) {
+      // Set flag to prevent double handling
+    window.ticketHandlerAttached = true;
     addTicketBtn.addEventListener('click', () => {
       const storyText = prompt("Enter the story details:");
       if (storyText && storyText.trim()) {
@@ -266,9 +268,10 @@ function setupAddTicketButton() {
         };
         
         // Emit to server for synchronization
-        if (socket) {
-          socket.emit('addTicket', ticketData);
-        }
+         emitAddTicket(ticketData);
+       // if (socket) {
+          //socket.emit('addTicket', ticketData);
+        //}
         
         // Add ticket locally
         addTicketToUI(ticketData, true);
