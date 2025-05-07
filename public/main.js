@@ -298,7 +298,7 @@ function addNewLayoutStyles() {
 
 /**
  * Setup Add Ticket button
- */
+ 
 function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
   if (addTicketBtn) {
@@ -327,6 +327,47 @@ function setupAddTicketButton() {
       }
     });
   }
+} */
+
+/**
+ * Setup Add Ticket button
+ */
+function setupAddTicketButton() {
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (!addTicketBtn) return;
+
+  // Remove any existing click handlers by cloning the button
+  const newBtn = addTicketBtn.cloneNode(true);
+  addTicketBtn.parentNode.replaceChild(newBtn, addTicketBtn);
+  
+  // Set flag to prevent double handling
+  window.ticketHandlerAttached = true;
+  
+  // Add single click handler
+  newBtn.addEventListener('click', () => {
+    const storyText = prompt("Enter the story details:");
+    if (storyText && storyText.trim()) {
+      // Create ticket data
+      const ticketData = {
+        id: `story_${Date.now()}`,
+        text: storyText.trim()
+      };
+      
+      // Emit to server for synchronization
+      if (typeof emitAddTicket === 'function') {
+        emitAddTicket(ticketData);
+      } else if (socket) {
+        // Fallback if emitAddTicket isn't available
+        socket.emit('addTicket', ticketData);
+      }
+      
+      // Add ticket locally
+      addTicketToUI(ticketData, true);
+      
+      // Store in manually added tickets
+      manuallyAddedTickets.push(ticketData);
+    }
+  });
 }
 
 /**
