@@ -1263,49 +1263,89 @@
         alert('Error exporting votes: ' + (error.message || 'Unknown error'));
       }
     }
-
-    // Monitor for CSV file uploads
-    document.getElementById('csvInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const csvData = event.target.result;
-        const storyList = document.getElementById('storyList');
-        
-        // Clear existing stories
-        if (storyList) storyList.innerHTML = '';
-        
-        // Simple CSV parsing (assumes each line is a story)
-        const stories = csvData.split('\n');
-        stories.forEach(function(story, index) {
-          if (story.trim()) {
-            const storyCard = document.createElement('div');
-            storyCard.className = 'story-card';
-            storyCard.id = `story_${index}`;
-            
-            const storyTitle = document.createElement('div');
-            storyTitle.className = 'story-title';
-            storyTitle.textContent = story.trim();
-            
-            storyCard.appendChild(storyTitle);
-            storyList.appendChild(storyCard);
-          }
-        });
-        
-        // Check for stories again after CSV upload
-        checkForStories();
-        
-        // Select the first story if there are any
-        const firstStory = storyList.querySelector('.story-card');
-        if (firstStory) {
-          firstStory.classList.add('selected');
+// Monitor for CSV file uploads
+document.getElementById('csvInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const csvData = event.target.result;
+    const storyList = document.getElementById('storyList');
+    
+    // Save existing manually added stories before processing CSV
+    const existingStories = [];
+    if (storyList) {
+      const manualStories = storyList.querySelectorAll('.story-card[id^="story_"]');
+      manualStories.forEach(card => {
+        // Only save non-CSV stories (using ID pattern)
+        if (card.id && !card.id.includes('story_csv_')) {
+          existingStories.push({
+            id: card.id,
+            text: card.querySelector('.story-title').textContent
+          });
         }
-      };
+      });
       
-      reader.readAsText(file);
+      console.log(`Saved ${existingStories.length} existing stories before CSV processing`);
+      
+      // Now clear the list for new content
+      storyList.innerHTML = '';
+    }
+    
+    // First, restore the manually added stories
+    existingStories.forEach((story, index) => {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = story.id;
+      storyCard.dataset.index = index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = story.text;
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
     });
+    
+    // Then add the CSV stories
+    const stories = csvData.split('\n');
+    let startIndex = existingStories.length;
+    
+    stories.forEach(function(story, index) {
+      if (story.trim()) {
+        const storyCard = document.createElement('div');
+        storyCard.className = 'story-card';
+        storyCard.id = `story_csv_${index}`;
+        storyCard.dataset.index = startIndex + index;
+        
+        const storyTitle = document.createElement('div');
+        storyTitle.className = 'story-title';
+        storyTitle.textContent = story.trim();
+        
+        storyCard.appendChild(storyTitle);
+        storyList.appendChild(storyCard);
+      }
+    });
+    
+    // Check for stories again after CSV upload
+    checkForStories();
+    
+    // Select the first story if there are any
+    const firstStory = storyList.querySelector('.story-card');
+    if (firstStory) {
+      firstStory.classList.add('selected');
+    }
+    
+    // Notify main.js about the combined stories if possible
+    if (window.notifyStoriesUpdated && typeof window.notifyStoriesUpdated === 'function') {
+      window.notifyStoriesUpdated();
+    }
+  };
+  
+  reader.readAsText(file);
+});
+    
    /** 
    // Add ticket button functionality - removed to avoid duplicate handlers
 // This is now handled in main.js    
