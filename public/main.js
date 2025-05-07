@@ -2,7 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket  } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket } from './socket.js'; 
 
 // Flag to track manually added tickets that need to be preserved
 let preservedManualTickets = [];
@@ -33,6 +33,7 @@ window.notifyStoriesUpdated = function() {
   
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
+
 /**
  * Handle adding a ticket from the modal
  * @param {Object} ticketData - Ticket data {id, text}
@@ -55,7 +56,6 @@ window.addTicketFromModal = function(ticketData) {
   // Store in manually added tickets
   manuallyAddedTickets.push(ticketData);
 };
-
 
 /**
  * Initialize socket with a specific name (used when joining via invite)
@@ -114,6 +114,7 @@ let votesPerStory = {};     // Track votes for each story { storyIndex: { userId
 let votesRevealed = {};     // Track which stories have revealed votes { storyIndex: boolean }
 let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
+let lastUploadedCSV = null; // Track last uploaded CSV to avoid duplicate processing
 
 /**
  * Determines if current user is a guest
@@ -351,38 +352,6 @@ function addNewLayoutStyles() {
 
 /**
  * Setup Add Ticket button
- 
-function setupAddTicketButton() {
-  const addTicketBtn = document.getElementById('addTicketBtn');
-  if (addTicketBtn) {
-      // Set flag to prevent double handling
-    window.ticketHandlerAttached = true;
-    addTicketBtn.addEventListener('click', () => {
-      const storyText = prompt("Enter the story details:");
-      if (storyText && storyText.trim()) {
-        // Create ticket data
-        const ticketData = {
-          id: `story_${Date.now()}`,
-          text: storyText.trim()
-        };
-        
-        // Emit to server for synchronization
-         emitAddTicket(ticketData);
-       // if (socket) {
-          //socket.emit('addTicket', ticketData);
-        //}
-        
-        // Add ticket locally
-        addTicketToUI(ticketData, true);
-        
-        // Store in manually added tickets
-        manuallyAddedTickets.push(ticketData);
-      }
-    });
-  }
-} */
-/**
- * Setup Add Ticket button
  */
 function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
@@ -558,8 +527,159 @@ function setupRevealResetButtons() {
 }
 
 /**
- * Setup CSV file uploader
+ * Handle CSV file upload and processing
+ * @param {File} file - The CSV file to process
  */
+function handleCSVUpload(file) {
+  if (!file) {
+    console.error('[CSV] No file provided for upload');
+    return;
+  }
+  
+  console.log(`[CSV] Starting CSV upload processing for file: ${file.name}`);
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Step 1: Parse the CSV data
+    const csvContent = e.target.result;
+    const csvRows = csvContent.trim().split('\n');
+    const parsedCSV = csvRows.map(row => row.split(','));
+    
+    console.log(`[CSV] Successfully parsed ${parsedCSV.length} rows from uploaded file`);
+    
+    // Step 2: Store the parsed data in the application state
+    csvData = parsedCSV;
+    lastUploadedCSV = JSON.parse(JSON.stringify(parsedCSV));
+    
+    // Step 3: Save all existing manually added tickets before processing
+    const storyList = document.getElementById('storyList');
+    const existingManualTickets = [];
+    
+    if (storyList) {
+      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+      manualStoryCards.forEach(card => {
+        const title = card.querySelector('.story-title');
+        if (title) {
+          existingManualTickets.push({
+            id: card.id,
+            text: title.textContent
+          });
+        }
+      });
+    }
+    
+    console.log(`[CSV] Preserved ${existingManualTickets.length} manually added tickets`);
+    
+    // Step 4: Clear and rebuild the story list
+    if (storyList) {
+      // First remove all existing content
+      storyList.innerHTML = '';
+      
+      // Then re-add the manually added tickets
+      existingManualTickets.forEach((ticket, index) => {
+        const storyCard = document.createElement('div');
+        storyCard.className = 'story-card';
+        storyCard.id = ticket.id;
+        storyCard.dataset.index = index;
+        
+        const storyTitle = document.createElement('div');
+        storyTitle.className = 'story-title';
+        storyTitle.textContent = ticket.text;
+        
+        storyCard.appendChild(storyTitle);
+        storyList.appendChild(storyCard);
+        
+        // Re-add the click event listener
+        storyCard.addEventListener('click', () => {
+          selectStory(index);
+        });
+      });
+      
+      // Then add the new CSV data as stories
+      let startIndex = existingManualTickets.length;
+      parsedCSV.forEach((row, index) => {
+        const storyCard = document.createElement('div');
+        storyCard.className = 'story-card';
+        storyCard.id = `story_csv_${Date.now()}_${index}`; // Add timestamp to ensure uniqueness
+        storyCard.dataset.index = startIndex + index;
+        
+        const storyTitle = document.createElement('div');
+        storyTitle.className = 'story-title';
+        storyTitle.textContent = row.join(' | ');
+        
+        storyCard.appendChild(storyTitle);
+        storyList.appendChild(storyCard);
+        
+        // Add click event listener
+        storyCard.addEventListener('click', () => {
+          selectStory(startIndex + index);
+        });
+      });
+      
+      // Update stored manual tickets for future preservation
+      preservedManualTickets = [...existingManualTickets];
+      
+      console.log(`[CSV] UI updated: ${existingManualTickets.length} manual + ${parsedCSV.length} CSV = ${storyList.children.length} total stories`);
+    } else {
+      console.error('[CSV] Story list container not found in DOM');
+    }
+    
+    // Step 5: Select the first story if none is selected
+    const selectedStory = storyList?.querySelector('.story-card.selected');
+    if (!selectedStory && storyList?.children.length > 0) {
+      storyList.children[0].classList.add('selected');
+      currentStoryIndex = 0;
+    }
+    
+    // Step 6: Hide "no stories" message if we have stories
+    const noStoriesMessage = document.getElementById('noStoriesMessage');
+    if (noStoriesMessage) {
+      noStoriesMessage.style.display = storyList?.children.length > 0 ? 'none' : 'block';
+    }
+    
+    // Step 7: Enable/disable planning cards based on story availability
+    document.querySelectorAll('#planningCards .card').forEach(card => {
+      if (storyList?.children.length > 0) {
+        card.classList.remove('disabled');
+        card.setAttribute('draggable', 'true');
+      } else {
+        card.classList.add('disabled');
+        card.setAttribute('draggable', 'false');
+      }
+    });
+    
+    // Step 8: Emit the CSV data to server for synchronization with other clients
+    if (typeof emitCSVData === 'function') {
+      console.log('[CSV] Broadcasting CSV data to other clients in room');
+      setTimeout(() => {
+        emitCSVData(parsedCSV);
+      }, 100); // Small delay to ensure UI is updated first
+    } else if (socket && socket.connected) {
+      console.log('[CSV] Falling back to socket.emit for CSV data synchronization');
+      setTimeout(() => {
+        socket.emit('syncCSVData', parsedCSV);
+      }, 100);
+    } else {
+      console.error('[CSV] Unable to synchronize CSV data - no socket connection available');
+    }
+    
+    // Step 9: Reset voting state for new data
+    votesPerStory = {};
+    votesRevealed = {};
+    
+    console.log('[CSV] CSV processing complete');
+  };
+  
+  // Start the file reading process
+  reader.readAsText(file);
+  
+  // Reset the file input so the same file can be uploaded again if needed
+  const csvInput = document.getElementById('csvInput');
+  if (csvInput) {
+    csvInput.value = '';
+  }
+}
+
 /**
  * Setup CSV file uploader
  */
@@ -569,65 +689,12 @@ function setupCSVUploader() {
 
   csvInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      // Save existing manually added tickets before processing CSV
-      const storyList = document.getElementById('storyList');
-      const existingTickets = [];
-      
-      if (storyList) {
-        const manualTickets = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-        manualTickets.forEach(card => {
-          const title = card.querySelector('.story-title');
-          if (title) {
-            existingTickets.push({
-              id: card.id, 
-              text: title.textContent
-            });
-          }
-        });
-      }
-      
-      console.log(`[CSV] Saved ${existingTickets.length} manual tickets before processing upload`);
-      
-      // Parse the CSV data
-      const parsedData = parseCSV(e.target.result);
-      
-      // Store in the module state
-      csvData = parsedData;
-      
-      // Display CSV data - this will clear and rebuild the story list
-      displayCSVData(csvData);
-      
-      // Re-add the preserved manual tickets
-      existingTickets.forEach((ticket, index) => {
-        // Make sure this ticket isn't already in the list to avoid duplicates
-        if (!document.getElementById(ticket.id)) {
-          addTicketToUI(ticket, false);
-        }
-      });
-      
-      // Store these for future preservation
-      preservedManualTickets = [...existingTickets];
-      
-      // Emit the CSV data to server AFTER ensuring all UI is updated
-      emitCSVData(parsedData);
-      
-      // Reset voting state for new data
-      votesPerStory = {};
-      votesRevealed = {};
-      
-      // Reset current story index only if no stories were selected before
-      if (!document.querySelector('.story-card.selected')) {
-        currentStoryIndex = 0;
-        renderCurrentStory();
-      }
-    };
-    reader.readAsText(file);
+    if (file) {
+      handleCSVUpload(file);
+    }
   });
 }
+
 /**
  * Parse CSV text into array structure
  */
@@ -703,7 +770,7 @@ function displayCSVData(data) {
     data.forEach((row, index) => {
       const storyItem = document.createElement('div');
       storyItem.classList.add('story-card');
-      storyItem.id = `story_csv_${index}`;
+      storyItem.id = `story_csv_${Date.now()}_${index}`;
       storyItem.dataset.index = startIndex + index;
       
       const storyTitle = document.createElement('div');
@@ -752,6 +819,7 @@ function displayCSVData(data) {
     processingCSVData = false;
   }
 }
+
 /**
  * Select a story by index
  * @param {number} index - Story index to select
@@ -1122,7 +1190,6 @@ function generateAvatarUrl(name) {
 /**
  * Setup invite button
  */
-
 function setupInviteButton() {
   const inviteButton = document.getElementById('inviteButton');
   if (!inviteButton) return;
@@ -1183,9 +1250,9 @@ function handleSocketMessage(message) {
       }
       break;
 
-      case 'allTickets':
+    case 'allTickets':
       // Handle receiving all tickets (used when joining a room)
-      if (Array.isArray(message.tickets)) {
+      if (Array.isArray(message.tickets) && message.tickets.length > 0) {
         console.log('[SOCKET] Received all tickets:', message.tickets.length);
         processAllTickets(message.tickets);
       }
@@ -1240,57 +1307,106 @@ function handleSocketMessage(message) {
       break;
       
     case 'syncCSVData':
-       // Handle CSV data sync with improved handling
-  if (Array.isArray(message.csvData)) {
-    console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
-    
-    // Store the CSV data
-    csvData = message.csvData;
-    csvDataLoaded = true;
-    
-    // Temporarily save manually added tickets to preserve them
-    const storyList = document.getElementById('storyList');
-    const manualTickets = [];
-    
-    if (storyList) {
-      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-      manualStoryCards.forEach(card => {
-        const title = card.querySelector('.story-title');
-        if (title) {
-          manualTickets.push({
-            id: card.id,
-            text: title.textContent
-          });
+      // Handle CSV data sync from server
+      if (Array.isArray(message.csvData)) {
+        console.log('[SOCKET] Received CSV data from server, length:', message.csvData.length);
+        
+        // Check if this is our own upload coming back (avoid double processing)
+        if (lastUploadedCSV && JSON.stringify(message.csvData) === JSON.stringify(lastUploadedCSV)) {
+          console.log('[SOCKET] Detected our own CSV upload coming back, skipping processing');
+          return;
         }
-      });
-    }
-    
-    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
-    
-    // Display CSV data (this will clear CSV stories but preserve manual ones)
-    displayCSVData(csvData);
-    
-    // We don't need to re-add manual tickets because displayCSVData now preserves them
-    
-    // Update UI
-    renderCurrentStory();
-  }
-  break;
-
-    case 'addTicket':
-      // Handle new ticket added by another user
-      if (message.ticketData) {
-        console.log('[SOCKET] New ticket received:', message.ticketData);
-        // Add ticket to UI without selecting it (to avoid loops)
-        addTicketToUI(message.ticketData, false);
-      }
-      break;
-      
-    case 'allTickets':
-      // Handle receiving all tickets (used when joining a room)
-      if (Array.isArray(message.tickets)) {
-        console.log('[SOCKET] Received all tickets:', message.tickets.length);
-        processAllTickets(message.tickets);
+        
+        // Store the CSV data in module state
+        csvData = message.csvData;
+        
+        // Create story items for the CSV data
+        const storyList = document.getElementById('storyList');
+        if (!storyList) return;
+        
+        // Save existing MANUAL tickets only
+        const manualTickets = [];
+        storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])').forEach(card => {
+          const title = card.querySelector('.story-title');
+          if (title) {
+            manualTickets.push({
+              id: card.id,
+              text: title.textContent
+            });
+          }
+        });
+        console.log(`[SOCKET] Preserved ${manualTickets.length} manual tickets`);
+        
+        // Rebuild the story list
+        storyList.innerHTML = '';
+        
+        // First add back manually added stories
+        manualTickets.forEach((ticket, index) => {
+          const storyCard = document.createElement('div');
+          storyCard.className = 'story-card';
+          storyCard.id = ticket.id;
+          storyCard.dataset.index = index;
+          
+          const storyTitle = document.createElement('div');
+          storyTitle.className = 'story-title';
+          storyTitle.textContent = ticket.text;
+          
+          storyCard.appendChild(storyTitle);
+          storyList.appendChild(storyCard);
+          
+          // Add click event listener
+          storyCard.addEventListener('click', () => {
+            selectStory(index);
+          });
+        });
+        
+        // Then add CSV stories
+        let startIndex = manualTickets.length;
+        message.csvData.forEach((row, index) => {
+          const storyCard = document.createElement('div');
+          storyCard.className = 'story-card';
+          storyCard.id = `story_csv_${Date.now()}_${index}`;
+          storyCard.dataset.index = startIndex + index;
+          
+          const storyTitle = document.createElement('div');
+          storyTitle.className = 'story-title';
+          storyTitle.textContent = row.join(' | ');
+          
+          storyCard.appendChild(storyTitle);
+          storyList.appendChild(storyCard);
+          
+          // Add click handler
+          storyCard.addEventListener('click', () => {
+            selectStory(startIndex + index);
+          });
+        });
+        
+        // Show/hide no stories message
+        const noStoriesMessage = document.getElementById('noStoriesMessage');
+        if (noStoriesMessage) {
+          noStoriesMessage.style.display = storyList.children.length === 0 ? 'block' : 'none';
+        }
+        
+        // Enable/disable planning cards
+        document.querySelectorAll('#planningCards .card').forEach(card => {
+          if (storyList.children.length === 0) {
+            card.classList.add('disabled');
+            card.setAttribute('draggable', 'false');
+          } else {
+            card.classList.remove('disabled');
+            card.setAttribute('draggable', 'true');
+          }
+        });
+        
+        // Select first story if none is selected
+        const selectedStory = storyList.querySelector('.story-card.selected');
+        if (!selectedStory && storyList.children.length > 0) {
+          storyList.children[0].classList.add('selected');
+          currentStoryIndex = 0;
+        }
+        
+        // Update the current story if needed
+        renderCurrentStory();
       }
       break;
       
