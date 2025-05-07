@@ -60,6 +60,31 @@ io.on('connection', (socket) => {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
   });
+// Handle ticket synchronization - add THIS inside the connection handler
+  socket.on('addTicket', (ticketData) => {
+  const roomId = socket.data.roomId;
+  if (roomId && rooms[roomId]) {
+    console.log(`[SERVER] New ticket added to room ${roomId}`);
+    
+    // Broadcast the new ticket to everyone in the room EXCEPT sender
+    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
+    
+    // Keep track of tickets on the server (optional)
+    if (!rooms[roomId].tickets) {
+      rooms[roomId].tickets = [];
+    }
+    rooms[roomId].tickets.push(ticketData);
+  }
+});
+
+// Add handler for getting all tickets
+socket.on('requestAllTickets', () => {
+  const roomId = socket.data.roomId;
+  if (roomId && rooms[roomId] && rooms[roomId].tickets) {
+    console.log(`[SERVER] Sending all tickets to client ${socket.id}`);
+    socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+  }
+});
 
   // Handle CSV data loaded confirmation
   socket.on('csvDataLoaded', () => {
@@ -237,30 +262,7 @@ io.on('connection', (socket) => {
   });
 });
 // In server.js add:
-socket.on('addTicket', (ticketData) => {
-  const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId]) {
-    console.log(`[SERVER] New ticket added to room ${roomId}`);
-    
-    // Broadcast the new ticket to everyone in the room EXCEPT sender
-    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
-    
-    // Keep track of tickets on the server (optional)
-    if (!rooms[roomId].tickets) {
-      rooms[roomId].tickets = [];
-    }
-    rooms[roomId].tickets.push(ticketData);
-  }
-});
 
-// Add handler for getting all tickets
-socket.on('requestAllTickets', () => {
-  const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId] && rooms[roomId].tickets) {
-    console.log(`[SERVER] Sending all tickets to client ${socket.id}`);
-    socket.emit('allTickets', { tickets: rooms[roomId].tickets });
-  }
-});
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
