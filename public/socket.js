@@ -15,10 +15,14 @@ let userName = null;
  * @returns {Object} - Socket instance for external reference
  */
 export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
+if (!roomIdentifier || !userNameValue) {
+    console.error('[SOCKET] Cannot initialize: missing roomId or userName');
+    return null;
+  }
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
-  
+   console.log(`[SOCKET] Initializing with roomId: ${roomId}, userName: ${userName}`);
   // Initialize socket connection
   socket = io({
     transports: ['websocket'],
