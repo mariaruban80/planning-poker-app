@@ -15,14 +15,10 @@ let userName = null;
  * @returns {Object} - Socket instance for external reference
  */
 export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
-if (!roomIdentifier || !userNameValue) {
-    console.error('[SOCKET] Cannot initialize: missing roomId or userName');
-    return null;
-  }
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
-   console.log(`[SOCKET] Initializing with roomId: ${roomId}, userName: ${userName}`);
+  
   // Initialize socket connection
   socket = io({
     transports: ['websocket'],
@@ -46,18 +42,13 @@ socket.on('allTickets', ({ tickets }) => {
   socket.on('connect', () => {
     console.log('[SOCKET] Connected to server with ID:', socket.id);
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
-   // Request all tickets after joining the room
-  setTimeout(() => {
-    console.log('[SOCKET] Requesting all tickets after connection');
-    socket.emit('requestAllTickets');
-  }, 1000);   
   });
 
   socket.on('userList', (users) => {
     handleMessage({ type: 'userList', users });
   });
 
-/**  socket.on('syncCSVData', (csvData) => {
+  socket.on('syncCSVData', (csvData) => {
     console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
     handleMessage({ type: 'syncCSVData', csvData });
     
@@ -66,20 +57,7 @@ socket.on('allTickets', ({ tickets }) => {
       console.log('[SOCKET] Notifying server that CSV data is loaded');
       socket.emit('csvDataLoaded');
     }, 100);
-  }); */
-
- socket.on('syncCSVData', (csvData) => {
-  console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
-  
-  // Pass to the message handler
-  handleMessage({ type: 'syncCSVData', csvData });
-  
-  // After receiving CSV data, wait before requesting all tickets to ensure proper sequence
-  setTimeout(() => {
-    console.log('[SOCKET] Requesting all tickets after CSV data');
-    socket.emit('requestAllTickets');
-  }, 300);
-});
+  });
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
@@ -140,28 +118,17 @@ socket.on('allTickets', ({ tickets }) => {
   // Return socket for external operations if needed
   return socket;
 }
+
 /**
  * Send CSV data to server for synchronization
  * @param {Array} data - CSV data to synchronize
  */
 export function emitCSVData(data) {
-  if (!socket) return;
-  
-  // Make a deep copy to avoid any reference issues
-  const dataCopy = JSON.parse(JSON.stringify(data));
-  
-  console.log('[SOCKET] Sending CSV data:', dataCopy.length, 'rows');
-  socket.emit('syncCSVData', dataCopy);
-  
-  // Request existing tickets after a delay to ensure everything is synced
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      console.log('[SOCKET] Requesting tickets after CSV sync');
-      socket.emit('requestAllTickets');
-    }
-  }, 500);
+  if (socket) {
+    console.log('[SOCKET] Sending CSV data:', data.length, 'rows');
+    socket.emit('syncCSVData', data);
+  }
 }
-
 
 /**
  * Emit story selection to server
