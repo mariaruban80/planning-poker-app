@@ -27,51 +27,39 @@ io.on('connection', (socket) => {
   console.log(`[SERVER] New client connected: ${socket.id}`);
   
   // Handle room joining
-  // In server.js - modify the joinRoom handler
-socket.on('joinRoom', ({ roomId, userName }) => {
-  socket.data.roomId = roomId;
-  socket.data.userName = userName;
+  socket.on('joinRoom', ({ roomId, userName }) => {
+    socket.data.roomId = roomId;
+    socket.data.userName = userName;
 
-  // Create room if it doesn't exist
-  if (!rooms[roomId]) {
-    rooms[roomId] = {
-      users: [],
-      votes: {},
-      story: [],
-      revealed: false,
-      csvData: [], // For storing uploaded CSV data
-      selectedIndex: 0,
-      votesPerStory: {},
-      votesRevealed: {},
-      tickets: [] // For manually added tickets
-    };
-  }
+    // Create room if it doesn't exist
+    if (!rooms[roomId]) {
+      rooms[roomId] = {
+        users: [],
+        votes: {},
+        story: [],
+        revealed: false,
+        csvData: [],
+        selectedIndex: 0, // Default to first story
+        votesPerStory: {},
+        votesRevealed: {} // Track which stories have revealed votes
+      };
+    }
 
-  // Update user list
-  rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
-  rooms[roomId].users.push({ id: socket.id, name: userName });
-  socket.join(roomId);
+    // Update user list (remove if exists, then add)
+    rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
+    rooms[roomId].users.push({ id: socket.id, name: userName });
+    socket.join(roomId);
 
-  console.log(`[SERVER] User ${userName} (${socket.id}) joined room ${roomId}`);
-  
-  // Send user list to everyone in the room
-  io.to(roomId).emit('userList', rooms[roomId].users);
+    console.log(`[SERVER] User ${userName} (${socket.id}) joined room ${roomId}`);
+    
+    // Send user list to everyone in the room
+    io.to(roomId).emit('userList', rooms[roomId].users);
 
-  // Always send both CSV data and tickets in sequence
-  // First send CSV data if available
-  if (rooms[roomId].csvData && rooms[roomId].csvData.length > 0) {
-    console.log(`[SERVER] Sending CSV data (${rooms[roomId].csvData.length} rows) to new user ${socket.id}`);
-    socket.emit('syncCSVData', rooms[roomId].csvData);
-  }
-  
-  // Then send tickets if available (with a slight delay to ensure proper sequence)
-  if (rooms[roomId].tickets && rooms[roomId].tickets.length > 0) {
-    setTimeout(() => {
-      console.log(`[SERVER] Sending tickets (${rooms[roomId].tickets.length}) to new user ${socket.id}`);
-      socket.emit('allTickets', { tickets: rooms[roomId].tickets });
-    }, 200);
-  }
-});
+    // Send CSV data if available
+    if (rooms[roomId].csvData?.length > 0) {
+      socket.emit('syncCSVData', rooms[roomId].csvData);
+    }
+  });
 // Handle ticket synchronization - add THIS inside the connection handler
   socket.on('addTicket', (ticketData) => {
   const roomId = socket.data.roomId;
@@ -230,11 +218,10 @@ socket.on('requestAllTickets', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       rooms[roomId].csvData = csvData;
-    //  rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
-     // rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
-     // rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded
+      rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
+      rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
+      rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded
       io.to(roomId).emit('syncCSVData', csvData);
-      
     }
   });
 
