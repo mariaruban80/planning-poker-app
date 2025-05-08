@@ -1826,7 +1826,9 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
   function showLoginModal() {
     const loginModal = document.getElementById('loginModalCustom');
     if (loginModal) {
-      loginModal.style.display = 'flex';
+      // Mark username as explicitly not ready to prevent socket connection
+        window.userNameReady = false;  
+        loginModal.style.display = 'flex';
       
       // Focus on the input field
       setTimeout(() => {
