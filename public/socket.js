@@ -15,6 +15,11 @@ let userName = null;
  * @returns {Object} - Socket instance for external reference
  */
 export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
+   // First verify that we have a valid username
+  if (!userNameValue) {
+    console.error('[SOCKET] Cannot initialize without a username');
+    return null;
+  }
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
