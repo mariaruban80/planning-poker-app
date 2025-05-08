@@ -23,7 +23,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
-  
+  // Debug to verify username
+  console.log('[SOCKET] Initializing with username:', userName);  
   // Initialize socket connection
   socket = io({
     transports: ['websocket'],
@@ -31,6 +32,12 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     query: { roomId: roomIdentifier, userName: userNameValue }
+  });
+    // Socket event handlers
+  socket.on('connect', () => {
+    console.log('[SOCKET] Connected to server with ID:', socket.id);
+    console.log('[SOCKET] Joining room with username:', userNameValue);
+    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
   });
 
   socket.on('addTicket', ({ ticketData }) => {
