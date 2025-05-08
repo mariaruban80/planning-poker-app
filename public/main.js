@@ -72,14 +72,7 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Initialize socket with the name
   socket = initializeWebSocket(roomId, name, handleSocketMessage);
-  // Request all tickets after a short delay to ensure connection is established
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      console.log('[APP] Requesting all tickets after initialization');
-      socket.emit('requestAllTickets');
-      hasRequestedTickets = true; // Set flag to avoid duplicate requests
-    }
-  }, 1000);
+  
   // Continue with other initialization steps
   setupCSVUploader();
   setupInviteButton();
@@ -514,10 +507,6 @@ function processAllTickets(tickets) {
     if (ticket && ticket.id && ticket.text) {
       // Add to UI without selecting
       addTicketToUI(ticket, false);
-      // If this is a CSV ticket (ID contains "csv"), also add to csvData
-      if (ticket.id.includes('csv')) {
-        csvData.push([ticket.text]);
-      }
     }
   });
   
@@ -526,34 +515,8 @@ function processAllTickets(tickets) {
     currentStoryIndex = 0;
     selectStory(0, false); // Don't emit to avoid loops
   }
-  // Check for stories message
-  updateStoriesVisibility();
 }
-/**
- * Update visibility of stories and related UI elements
- */
-function updateStoriesVisibility() {
-  const storyList = document.getElementById('storyList');
-  const noStoriesMessage = document.getElementById('noStoriesMessage');
-  
-  const hasStories = storyList && storyList.children.length > 0;
-  
-  // Update no stories message
-  if (noStoriesMessage) {
-    noStoriesMessage.style.display = hasStories ? 'none' : 'block';
-  }
-  
-  // Update planning cards state
-  document.querySelectorAll('#planningCards .card').forEach(card => {
-    if (hasStories) {
-      card.classList.remove('disabled');
-      card.setAttribute('draggable', 'true');
-    } else {
-      card.classList.add('disabled');
-      card.setAttribute('draggable', 'false');
-    }
-  });
-}
+
 /**
  * Setup reveal and reset buttons
  */
@@ -890,14 +853,11 @@ function renderCurrentStory() {
  * Update the user list display with the new layout
  */
 function updateUserList(users) {
-  users.map(u => `${u.name} (${u.id})`).join(', '));
   const userListContainer = document.getElementById('userList');
   const userCircleContainer = document.getElementById('userCircle');
   
-  if (!userListContainer || !userCircleContainer){
-    console.error('[UI] User list containers not found!');
-    return;
-  }
+  if (!userListContainer || !userCircleContainer) return;
+
   // Clear existing content
   userListContainer.innerHTML = '';
   userCircleContainer.innerHTML = '';
