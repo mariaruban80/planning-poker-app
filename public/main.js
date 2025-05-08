@@ -507,6 +507,10 @@ function processAllTickets(tickets) {
     if (ticket && ticket.id && ticket.text) {
       // Add to UI without selecting
       addTicketToUI(ticket, false);
+      // If this is a CSV ticket (ID contains "csv"), also add to csvData
+      if (ticket.id.includes('csv')) {
+        csvData.push([ticket.text]);
+      }
     }
   });
   
@@ -515,8 +519,34 @@ function processAllTickets(tickets) {
     currentStoryIndex = 0;
     selectStory(0, false); // Don't emit to avoid loops
   }
+  // Check for stories message
+  updateStoriesVisibility();
 }
-
+/**
+ * Update visibility of stories and related UI elements
+ */
+function updateStoriesVisibility() {
+  const storyList = document.getElementById('storyList');
+  const noStoriesMessage = document.getElementById('noStoriesMessage');
+  
+  const hasStories = storyList && storyList.children.length > 0;
+  
+  // Update no stories message
+  if (noStoriesMessage) {
+    noStoriesMessage.style.display = hasStories ? 'none' : 'block';
+  }
+  
+  // Update planning cards state
+  document.querySelectorAll('#planningCards .card').forEach(card => {
+    if (hasStories) {
+      card.classList.remove('disabled');
+      card.setAttribute('draggable', 'true');
+    } else {
+      card.classList.add('disabled');
+      card.setAttribute('draggable', 'false');
+    }
+  });
+}
 /**
  * Setup reveal and reset buttons
  */
