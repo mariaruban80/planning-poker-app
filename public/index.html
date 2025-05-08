@@ -1849,7 +1849,47 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       fallbackToPrompt();
     }
   }
-  
+    
+  // Initialize the app with the provided username
+  function initializeAppWithName(username) {
+       if (!username) {
+    console.error('[APP] Cannot initialize: missing username');
+    return;
+  }
+    // Initialize socket connection with the username
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+      if (!roomId) {
+    console.error('[APP] Cannot initialize: missing roomId in URL parameters');
+    return;
+  }
+   if (typeof window.initializeSocketWithName === 'function') {
+    console.log('[APP] Found initializeSocketWithName function, calling it...');
+    window.initializeSocketWithName(roomId, username);
+  } else {
+    console.error('[APP] initializeSocketWithName function not available');
+    
+    // Check if main.js is loaded
+    if (typeof initializeWebSocket === 'undefined') {
+      console.error('[APP] initializeWebSocket is not defined - main.js might not be loaded yet');
+      
+      // Wait a bit and try again
+      setTimeout(() => {
+        if (typeof window.initializeSocketWithName === 'function') {
+          console.log('[APP] Found initializeSocketWithName function after delay, calling it...');
+          window.initializeSocketWithName(roomId, username);
+        } else {
+          // Last resort - reload page
+          console.log('[APP] Still cannot find initialization function, reloading page');
+          window.location.reload();
+        }
+      }, 1000);
+    } else {
+      // Fallback to reloading
+      window.location.reload();
+    }
+  }
+}
   // Function to handle login form submission
   function handleLoginSubmit() {
     const username = document.getElementById('userNameInput').value.trim();
@@ -1881,20 +1921,7 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       }, 500);
     }
   }
-  
-  // Initialize the app with the provided username
-  function initializeAppWithName(username) {
-    // Initialize socket connection with the username
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('roomId');
-    
-    if (window.initializeSocketWithName) {
-      window.initializeSocketWithName(roomId, username);
-    } else {
-      // Fallback to reloading if the function isn't available
-      window.location.reload();
-    }
-  }
+
   
   // Fallback to browser prompt if modal doesn't exist
   function fallbackToPrompt() {
