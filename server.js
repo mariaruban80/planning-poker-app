@@ -28,6 +28,12 @@ io.on('connection', (socket) => {
   
   // Handle room joining
   socket.on('joinRoom', ({ roomId, userName }) => {
+     // Validate username - reject if missing
+  if (!userName) {
+    console.log(`[SERVER] Rejected connection without username for socket ${socket.id}`);
+    socket.emit('error', { message: 'Username is required to join a room' });
+    return;
+  }
     socket.data.roomId = roomId;
     socket.data.userName = userName;
 
