@@ -40,8 +40,21 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
 socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
+   // Track what types of tickets we received
+  const csvTickets = tickets.filter(t => t.id && t.id.includes('csv')).length;
+  const manualTickets = tickets.length - csvTickets;
+  console.log(`[SOCKET] Breakdown: ${csvTickets} CSV tickets, ${manualTickets} manual tickets`);     
   handleMessage({ type: 'allTickets', tickets });
 });
+ /**
+ * Request all tickets from the server
+ */
+export function requestAllTickets() {
+  if (socket) {
+    console.log('[SOCKET] Requesting all tickets from server');
+    socket.emit('requestAllTickets');
+  }
+}  
 
   // Socket event handlers
   socket.on('connect', () => {
