@@ -67,19 +67,30 @@ io.on('connection', (socket) => {
     }
   });
 // Handle ticket synchronization - add THIS inside the connection handler
+  const rooms = {};
   socket.on('addTicket', (ticketData) => {
   const roomId = socket.data.roomId;
   if (roomId && rooms[roomId]) {
-    console.log(`[SERVER] New ticket added to room ${roomId}`);
-    
-    // Broadcast the new ticket to everyone in the room EXCEPT sender
-    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
-    
-    // Keep track of tickets on the server (optional)
+    console.log(``[SERVER] New ticket added to room ${roomId}: ${ticketData.id}`);
+    // Initialize tickets array if needed
     if (!rooms[roomId].tickets) {
       rooms[roomId].tickets = [];
     }
-    rooms[roomId].tickets.push(ticketData);
+    // Check if ticket already exists to avoid duplicates
+    const existingIndex = rooms[roomId].tickets.findIndex(t => t.id === ticketData.id);
+    if (existingIndex === -1) {
+      // Add new ticket
+      rooms[roomId].tickets.push(ticketData);    
+    // Broadcast the new ticket to everyone in the room EXCEPT sender
+    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
+    } else {
+      console.log(`[SERVER] Ticket ${ticketData.id} already exists, not adding duplicate`);
+    }
+   /** // Keep track of tickets on the server (optional)
+    if (!rooms[roomId].tickets) {
+      rooms[roomId].tickets = [];
+    }
+    rooms[roomId].tickets.push(ticketData); */
   }
 });
 
@@ -224,10 +235,35 @@ socket.on('requestAllTickets', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       rooms[roomId].csvData = csvData;
-      rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
+   /**   rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
       rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
-      rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded
-      io.to(roomId).emit('syncCSVData', csvData);
+      rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded 
+      io.to(roomId).emit('syncCSVData', csvData); */
+     if (!rooms[roomId].tickets) {
+      rooms[roomId].tickets = [];
+    }
+    // Remove any existing CSV tickets
+    rooms[roomId].tickets = rooms[roomId].tickets.filter(t => 
+      !t.id || !t.id.includes('csv_'));
+    
+    // Add new CSV tickets
+    csvData.forEach((row, index) => {
+      const ticketText = Array.isArray(row) ? row.join(' | ') : row;
+      rooms[roomId].tickets.push({
+        id: `story_csv_${index}`,
+        text: ticketText
+      });
+    });
+    // Reset selected index when new CSV data is loaded
+    rooms[roomId].selectedIndex = 0;
+    rooms[roomId].votesPerStory = {}; 
+    rooms[roomId].votesRevealed = {};
+    
+    // Broadcast updated CSV data
+    io.to(roomId).emit('syncCSVData', csvData);
+    
+    // Also broadcast all tickets to ensure consistency
+    io.to(roomId).emit('allTickets', { tickets: rooms[roomId].tickets });
     }
   });
 
