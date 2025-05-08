@@ -890,11 +890,14 @@ function renderCurrentStory() {
  * Update the user list display with the new layout
  */
 function updateUserList(users) {
+  users.map(u => `${u.name} (${u.id})`).join(', '));
   const userListContainer = document.getElementById('userList');
   const userCircleContainer = document.getElementById('userCircle');
   
-  if (!userListContainer || !userCircleContainer) return;
-
+  if (!userListContainer || !userCircleContainer){
+    console.error('[UI] User list containers not found!');
+    return;
+  }
   // Clear existing content
   userListContainer.innerHTML = '';
   userCircleContainer.innerHTML = '';
