@@ -72,7 +72,14 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Initialize socket with the name
   socket = initializeWebSocket(roomId, name, handleSocketMessage);
-  
+  // Request all tickets after a short delay to ensure connection is established
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      console.log('[APP] Requesting all tickets after initialization');
+      socket.emit('requestAllTickets');
+      hasRequestedTickets = true; // Set flag to avoid duplicate requests
+    }
+  }, 1000);
   // Continue with other initialization steps
   setupCSVUploader();
   setupInviteButton();
