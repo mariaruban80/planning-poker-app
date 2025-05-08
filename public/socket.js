@@ -23,8 +23,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
-  // Debug to verify username
-  console.log('[SOCKET] Initializing with username:', userName);  
+  
   // Initialize socket connection
   socket = io({
     transports: ['websocket'],
@@ -32,12 +31,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     query: { roomId: roomIdentifier, userName: userNameValue }
-  });
-    // Socket event handlers
-  socket.on('connect', () => {
-    console.log('[SOCKET] Connected to server with ID:', socket.id);
-    console.log('[SOCKET] Joining room with username:', userNameValue);
-    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
   });
 
   socket.on('addTicket', ({ ticketData }) => {
@@ -47,21 +40,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
 socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
-   // Track what types of tickets we received
-  const csvTickets = tickets.filter(t => t.id && t.id.includes('csv')).length;
-  const manualTickets = tickets.length - csvTickets;
-  console.log(`[SOCKET] Breakdown: ${csvTickets} CSV tickets, ${manualTickets} manual tickets`);     
   handleMessage({ type: 'allTickets', tickets });
 });
- /**
- * Request all tickets from the server
- */
-export function requestAllTickets() {
-  if (socket) {
-    console.log('[SOCKET] Requesting all tickets from server');
-    socket.emit('requestAllTickets');
-  }
-}  
 
   // Socket event handlers
   socket.on('connect', () => {
