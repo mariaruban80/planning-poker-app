@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
   socket.on('addTicket', (ticketData) => {
   const roomId = socket.data.roomId;
   if (roomId && rooms[roomId]) {
-    console.log(``[SERVER] New ticket added to room ${roomId}: ${ticketData.id}`);
+    console.log(`[SERVER] New ticket added to room ${roomId}: ${ticketData.id}`);
     // Initialize tickets array if needed
     if (!rooms[roomId].tickets) {
       rooms[roomId].tickets = [];
