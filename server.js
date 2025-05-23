@@ -8,7 +8,10 @@ import { dirname, join } from 'path';
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  pingTimeout: 60000, // Increase ping timeout to 60s (default is 20s)
+  pingInterval: 25000, // Ping interval at 25s (default is 25s)
+  connectTimeout: 10000 // Connection timeout
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,18 +25,21 @@ app.use(express.static(join(__dirname, 'public')));
 
 // Enhanced room structure with vote revealing state
 const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory, votesRevealed }
+const roomVotingSystems = {}; // roomId → voting system
+
 
 io.on('connection', (socket) => {
   console.log(`[SERVER] New client connected: ${socket.id}`);
   
   // Handle room joining
   socket.on('joinRoom', ({ roomId, userName }) => {
-     // Validate username - reject if missing
-  if (!userName) {
-    console.log(`[SERVER] Rejected connection without username for socket ${socket.id}`);
-    socket.emit('error', { message: 'Username is required to join a room' });
-    return;
-  }
+    // Validate username - reject if missing
+    if (!userName) {
+      console.log(`[SERVER] Rejected connection without username for socket ${socket.id}`);
+      socket.emit('error', { message: 'Username is required to join a room' });
+      return;
+    }
+    
     socket.data.roomId = roomId;
     socket.data.userName = userName;
 
@@ -55,6 +61,10 @@ io.on('connection', (socket) => {
     rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
     rooms[roomId].users.push({ id: socket.id, name: userName });
     socket.join(roomId);
+    
+    // Send the current voting system to the joining user
+    const votingSystem = roomVotingSystems[roomId] || 'fibonacci';
+    socket.emit('votingSystemUpdate', { votingSystem });
 
     console.log(`[SERVER] User ${userName} (${socket.id}) joined room ${roomId}`);
     
@@ -65,32 +75,151 @@ io.on('connection', (socket) => {
     if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
-  });
-// Handle ticket synchronization - add THIS inside the connection handler
-  socket.on('addTicket', (ticketData) => {
-  const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId]) {
-    console.log(`[SERVER] New ticket added to room ${roomId}`);
     
-    // Broadcast the new ticket to everyone in the room EXCEPT sender
-    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
-    
-    // Keep track of tickets on the server (optional)
-    if (!rooms[roomId].tickets) {
-      rooms[roomId].tickets = [];
+    // Send currently selected story
+    if (typeof rooms[roomId].selectedIndex === 'number') {
+      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
     }
-    rooms[roomId].tickets.push(ticketData);
-  }
-});
-
-// Add handler for getting all tickets
-socket.on('requestAllTickets', () => {
-  const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId] && rooms[roomId].tickets) {
-    console.log(`[SERVER] Sending all tickets to client ${socket.id}`);
-    socket.emit('allTickets', { tickets: rooms[roomId].tickets });
-  }
-});
+    
+    // Send revealed votes state for all stories
+    const votesRevealed = rooms[roomId].votesRevealed || {};
+    Object.keys(votesRevealed).forEach(storyIndex => {
+      if (votesRevealed[storyIndex]) {
+        const votes = rooms[roomId].votesPerStory[storyIndex] || {};
+        socket.emit('storyVotes', { 
+          storyIndex: parseInt(storyIndex), 
+          votes 
+        });
+        socket.emit('votesRevealed', { 
+          storyIndex: parseInt(storyIndex) 
+        });
+      }
+    });
+    
+    // Send all tracked tickets
+    if (rooms[roomId].tickets && rooms[roomId].tickets.length > 0) {
+      socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+    }
+  });
+  
+  // Handle reconnection
+  socket.on('reconnect', () => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] Client ${socket.id} reconnected to room ${roomId}`);
+      
+      // Re-send room state
+      socket.emit('userList', rooms[roomId].users);
+      
+      if (rooms[roomId].csvData?.length > 0) {
+        socket.emit('syncCSVData', rooms[roomId].csvData);
+      }
+      
+      // Send current story selection
+      if (typeof rooms[roomId].selectedIndex === 'number') {
+        socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
+      }
+      
+      // Re-send revealed votes state
+      const votesRevealed = rooms[roomId].votesRevealed || {};
+      Object.keys(votesRevealed).forEach(storyIndex => {
+        if (votesRevealed[storyIndex]) {
+          const votes = rooms[roomId].votesPerStory[storyIndex] || {};
+          socket.emit('storyVotes', { 
+            storyIndex: parseInt(storyIndex), 
+            votes 
+          });
+          socket.emit('votesRevealed', { 
+            storyIndex: parseInt(storyIndex) 
+          });
+        }
+      });
+    }
+  });
+  
+  // Handle ticket synchronization
+  socket.on('addTicket', (ticketData) => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] New ticket added to room ${roomId}`);
+      
+      // Broadcast the new ticket to everyone in the room EXCEPT sender
+      socket.broadcast.to(roomId).emit('addTicket', { ticketData });
+      
+      // Keep track of tickets on the server
+      if (!rooms[roomId].tickets) {
+        rooms[roomId].tickets = [];
+      }
+      rooms[roomId].tickets.push(ticketData);
+    }
+  });
+  
+  socket.on('deleteCSVStory', ({ storyId, csvIndex }) => {
+    const roomId = socket.data.roomId;
+    
+    if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] CSV story deleted in room ${roomId}: ${storyId}, csvIndex: ${csvIndex}`);
+      
+      // Update the CSV data by removing the entry
+      if (rooms[roomId].csvData && !isNaN(csvIndex) && csvIndex >= 0 && csvIndex < rooms[roomId].csvData.length) {
+        rooms[roomId].csvData.splice(csvIndex, 1);
+        
+        // Re-sync the CSV data to all clients
+        io.to(roomId).emit('syncCSVData', rooms[roomId].csvData);
+        console.log(`[SERVER] Resynced CSV data after deletion, ${rooms[roomId].csvData.length} items remain`);
+      }
+      
+      // Also send the standard deleteStory event to ensure UI is updated everywhere
+      io.to(roomId).emit('deleteStory', { storyId });
+    }
+  });
+  
+  // Store the selected voting system for the room
+  socket.on('votingSystemSelected', ({ roomId, votingSystem }) => {
+    if (roomId && votingSystem) {
+      console.log(`[SERVER] Host selected voting system '${votingSystem}' for room ${roomId}`);
+      roomVotingSystems[roomId] = votingSystem;
+      
+      // Broadcast to all clients in the room
+      io.to(roomId).emit('votingSystemUpdate', { votingSystem });
+    }
+  });
+  
+  // Handle story deletion
+  socket.on('deleteStory', ({ storyId, isCsvStory, csvIndex }) => {
+    const roomId = socket.data.roomId;
+    
+    if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] Story deleted in room ${roomId}: ${storyId}`);
+      
+      // Handle CSV story deletion
+      if (isCsvStory && rooms[roomId].csvData) {
+        if (!isNaN(csvIndex) && csvIndex >= 0 && csvIndex < rooms[roomId].csvData.length) {
+          // Remove the item from csvData
+          rooms[roomId].csvData.splice(csvIndex, 1);
+          // Optionally sync updated CSV data
+          io.to(roomId).emit('syncCSVData', rooms[roomId].csvData);
+        }
+      }
+      
+      // Remove from tracked tickets if present
+      if (rooms[roomId].tickets) {
+        rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => ticket.id !== storyId);
+      }
+      
+      // Broadcast deletion to all other clients in the room
+      socket.broadcast.to(roomId).emit('deleteStory', { storyId });
+    }
+  });
+  
+  // Handle getting all tickets
+  socket.on('requestAllTickets', () => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId] && rooms[roomId].tickets) {
+      console.log(`[SERVER] Sending all tickets to client ${socket.id}`);
+      socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+    }
+  });
 
   // Handle CSV data loaded confirmation
   socket.on('csvDataLoaded', () => {
@@ -131,73 +260,50 @@ socket.on('requestAllTickets', () => {
   });
 
   // Handle user votes
-  socket.on('castVote', ({ vote, targetUserId }) => {
+socket.on('castVote', ({ vote, targetUserId, storyId }) => {
     const roomId = socket.data.roomId;
-    if (roomId && targetUserId != null && rooms[roomId]) {
-      const currentStoryIndex = rooms[roomId].selectedIndex;
-
-      // Initialize vote storage for this story if needed
-      if (!rooms[roomId].votesPerStory[currentStoryIndex]) {
-        rooms[roomId].votesPerStory[currentStoryIndex] = {};
+    if (roomId && rooms[roomId] && targetUserId === socket.id) {
+      if (!rooms[roomId].votesPerStory) rooms[roomId].votesPerStory = {};
+      if (!rooms[roomId].votesPerStory[storyId]) {
+        rooms[roomId].votesPerStory[storyId] = {};
       }
-
-      // Store the vote
-      rooms[roomId].votesPerStory[currentStoryIndex][targetUserId] = vote;
-
-      // Broadcast vote to all clients in the room
-      io.to(roomId).emit('voteUpdate', {
-        userId: targetUserId,
-        vote,
-        storyIndex: currentStoryIndex
-      });
+      rooms[roomId].votesPerStory[storyId][targetUserId] = vote;
+      io.to(roomId).emit('voteUpdate', { userId: targetUserId, vote, storyId });
     }
   });
 
+  
   // Handle requests for votes for a specific story
-  socket.on('requestStoryVotes', ({ storyIndex }) => {
+  socket.on('requestStoryVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
-      const votes = rooms[roomId].votesPerStory[storyIndex] || {};
-      console.log(`[SERVER] Sending votes for story ${storyIndex} to client ${socket.id}`);
-      socket.emit('storyVotes', { storyIndex, votes });
-      
-      // If votes have been revealed for this story, also send that info
-      if (rooms[roomId].votesRevealed[storyIndex]) {
-        socket.emit('votesRevealed', { storyIndex });
+      const votes = rooms[roomId].votesPerStory?.[storyId] || {};
+      socket.emit('storyVotes', { storyId, votes });
+      if (rooms[roomId].votesRevealed?.[storyId]) {
+        socket.emit('votesRevealed', { storyId });
       }
     }
   });
 
-  // Handle vote revealing
-  socket.on('revealVotes', () => {
+  // Handle vote revealing with improved persistence
+  socket.on('revealVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
-      const currentStoryIndex = rooms[roomId].selectedIndex;
-      
-      // Mark this story as having revealed votes
-      rooms[roomId].votesRevealed[currentStoryIndex] = true;
-      
-      // Send the reveal signal to all clients
-      io.to(roomId).emit('votesRevealed', { storyIndex: currentStoryIndex });
-      
-      console.log(`[SERVER] Votes revealed for story ${currentStoryIndex} in room ${roomId}`);
+      if (!rooms[roomId].votesRevealed) rooms[roomId].votesRevealed = {};
+      rooms[roomId].votesRevealed[storyId] = true;
+      io.to(roomId).emit('votesRevealed', { storyId });
     }
   });
+
 
   // Handle vote reset for current story
-  socket.on('resetVotes', () => {
+  socket.on('resetVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
-      const currentStoryIndex = rooms[roomId].selectedIndex;
-      
-      // Clear votes for the current story
-      if (rooms[roomId].votesPerStory[currentStoryIndex]) {
-        rooms[roomId].votesPerStory[currentStoryIndex] = {};
-        // Reset revealed status
-        rooms[roomId].votesRevealed[currentStoryIndex] = false;
-        
-        console.log(`[SERVER] Votes reset for story ${currentStoryIndex} in room ${roomId}`);
-        io.to(roomId).emit('votesReset', { storyIndex: currentStoryIndex });
+      if (rooms[roomId].votesPerStory?.[storyId]) {
+        rooms[roomId].votesPerStory[storyId] = {};
+        rooms[roomId].votesRevealed[storyId] = false;
+        io.to(roomId).emit('votesReset', { storyId });
       }
     }
   });
@@ -219,19 +325,26 @@ socket.on('requestAllTickets', () => {
     }
   });
 
-  // Handle CSV data synchronization
+  // Handle CSV data synchronization with improved state management
   socket.on('syncCSVData', (csvData) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] Received CSV data for room ${roomId}, ${csvData.length} rows`);
+      
+      // Store the CSV data
       rooms[roomId].csvData = csvData;
-      rooms[roomId].selectedIndex = 0; // Reset selected index when new CSV data is loaded
-      rooms[roomId].votesPerStory = {}; // Reset all votes when new CSV data is loaded
-      rooms[roomId].votesRevealed = {}; // Reset all reveal states when new CSV data is loaded
+      
+      // Reset states when new CSV data is loaded
+      rooms[roomId].selectedIndex = 0;
+      rooms[roomId].votesPerStory = {}; 
+      rooms[roomId].votesRevealed = {}; 
+      
+      // Broadcast to ALL clients in the room
       io.to(roomId).emit('syncCSVData', csvData);
     }
   });
 
-  // Export votes data (optional feature)
+  // Export votes data
   socket.on('exportVotes', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
@@ -263,11 +376,11 @@ socket.on('requestAllTickets', () => {
       if (rooms[roomId].users.length === 0) {
         console.log(`[SERVER] Removing empty room: ${roomId}`);
         delete rooms[roomId];
+        delete roomVotingSystems[roomId];
       }
     }
   });
 });
-// In server.js add:
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
