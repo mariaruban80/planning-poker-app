@@ -1360,6 +1360,13 @@ function processAllTickets(tickets) {
   applyGuestRestrictions();
 }
 
+// Get storyId from selected card
+function getCurrentStoryId() {
+  const selectedCard = document.querySelector('.story-card.selected');
+  return selectedCard ? selectedCard.id : null;
+}
+
+
 /**
  * Setup reveal and reset buttons
  */
