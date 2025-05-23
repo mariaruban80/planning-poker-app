@@ -451,17 +451,19 @@ socket.on('votesReset', ({ storyId }) => {
     });
     
     // Handle successful reconnection
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
-      
-      // Request current state after reconnection
-      if (typeof currentStoryIndex === 'number') {
-        setTimeout(() => {
-          socket.emit('requestStoryVotes', { storyIndex: currentStoryIndex });
-        }, 500);
-      }
-    });
+socket.on('reconnect', () => {
+  console.log('[SOCKET] Reconnected to server');
+  reconnectingInProgress = false;
+
+  // Request current state after reconnection
+  setTimeout(() => {
+    const storyId = getCurrentStoryId();
+    if (socket && socket.connected && storyId) {
+      socket.emit('requestStoryVotes', { storyId });
+    }
+  }, 500);
+});
+
   }
   
   // Guest: Listen for host's voting system
@@ -1400,6 +1402,26 @@ function setupRevealResetButtons() {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
         socket.emit('revealVotes', { storyId });
+        votesRevealed[storyId] = true;
+
+        if (votesPerStory[storyId]) {
+          applyVotesToUI(votesPerStory[storyId], true);
+          
+          // Also show vote stats UI
+          const planningCardsSection = document.querySelector('.planning-cards-section');
+          const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+          statsContainer.className = 'vote-statistics-container';
+          statsContainer.innerHTML = '';
+          statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
+
+          if (planningCardsSection && planningCardsSection.parentNode) {
+            planningCardsSection.style.display = 'none';
+            planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+            statsContainer.style.display = 'block';
+          }
+
+          setTimeout(fixRevealedVoteFontSizes, 100);
+        }
       }
     });
   }
@@ -1417,6 +1439,7 @@ function setupRevealResetButtons() {
     });
   }
 }
+
 
 
 
@@ -2463,26 +2486,26 @@ function handleSocketMessage(message) {
       }
       break;
 
-    case 'connect':
-      // When connection is established
-      updateConnectionStatus('connected');
-      
-      // Request tickets and state after connection
-      setTimeout(() => {
-        if (socket && socket.connected) {
-          if (!hasRequestedTickets) {
-            console.log('[SOCKET] Connected, requesting all tickets');
-            socket.emit('requestAllTickets');
-            hasRequestedTickets = true;
-          }
-          
-          // Also request votes for current story
-          if (typeof currentStoryIndex === 'number') {
-            socket.emit('requestStoryVotes', { storyIndex: currentStoryIndex });
-          }
-        }
-      }, 500);
-      break;
+   case 'connect':
+  updateConnectionStatus('connected');
+
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      if (!hasRequestedTickets) {
+        console.log('[SOCKET] Connected, requesting all tickets');
+        socket.emit('requestAllTickets');
+        hasRequestedTickets = true;
+      }
+
+      // ✅ Fix: request votes using storyId, not index
+      const storyId = getCurrentStoryId();
+      if (storyId) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
+    }
+  }, 500);
+  break;
+
       
     case 'reconnect_attempt':
       // Show reconnecting status
@@ -2490,26 +2513,25 @@ function handleSocketMessage(message) {
       reconnectingInProgress = true;
       break;
       
-    case 'reconnect':
-      // Handle successful reconnection
-      updateConnectionStatus('connected');
-      reconnectingInProgress = false;
-      
-      // Request current state after reconnection
-      setTimeout(() => {
-        if (socket && socket.connected) {
-          // Request votes for current story
-          if (typeof currentStoryIndex === 'number') {
-            socket.emit('requestStoryVotes', { storyIndex: currentStoryIndex });
-          }
-          
-          // Request all tickets if we don't have them
-          if (!hasRequestedTickets) {
-            socket.emit('requestAllTickets');
-            hasRequestedTickets = true;
-          }
-        }
-      }, 500);
+   case 'reconnect':
+  updateConnectionStatus('connected');
+  reconnectingInProgress = false;
+
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      const storyId = getCurrentStoryId();
+      if (storyId) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
+
+      if (!hasRequestedTickets) {
+        socket.emit('requestAllTickets');
+        hasRequestedTickets = true;
+      }
+    }
+  }, 500);
+  break;
+
       break;
       
     case 'error':
