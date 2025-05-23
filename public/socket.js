@@ -6,6 +6,9 @@ let socket = null;
 let selectedStoryIndex = null;
 let roomId = null;
 let userName = null;
+let reconnectionEnabled = true;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 10;
 
 /**
  * Initialize WebSocket connection to server
@@ -15,42 +18,111 @@ let userName = null;
  * @returns {Object} - Socket instance for external reference
  */
 export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
-   // First verify that we have a valid username
+  // First verify that we have a valid username
   if (!userNameValue) {
     console.error('[SOCKET] Cannot initialize without a username');
     return null;
   }
+  
   // Store params for potential reconnection
   roomId = roomIdentifier;
   userName = userNameValue;
+  reconnectAttempts = 0;
   
-  // Initialize socket connection
+  // Initialize socket connection with improved reconnection settings
   socket = io({
     transports: ['websocket'],
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: maxReconnectAttempts,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
     query: { roomId: roomIdentifier, userName: userNameValue }
   });
 
   socket.on('addTicket', ({ ticketData }) => {
-  console.log('[SOCKET] Received new ticket from another user:', ticketData);
-  handleMessage({ type: 'addTicket', ticketData });
-});
+    console.log('[SOCKET] Received new ticket from another user:', ticketData);
+    handleMessage({ type: 'addTicket', ticketData });
+  });
 
-socket.on('allTickets', ({ tickets }) => {
-  console.log('[SOCKET] Received all tickets:', tickets.length);
-  handleMessage({ type: 'allTickets', tickets });
-});
+  socket.on('allTickets', ({ tickets }) => {
+    console.log('[SOCKET] Received all tickets:', tickets.length);
+    handleMessage({ type: 'allTickets', tickets });
+  });
 
   // Socket event handlers
   socket.on('connect', () => {
     console.log('[SOCKET] Connected to server with ID:', socket.id);
+    reconnectAttempts = 0;
+    
+    // When connecting, explicitly join the room
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+    
+    // Notify UI of successful connection
+    handleMessage({ type: 'connect' });
+  });
+
+  // Add reconnect event handlers
+  socket.on('reconnect_attempt', (attempt) => {
+    console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+    reconnectAttempts = attempt;
+    
+    // Notify UI of reconnection attempt
+    handleMessage({ type: 'reconnect_attempt', attempt });
+  });
+
+  socket.on('reconnect', () => {
+    console.log('[SOCKET] Reconnected to server after disconnect');
+    
+    // Re-join room and request current state
+    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+    
+    // Notify UI of successful reconnection
+    handleMessage({ type: 'reconnect' });
+    
+    // Reset reconnection attempts counter
+    reconnectAttempts = 0;
+  });
+  
+  socket.on('reconnect_error', (error) => {
+    console.error('[SOCKET] Reconnection error:', error);
+    
+    // Notify UI of reconnection error
+    handleMessage({ type: 'error', error });
+    
+    // Try again if below the max attempts
+    if (reconnectAttempts < maxReconnectAttempts && reconnectionEnabled) {
+      console.log(`[SOCKET] Will attempt reconnection again (${reconnectAttempts}/${maxReconnectAttempts})`);
+    } else {
+      console.error('[SOCKET] Maximum reconnection attempts reached');
+      // Notify UI that no further reconnection attempts will be made
+      handleMessage({ type: 'reconnection_failed' });
+    }
+  });
+  
+  socket.on('disconnect', (reason) => {
+    console.log('[SOCKET] Disconnected from server. Reason:', reason);
+    
+    // Auto-reconnect for these specific reasons
+    if (reason === 'io server disconnect' && reconnectionEnabled) {
+      // The server intentionally disconnected us
+      console.log('[SOCKET] Server disconnected us, attempting reconnect');
+      socket.connect();
+    }
+    
+    // Notify UI of disconnect
+    handleMessage({ type: 'disconnect', reason });
   });
 
   socket.on('userList', (users) => {
     handleMessage({ type: 'userList', users });
+  });
+  
+  // Handle voting system updates from server
+  socket.on('votingSystemUpdate', data => {
+    console.log('[SOCKET DEBUG] votingSystemUpdate received:', data);
+    // Forward this to the handler
+    handleMessage({ type: 'votingSystemUpdate', ...data });
   });
 
   socket.on('syncCSVData', (csvData) => {
@@ -70,25 +142,27 @@ socket.on('allTickets', ({ tickets }) => {
     handleMessage({ type: 'storySelected', storyIndex });
   });
 
-  socket.on('voteUpdate', ({ userId, vote, storyIndex }) => {
-    console.log('[SOCKET] Vote update received for user', userId, 'on story', storyIndex);
-    handleMessage({ type: 'voteUpdate', userId, vote, storyIndex });
+ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+  handleMessage({ type: 'voteUpdate', userId, vote, storyId });
+});
+
+
+socket.on('storyVotes', ({ storyId, votes }) => {
+  handleMessage({ type: 'storyVotes', storyId, votes });
+});
+
+socket.on('votesRevealed', ({ storyId }) => {
+  handleMessage({ type: 'votesRevealed', storyId });
+});
+
+  socket.on('deleteStory', ({ storyId }) => {
+    console.log('[SOCKET] Story deletion event received:', storyId);
+    handleMessage({ type: 'deleteStory', storyId });
   });
 
-  socket.on('storyVotes', ({ storyIndex, votes }) => {
-    console.log('[SOCKET] Received votes for story', storyIndex, ':', Object.keys(votes).length, 'votes');
-    handleMessage({ type: 'storyVotes', storyIndex, votes });
-  });
-
-  socket.on('votesRevealed', ({ storyIndex }) => {
-    console.log('[SOCKET] Votes revealed for story', storyIndex);
-    handleMessage({ type: 'votesRevealed', storyIndex });
-  });
-
-  socket.on('votesReset', ({ storyIndex }) => {
-    console.log('[SOCKET] Votes reset for story', storyIndex);
-    handleMessage({ type: 'votesReset', storyIndex });
-  });
+ socket.on('votesReset', ({ storyId }) => {
+  handleMessage({ type: 'votesReset', storyId });
+});
 
   socket.on('revealVotes', (votes) => {
     console.log('[SOCKET] Reveal votes event received (legacy)');
@@ -110,11 +184,6 @@ socket.on('allTickets', ({ tickets }) => {
     handleMessage({ type: 'exportData', data });
   });
 
-  socket.on('disconnect', () => {
-    console.log('[SOCKET] Disconnected from server');
-    handleMessage({ type: 'disconnect' });
-  });
-
   socket.on('connect_error', (error) => {
     console.error('[SOCKET] Connection error:', error);
     handleMessage({ type: 'error', error });
@@ -122,6 +191,17 @@ socket.on('allTickets', ({ tickets }) => {
 
   // Return socket for external operations if needed
   return socket;
+}
+
+/**
+ * Delete a story and sync with other users
+ * @param {string} storyId - ID of the story to delete
+ */
+export function emitDeleteStory(storyId) {
+  if (socket) {
+    console.log('[SOCKET] Deleting story:', storyId);
+    socket.emit('deleteStory', { storyId });
+  }
 }
 
 /**
@@ -152,10 +232,9 @@ export function emitStorySelected(index) {
  * @param {string} vote - The vote value
  * @param {string} targetUserId - The user ID receiving the vote
  */
-export function emitVote(vote, targetUserId) {
+export function emitVote(vote, targetUserId, storyId) {
   if (socket) {
-    console.log('[SOCKET] Casting vote for user', targetUserId);
-    socket.emit('castVote', { vote, targetUserId });
+    socket.emit('castVote', { vote, targetUserId, storyId });
   }
 }
 
@@ -163,10 +242,9 @@ export function emitVote(vote, targetUserId) {
  * Request votes for a specific story
  * @param {number} storyIndex - Index of the story
  */
-export function requestStoryVotes(storyIndex) {
+export function requestStoryVotes(storyId) {
   if (socket) {
-    console.log('[SOCKET] Requesting votes for story:', storyIndex);
-    socket.emit('requestStoryVotes', { storyIndex });
+    socket.emit('requestStoryVotes', { storyId });
   }
 }
 
@@ -174,10 +252,9 @@ export function requestStoryVotes(storyIndex) {
  * Reveal votes for the current story
  * Triggers server to broadcast vote values to all clients
  */
-export function revealVotes() {
+export function revealVotes(storyId) {
   if (socket) {
-    console.log('[SOCKET] Requesting to reveal votes');
-    socket.emit('revealVotes');
+    socket.emit('revealVotes', { storyId });
   }
 }
 
@@ -185,10 +262,9 @@ export function revealVotes() {
  * Reset votes for the current story
  * Clears all votes and resets the reveal state
  */
-export function resetVotes() {
+export function resetVotes(storyId) {
   if (socket) {
-    console.log('[SOCKET] Requesting to reset votes');
-    socket.emit('resetVotes');
+    socket.emit('resetVotes', { storyId });
   }
 }
 
@@ -245,4 +321,48 @@ export function reconnect() {
   }
   
   return false;
+}
+
+/**
+ * Enable or disable automatic reconnection
+ * @param {boolean} enable - Whether to enable reconnection
+ */
+export function setReconnectionEnabled(enable) {
+  reconnectionEnabled = enable;
+  console.log(`[SOCKET] Reconnection ${enable ? 'enabled' : 'disabled'}`);
+}
+
+/**
+ * Request all tickets from the server
+ * Useful after reconnection to ensure all tickets are loaded
+ */
+export function requestAllTickets() {
+  if (socket) {
+    console.log('[SOCKET] Requesting all tickets');
+    socket.emit('requestAllTickets');
+  }
+}
+
+/**
+ * Set maximum reconnection attempts
+ * @param {number} max - Max number of reconnection attempts
+ */
+export function setMaxReconnectAttempts(max) {
+  if (typeof max === 'number' && max > 0) {
+    maxReconnectAttempts = max;
+    console.log(`[SOCKET] Max reconnection attempts set to ${max}`);
+  }
+}
+
+/**
+ * Get current reconnection status
+ * @returns {Object} - Reconnection status information
+ */
+export function getReconnectionStatus() {
+  return {
+    enabled: reconnectionEnabled,
+    attempts: reconnectAttempts,
+    maxAttempts: maxReconnectAttempts,
+    connected: socket ? socket.connected : false
+  };
 }
