@@ -401,28 +401,45 @@ function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
-  }
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
   votesPerStory[storyId][userId] = vote;
 });
-
 socket.on('storyVotes', ({ storyId, votes }) => {
   votesPerStory[storyId] = votes;
+  if (votesRevealed[storyId]) {
+    applyVotesToUI(votes, true);
+  }
 });
 
 socket.on('votesRevealed', ({ storyId }) => {
   votesRevealed[storyId] = true;
   const votes = votesPerStory[storyId] || {};
-  applyVotesToUI(votes, true); // <-- show the actual votes
-  showVoteStatistics(storyId, votes); // Optional: show average, emoji, etc.
 
-  triggerEmojiBurst(); // Optional burst
+  // Show votes on cards
+  applyVotesToUI(votes, true);
+
+  // Show statistics
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.innerHTML = '';
+  statsContainer.appendChild(createFixedVoteDisplay(votes));
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.style.display = 'none';
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    statsContainer.style.display = 'block';
+  }
+
+  // Fix font sizes
+  setTimeout(fixRevealedVoteFontSizes, 100);
 });
+
+
 
 socket.on('votesReset', ({ storyId }) => {
   votesPerStory[storyId] = {};
   votesRevealed[storyId] = false;
+  resetAllVoteVisuals();
 });
   
   // Add reconnection handlers for socket
@@ -1366,6 +1383,7 @@ function processAllTickets(tickets) {
 }
 
 // Get storyId from selected card
+
 function getCurrentStoryId() {
   const selectedCard = document.querySelector('.story-card.selected');
   return selectedCard ? selectedCard.id : null;
@@ -1380,7 +1398,7 @@ function setupRevealResetButtons() {
   if (revealVotesBtn) {
     revealVotesBtn.addEventListener('click', () => {
       const storyId = getCurrentStoryId();
-      if (storyId && socket) {
+      if (socket && storyId) {
         socket.emit('revealVotes', { storyId });
       }
     });
@@ -1390,14 +1408,18 @@ function setupRevealResetButtons() {
   if (resetVotesBtn) {
     resetVotesBtn.addEventListener('click', () => {
       const storyId = getCurrentStoryId();
-      if (storyId && socket) {
+      if (socket && storyId) {
         socket.emit('resetVotes', { storyId });
-        if (votesPerStory[storyId]) votesPerStory[storyId] = {};
+        votesPerStory[storyId] = {};
         votesRevealed[storyId] = false;
+        resetAllVoteVisuals();
       }
     });
   }
 }
+
+
+
 /**
  * Setup CSV file uploader
  */
@@ -1951,50 +1973,32 @@ function createAvatarContainer(user) {
  * Create vote card space for a user
  */
 
-
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
   voteCard.id = `vote-space-${user.id}`;
-  
-  // Add visual indication if this is current user's vote space
-  if (isCurrentUser) {
-    voteCard.classList.add('own-vote-space');
-  }
 
-  // Add vote badge inside the card space
+  if (isCurrentUser) voteCard.classList.add('own-vote-space');
+
   const voteBadge = document.createElement('span');
   voteBadge.classList.add('vote-badge');
   voteBadge.textContent = '';
   voteCard.appendChild(voteBadge);
 
-  // Only allow drops on own vote space
   if (isCurrentUser) {
     voteCard.addEventListener('dragover', (e) => e.preventDefault());
     voteCard.addEventListener('drop', (e) => {
       e.preventDefault();
       const vote = e.dataTransfer.getData('text/plain');
-      const userId = user.id;
-
-      // Get the current storyId from selected card
-      const selectedCard = document.querySelector('.story-card.selected');
-      const storyId = selectedCard ? selectedCard.id : null;
-
+      const storyId = getCurrentStoryId();
       if (socket && vote && storyId) {
-        socket.emit('castVote', { vote, targetUserId: userId, storyId });
-
-        // Store vote locally
-        if (!votesPerStory[storyId]) {
-          votesPerStory[storyId] = {};
-        }
-        votesPerStory[storyId][userId] = vote;
-
-        // Update UI - show checkmark if votes aren't revealed
-        updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+        socket.emit('castVote', { vote, targetUserId: user.id, storyId });
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        votesPerStory[storyId][user.id] = vote;
+        updateVoteVisuals(user.id, votesRevealed[storyId] ? vote : '👍', true);
       }
     });
   } else {
-    // For other users' vote spaces, add a "not-allowed" visual indicator on dragover
     voteCard.addEventListener('dragover', (e) => {
       e.preventDefault();
       voteCard.classList.add('drop-not-allowed');
@@ -2002,10 +2006,7 @@ function createVoteCardSpace(user, isCurrentUser) {
     });
   }
 
-  // Show existing vote if present
-  const selectedCard = document.querySelector('.story-card.selected');
-  const storyId = selectedCard ? selectedCard.id : null;
-
+  const storyId = getCurrentStoryId();
   const existingVote = storyId && votesPerStory[storyId]?.[user.id];
   if (existingVote) {
     voteCard.classList.add('has-vote');
@@ -2014,6 +2015,8 @@ function createVoteCardSpace(user, isCurrentUser) {
 
   return voteCard;
 }
+
+
 
 
 
