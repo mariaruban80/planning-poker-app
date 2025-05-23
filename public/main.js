@@ -1945,34 +1945,72 @@ function createAvatarContainer(user) {
 /**
  * Create vote card space for a user
  */
-function createVoteCardSpace(userId) {
-  const dropZone = document.createElement('div');
-  dropZone.classList.add('vote-card-space');
 
-  dropZone.addEventListener('drop', (event) => {
-    event.preventDefault();
-    const vote = event.dataTransfer.getData('text/plain');
-    if (!vote) return;
 
-    const storyId = getCurrentStoryId();
-    if (!storyId) return;
+function createVoteCardSpace(user, isCurrentUser) {
+  const voteCard = document.createElement('div');
+  voteCard.classList.add('vote-card-space');
+  voteCard.id = `vote-space-${user.id}`;
+  
+  // Add visual indication if this is current user's vote space
+  if (isCurrentUser) {
+    voteCard.classList.add('own-vote-space');
+  }
 
-    if (socket) {
-      socket.emit('castVote', { vote, targetUserId: userId, storyId });
-    }
+  // Add vote badge inside the card space
+  const voteBadge = document.createElement('span');
+  voteBadge.classList.add('vote-badge');
+  voteBadge.textContent = '';
+  voteCard.appendChild(voteBadge);
 
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    votesPerStory[storyId][userId] = vote;
-  });
+  // Only allow drops on own vote space
+  if (isCurrentUser) {
+    voteCard.addEventListener('dragover', (e) => e.preventDefault());
+    voteCard.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const vote = e.dataTransfer.getData('text/plain');
+      const userId = user.id;
 
-  dropZone.addEventListener('dragover', (event) => {
-    event.preventDefault();
-  });
+      // Get the current storyId from selected card
+      const selectedCard = document.querySelector('.story-card.selected');
+      const storyId = selectedCard ? selectedCard.id : null;
 
-  return dropZone;
+      if (socket && vote && storyId) {
+        socket.emit('castVote', { vote, targetUserId: userId, storyId });
+
+        // Store vote locally
+        if (!votesPerStory[storyId]) {
+          votesPerStory[storyId] = {};
+        }
+        votesPerStory[storyId][userId] = vote;
+
+        // Update UI - show checkmark if votes aren't revealed
+        updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+      }
+    });
+  } else {
+    // For other users' vote spaces, add a "not-allowed" visual indicator on dragover
+    voteCard.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      voteCard.classList.add('drop-not-allowed');
+      setTimeout(() => voteCard.classList.remove('drop-not-allowed'), 300);
+    });
+  }
+
+  // Show existing vote if present
+  const selectedCard = document.querySelector('.story-card.selected');
+  const storyId = selectedCard ? selectedCard.id : null;
+
+  const existingVote = storyId && votesPerStory[storyId]?.[user.id];
+  if (existingVote) {
+    voteCard.classList.add('has-vote');
+    voteBadge.textContent = votesRevealed[storyId] ? existingVote : '👍';
+  }
+
+  return voteCard;
 }
+
+
 
 /**
  * Update vote visuals for a user
