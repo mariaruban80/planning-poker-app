@@ -1,20 +1,33 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>Planning Poker Interactive</title>
 <style>
-    
-    body { 
+     body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+    }
+/*    body { 
       background: white;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.5;
       color: #333;
       margin: 0;
       padding: 0;
-    }
+    } */
     .container { 
       display: flex; 
       background: white;
@@ -112,6 +125,33 @@
       min-width: 140px; /* Minimum width to ensure buttons look good */
       box-shadow: none;
     }
+
+     .connection-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #4CAF50; /* Green = connected */
+  transition: background-color 0.3s;
+  z-index: 1000;
+}
+
+.connection-status.connecting {
+  background-color: #FFC107; /* Yellow = connecting */
+  animation: pulse 1.5s infinite;
+}
+
+.connection-status.disconnected {
+  background-color: #F44336; /* Red = disconnected */
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
     
     .button:hover { 
       background-color: #f0e6ff; /* Lighter purple background on hover */
@@ -359,13 +399,13 @@
     /* New poker table layout */
     .poker-table-layout {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      gap: 20px;
-      padding: 20px 0;
+       flex-direction: column;
+       align-items: center;
+       width: 100%;
+       max-width: 100%; /* Allow full width on smaller screens */
+       margin: 0 auto;
+       gap: 15px;
+       padding: 20px 5px; /* Reduce horizontal padding on small screens */;
     }
     
     .current-story-display {
@@ -443,6 +483,7 @@
       justify-content: center;
       background-color: white;
       transition: all 0.2s ease;
+      font-size: 14px;
     }
     
     .vote-card-space:hover {
@@ -466,7 +507,20 @@
     
     /* Show vote values when votes are revealed */
     body.votes-revealed .vote-card-space .vote-badge {
-      color: #333 !important;
+      font-size: 16px !important; /* Base size for revealed votes */
+      max-width: 80% !important;
+      overflow: hidden !important;
+      text-align: center !important;
+      line-height: 1 !important;
+    }
+     /* Special cases for longer text in revealed votes */
+    body.votes-revealed .vote-card-space .vote-badge:contains("XX") {    
+      font-size: 14px !important;
+    }
+
+    body.votes-revealed .vote-card-space .vote-badge:contains("XXL"),
+    body.votes-revealed .vote-card-space .vote-badge:contains("XXS") {
+      font-size: 12px !important;
     }
     
     .reveal-button-container {
@@ -475,7 +529,11 @@
       display: flex;
       justify-content: center;
     }
-    
+    /* For T-shirt sizing which tends to have longer text */
+    .vote-badge:contains("XXS"), 
+    .vote-badge:contains("XXL") {
+      font-size: 14px !important;
+    }
     .reveal-votes-button {
       padding: 12px 24px;
       font-size: 16px;
@@ -504,7 +562,9 @@
       margin-top: 20px;
       padding: 15px;
       background-color: white;
+       
     }
+  
     
     .planning-cards-section h3 {
       color: #673ab7; /* Changed to purple */
@@ -532,7 +592,7 @@
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      font-size: 16px; /* Smaller size */
+      font-size: 14px; /* Smaller size */
       text-align: center;
       transition: all 0.2s;
       color: #333;
@@ -764,20 +824,29 @@
     }
     
     #logOffBtn {
-      background-color: transparent;
+       display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      background-color: #f3f4f6;
       color: #111827;
       border: none;
-      padding: 8px 16px;
       border-radius: 4px;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;  
+      font-weight: 500;
+      font-size: 14px;
         
     }
     
     #logOffBtn:hover {
-      background-color: white; 
+      background-color: #e5e7eb; 
     }    
+/* Add a logout icon before the text */
+#logOffBtn:before {
+  content: "🏃";
+  margin-right: 4px;
+  font-size: 16px;
+}
+    
     /* Custom Login Modal Styling */
 #loginModalCustom {
   position: fixed;
@@ -964,6 +1033,307 @@
   margin-right: 5px;
   font-weight: bold;
 }
+    /* Current user display in header */
+.current-user-display {
+    display: flex;
+  align-items: center;
+  margin-right: 15px;
+  background-color: transparent;
+  padding: 0;
+  border: none;
+}
+
+.user-avatar {
+  margin-right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: white;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+#headerUsername {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-right: 8px;
+white-space: nowrap;
+}
+
+/* Updated LOG OFF button style */
+#logOffBtn {
+    display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background-color: white;
+  color: #673ab7;
+ /* border: 1px solid #673ab7; */
+     border: white;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+#logOffBtn:hover {
+  background-color: #f0e6ff;
+}
+
+#logOffBtn:before {
+  content: "🚪";
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+/* Add these responsive styles to index.html's style section */
+
+/* Make the layout responsive */
+@media (max-width: 768px) {
+  .avatar-row, .vote-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 5px;
+    box-sizing: border-box;
+  }
+
+  .card-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    padding: 10px 5px;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+  }
+
+  .card-panel .cards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 5px 0;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 5px;
+  }
+  
+  .card-panel .cards::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .card-panel .cards::-webkit-scrollbar-thumb {
+    background: #673ab7;
+    border-radius: 2px;
+  }
+  
+  .vote-card-space {
+    width: 45px;
+    height: 70px;
+    min-width: 45px;
+    margin: 3px;
+  }
+  
+  /* Smaller font for votes on mobile */
+  body.votes-revealed .vote-card-space .vote-badge {
+    font-size: 14px !important;
+  }
+  
+  body.votes-revealed .vote-card-space .vote-badge:contains("XX") {
+    font-size: 12px !important;
+  }
+  
+  /* Container layout for mobile */
+  .container {
+    flex-direction: column;
+    height: auto;
+    padding-bottom: 70px; /* Space for fixed card panel */
+  }
+  
+  .sidebar, .rightbar {
+    width: 100%;
+    max-width: 100%;
+    padding: 15px;
+    border: none;
+  }
+  
+  /* Mobile header adjustments */
+  header {
+    padding: 8px 15px;
+  }
+  
+  .logo span {
+    font-size: 16px;
+  }
+  
+  /* Collapsible sections for mobile */
+  .mobile-toggle-button {
+    display: flex;
+    width: 100%;
+    padding: 12px;
+    background: #f5f5f5;
+    border: none;
+    text-align: left;
+    font-weight: bold;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    align-items: center;
+  }
+  
+  .mobile-toggle-button:after {
+    content: "▼";
+    margin-left: auto;
+    transition: transform 0.2s;
+  }
+  
+  .mobile-toggle-button.active:after {
+    transform: rotate(180deg);
+  }
+  
+  .mobile-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  
+  .mobile-collapsible.active {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  
+  /* Improved touch targets */
+  .button, .invite-button, .file-button, .story-card {
+    min-height: 44px; /* Apple's recommended minimum touch target size */
+  }
+  
+  .card {
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
+    margin: 3px;
+  }
+  
+  /* Modals on mobile */
+  #loginModalCustom .modal-content,
+  #inviteModalCustom .modal-content,
+  #addTicketModalCustom .modal-content {
+    width: 90%;
+    padding: 20px;
+    max-width: 320px;
+  }
+  
+  /* Selected-card feedback */
+  .selected-card {
+    transform: scale(1.1);
+    border: 2px solid #673ab7;
+    background-color: #e8f0fe;
+    box-shadow: 0 0 8px rgba(103, 58, 183, 0.5);
+  }
+  
+  /* Fix user circle display on mobile */
+  #userCircle {
+    margin-bottom: 80px;
+    padding: 10px 5px;
+  }
+  
+  /* Fix alignment on mobile */
+  .avatar-container {
+    width: 60px;
+  }
+  
+  .avatar-circle {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* Smaller mobile phones */
+@media (max-width: 480px) {
+  .container {
+    flex-direction: column;
+  }
+  
+  .sidebar, .rightbar {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px;
+  }
+  
+  .vote-card-space {
+    width: 40px;
+    height: 60px;
+    min-width: 40px;
+  }
+  
+  .card {
+    width: 35px;
+    height: 35px;
+    font-size: 11px;
+  }
+  
+  .avatar-container {
+    width: 50px;
+  }
+  
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .reveal-votes-button {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-width: 160px;
+  }
+  
+  .user-name {
+    font-size: 10px;
+  }
+  
+  /* Fixed-width buttons get smaller */
+  .invite-button, .file-button {
+    width: 100px;
+  }
+  
+  .navigation-buttons .button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  /* Fix header in tight spaces */
+  #headerUsername {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Emoji burst animation */
+.global-emoji-burst {
+  position: fixed;
+  font-size: 2rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.5) translateY(0);
+  transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+  z-index: 9999;
+}
+
+.global-emoji-burst.burst-go {
+  opacity: 1;
+  transform: scale(1.5) translateY(-100px);
+}
 
 /* Add input shake animation for validation if not already present */
 @keyframes shake {
@@ -974,8 +1344,96 @@
 
 .shake {
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-}   
+}
+
+/* Own vote space styling */
+.own-vote-space {
+  border: 2px dashed #673ab7;
+  position: relative;
+}
+
+.own-vote-space::after {
+  content: 'Your vote';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #673ab7;
+  white-space: nowrap;
+}
+
+/* Add styles for the drop-not-allowed state */
+.vote-card-space.drop-not-allowed {
+  border-color: #f44336;
+  background-color: #ffebee;
+  position: relative;
+}
+
+.vote-card-space.drop-not-allowed::before {
+  content: '✕';
+  position: absolute;
+  color: #f44336;
+  font-size: 24px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+     
+  @media (max-width: 767px) {
+    /* Fix positioning for mobile */
+    .avatar-row, .vote-row {
+      gap: 15px !important;
+    }
     
+    /* Make sure the user vote card is highlighted */
+    .own-vote-space {
+      border: 2px dashed #673ab7 !important;
+    }
+    
+    /* Properly show vote values */
+    body.votes-revealed .vote-badge {
+      color: #673ab7 !important;
+      opacity: 1 !important;
+    }
+    
+    /* Fix the header for small screens */
+    #headerUsername {
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    /* Fix story list display */
+    .story-title {
+      font-size: 13px;
+      -webkit-line-clamp: 2;
+    }
+    
+    /* Improve fixed card panel */
+    .card-panel {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+    }
+    
+    /* Add proper spacing to main container */
+    .container {
+      padding-top: 10px !important;
+    }
+    
+    /* Make sure buttons have consistent styling */
+    .button, .invite-button, .file-button {
+      min-height: 42px;
+    }
+    
+    /* Make modals more mobile-friendly */
+    .modal-content {
+      max-width: 90% !important;
+      width: 320px !important;
+      padding: 20px !important;
+    }
+  }
+
   </style>
 </head>
 <body>
@@ -986,8 +1444,13 @@
     <span>Planning Poker</span>
   </div>
   <div class="nav-links">    
-    
-    <button id="logOffBtn" class="btn btn-danger join-session">LOG OFF</button>   
+    <!-- New user display element -->
+    <div class="current-user-display">
+      <div class="user-avatar" id="headerUserAvatar"></div>
+      <span id="headerUsername">User</span>
+    </div>
+    <button id="logOffBtn" class="btn btn-danger join-session">🏃LOG OFF</button>   
+    <div class="connection-status" id="connectionStatus" title="Connected"></div>   
     
   </div>
 </header>
@@ -1050,7 +1513,7 @@
 <div class="sidebar">
 <h3>Current Members</h3>
 <div id="userList"></div>
-<h3 class="section-heading">Voting Controls</h3>
+<!-- <h3 class="section-heading">Voting Controls</h3> -->
 <!-- Added controls-section for better styling of control buttons -->
 <div class="controls-section">
 <button class="button" id="revealVotesBtn">Reveal Votes</button>
@@ -1065,18 +1528,20 @@
 <!-- Simple no stories message -->
 <div class="no-stories-message" id="noStoriesMessage">
         No stories available. Please upload or add stories to start voting.
-      </div>
+      </div> 
 <!-- Planning cards -->
-<div class="planning-cards-section">
+<div class="planning-cards-section">     
 <h3>Planning Cards</h3>
+     <div class="card-panel">
 <div class="cards" id="planningCards">
-<div class="card" data-value="0" draggable="true">0</div>
+<!--  <div class="card" data-value="0" draggable="true">0</div>
 <div class="card" data-value="1" draggable="true">1</div>
 <div class="card" data-value="3" draggable="true">3</div>
 <div class="card" data-value="5" draggable="true">5</div>
 <div class="card" data-value="8" draggable="true">8</div>
 <div class="card" data-value="13" draggable="true">13</div>
-<div class="card" data-value="21" draggable="true">21</div>
+<div class="card" data-value="21" draggable="true">21</div> -->    
+</div>    
 </div>
 </div>
 </div>
@@ -1097,6 +1562,76 @@
 <!-- Scripts -->
 <script src="main.js" type="module"></script>
 <script>
+
+function updateHeaderStyle() {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Reset header styles to match the image */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: white;
+      border-bottom: 1px solid #f0f0f0;
+      height: 60px;
+      box-sizing: border-box;
+    }
+    
+    /* Logo and text styling */
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+    
+    .logo img {
+      width: 32px;
+      height: 32px;
+      margin-right: 12px;
+    }
+    
+    .logo span {
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Nav links styling */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    /* Keep existing buttons but adjust general navigation style */
+    .nav-links a, 
+    .nav-links button:not(#logOffBtn):not(.current-user-display) {
+      text-decoration: none;
+      color: #555;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    /* Don't modify these elements */
+    #headerUsername,
+    #headerUserAvatar,
+    #logOffBtn,
+    .current-user-display {
+      /* Preserve existing styles */
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Optionally, update the logo element if needed
+  const logoElement = document.querySelector('.logo img');
+  if (logoElement) {
+    // Update to a solid black spade if it's not already
+    // Only do this if the logo needs updating
+    // logoElement.src = 'blackspade.png'; 
+  }
+}
+     
     // Function to check if there are any stories and update UI accordingly
     function checkForStories() {
       const storyList = document.getElementById('storyList');
@@ -1131,18 +1666,195 @@
         }
       }
     }
+// Initialize the user display in header - improved version
+function initUserHeaderDisplay() {
+  // Get username from session storage - prioritize the one set through login modal
+  const username = sessionStorage.getItem('userName') || 'Guest';
+  const usernameEl = document.getElementById('headerUsername');
+  const avatarEl = document.getElementById('headerUserAvatar');
+  
+  if (usernameEl) usernameEl.textContent = username;
+  
+  if (avatarEl) {
+    // Generate initials for the avatar
+    const initials = username.split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+      
+    avatarEl.textContent = initials;
     
-    // Function to remove or hide any modals from the original app
-    function hideAllOriginalModals() {
-      // Find and hide all modal dialogs from the original app
-      const modalDialogs = document.querySelectorAll('.modal-dialog, .modal-overlay');
-      modalDialogs.forEach(modal => {
-        modal.style.display = 'none';
-        modal.style.visibility = 'hidden';
-        modal.style.opacity = '0';
-        modal.style.pointerEvents = 'none';
-      });
+    // Generate a consistent color based on username
+    const hue = Math.abs(username.split('').reduce((a, b) => {
+      return a + b.charCodeAt(0);
+    }, 0) % 360);
+    
+    avatarEl.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+  }
+}
+
+// Call this function when the DOM is loaded AND after login
+document.addEventListener('DOMContentLoaded', function() {
+  // Initial setup of header
+  initUserHeaderDisplay();
+  
+  // Add a callback to the join session button to update header after login
+  const joinButton = document.getElementById('joinSessionWithName');
+  if (joinButton) {
+    joinButton.addEventListener('click', function() {
+      // Set a small delay to ensure sessionStorage is updated first
+      setTimeout(initUserHeaderDisplay, 100);
+    });
+  }
+  
+  // Also listen for Enter key in username input
+  const userNameInput = document.getElementById('userNameInput');
+  if (userNameInput) {
+    userNameInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        // Set a small delay to ensure sessionStorage is updated first
+        setTimeout(initUserHeaderDisplay, 100);
+      }
+    });
+  }
+  
+  // Setup mobile layout features
+  setupMobileLayout();
+});
+
+// Setup mobile-specific features
+function setupMobileLayout() {
+  // Only run on mobile devices
+  if (window.innerWidth <= 768) {
+    console.log("Setting up mobile layout");
+    
+    // Create toggle buttons for mobile sections
+    const userListSection = document.getElementById('userList');
+    if (userListSection && userListSection.parentNode) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'mobile-toggle-button';
+      toggleBtn.textContent = 'Current Members';
+      toggleBtn.onclick = () => toggleMobileSection(userListSection);
+      
+      userListSection.parentNode.insertBefore(toggleBtn, userListSection);
+      userListSection.classList.add('mobile-collapsible');
     }
+    
+    // Create toggle for story list container
+    const storyListContainer = document.getElementById('storyList');
+    if (storyListContainer && storyListContainer.parentNode) {
+      const storyToggle = document.createElement('button');
+      storyToggle.className = 'mobile-toggle-button';
+      storyToggle.textContent = 'Story List';
+      storyToggle.onclick = () => toggleMobileSection(storyListContainer);
+      
+      storyListContainer.parentNode.insertBefore(storyToggle, storyListContainer);
+      storyListContainer.classList.add('mobile-collapsible');
+    }
+    
+    // Enable touch for card selection
+    setupMobileCardSelection();
+  }
+}
+
+function toggleMobileSection(element) {
+  element.classList.toggle('active');
+  const button = element.previousElementSibling;
+  if (button && button.classList.contains('mobile-toggle-button')) {
+    button.classList.toggle('active');
+  }
+}
+
+function setupMobileCardSelection() {
+  document.querySelectorAll('#planningCards .card').forEach(card => {
+    // Remove any existing handlers by cloning
+    const newCard = card.cloneNode(true);
+    if (card.parentNode) {
+      card.parentNode.replaceChild(newCard, card);
+    }
+    
+    // Add touch handler
+    newCard.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      
+      // Get current user's vote space
+      const userName = sessionStorage.getItem('userName');
+      if (!userName) return;
+      
+      const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+      const voteSpace = document.getElementById(`vote-space-${safeId}`);
+      
+      if (voteSpace) {
+        const vote = this.getAttribute('data-value');
+        
+        // Clear selections and add to this card
+        document.querySelectorAll('#planningCards .card').forEach(c => {
+          c.classList.remove('selected-card');
+        });
+        this.classList.add('selected-card');
+        
+        // Use the emitVote function if available
+        if (typeof window.emitVote === 'function') {
+          window.emitVote(vote, userName);
+        } else if (typeof window.socket !== 'undefined') {
+          window.socket.emit('castVote', { vote, targetUserId: userName });
+        }
+      }
+    });
+  });
+}
+
+// Listen for orientation changes to fix layout
+window.addEventListener('orientationchange', function() {
+  setTimeout(() => {
+    if (typeof window.fixRevealedVoteFontSizes === 'function') {
+      window.fixRevealedVoteFontSizes();
+    }
+  }, 300);
+});
+
+// Update existing handleLoginSubmit function to call our header update
+// This modifies the existing function from your ENHANCED SCRIPT FOR USERNAME HANDLING
+const originalHandleLoginSubmit = window.handleLoginSubmit || function() {};
+window.handleLoginSubmit = function() {
+  const username = document.getElementById('userNameInput').value.trim();
+  
+  if (username) {
+    // Store with both key formats for compatibility
+    sessionStorage.setItem('userName', username);
+    console.log(`User joined as: ${username}`);
+    
+    // Hide the modal
+    document.getElementById('loginModalCustom').style.display = 'none';
+    
+    // Mark username as ready
+    window.userNameReady = true;
+    
+    // Show main content
+    if (window.showMainContent) window.showMainContent();
+    
+    // Initialize the app now that we have a username
+    if (window.initializeAppWithName) window.initializeAppWithName(username);
+    
+    // Update header display with the new username
+    initUserHeaderDisplay();
+  } else {
+    // Show validation error - shake the input
+    const input = document.getElementById('userNameInput');
+    input.style.borderColor = '#ff4d4f';
+    input.classList.add('shake');
+    
+    setTimeout(() => {
+      input.classList.remove('shake');
+    }, 500);
+  }
+};
+
+// Also make sure to update the display whenever username changes
+window.updateUserDisplay = function() {
+  initUserHeaderDisplay();
+};
 // Add Ticket Modal Functions
 function showAddTicketModal() {
   // Clear previous input values
@@ -1267,8 +1979,7 @@ window.showAddTicketModal = showAddTicketModal;
         const resetVotesBtn = document.getElementById('resetVotesBtn');
         if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
         if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
-        
-        // Hide upload ticket button
+                // Hide upload ticket button
         const fileInputContainer = document.getElementById('fileInputContainer');
         if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
         
@@ -1587,41 +2298,6 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
   
   reader.readAsText(file);
 });
-    
-   /** 
-   // Add ticket button functionality - removed to avoid duplicate handlers
-// This is now handled in main.js    
-    // Add ticket button functionality
-    const addTicketBtn = document.getElementById('addTicketBtn');
-    if (addTicketBtn) {
-     
-        if (window.ticketHandlerAttached !== true) {
-         const storyText = prompt("Enter the story details:");
-        
-        if (storyText && storyText.trim()) {
-          const storyList = document.getElementById('storyList');
-          
-          const storyCard = document.createElement('div');
-          storyCard.className = 'story-card';
-          storyCard.id = `story_${Date.now()}`;
-          
-          const storyTitle = document.createElement('div');
-          storyTitle.className = 'story-title';
-          storyTitle.textContent = storyText.trim();
-          
-          storyCard.appendChild(storyTitle);
-          storyList.appendChild(storyCard);
-          
-          // Check for stories after adding a story
-          checkForStories();
-          
-          // If this is the first story, select it
-          if (storyList.querySelectorAll('.story-card').length === 1) {
-            storyCard.classList.add('selected');
-          }
-        }
-      });
-    } */
     
     // Story selection functionality
     document.addEventListener('click', function(e) {
@@ -1990,8 +2666,481 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     }
   });
 </script>
-    <!-- The socket.js script should use getUserName() to get the username -->
-    <script src="socket.js"></script>
-    <script src="main.js"></script>
+ <!-- Add this before the closing </body> tag 
+<script src="userlist-fix.js"></script> -->
+<script>
+  // Force user list fix on page interaction
+  document.addEventListener('click', function() {
+    if (typeof directUserFix === 'function') {
+      directUserFix();
+    }
+  }, { once: true });
+</script>
+   <script>
+  // Helper function to hide all original modals
+  function hideAllOriginalModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+      modal.style.display = 'none';
+    });
+  }
+
+  // Mobile-specific card functions
+  window.fixRevealedVoteFontSizes = function() {
+    const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
+    const isMobile = window.innerWidth <= 768;
+    
+    voteCards.forEach(badge => {
+      const text = badge.textContent || '';
+      let fontSize = isMobile ? '14px' : '18px'; // Smaller base size on mobile
+      
+      if (text.length >= 2) {
+        fontSize = isMobile ? '12px' : '16px';
+      }
+      
+      if (text.includes('XX')) {
+        fontSize = isMobile ? '10px' : '14px';
+      }
+      
+      badge.style.fontSize = fontSize;
+      badge.style.maxWidth = '80%';
+      badge.style.textAlign = 'center';
+      badge.style.lineHeight = '1';
+      badge.style.overflow = 'hidden';
+    });
+  };
+  
+  // Make emitVote function available for mobile use
+  window.emitVote = function(vote, targetUserId) {
+    if (window.socket) {
+      window.socket.emit('castVote', { vote, targetUserId });
+      
+      // Show selection feedback
+      const cards = document.querySelectorAll('#planningCards .card');
+      cards.forEach(card => {
+        card.classList.remove('selected-card');
+        if (card.getAttribute('data-value') === vote) {
+          card.classList.add('selected-card');
+        }
+      });
+    }
+  };
+        
+document.addEventListener('DOMContentLoaded', function() {
+  // Only run on mobile/tablet devices
+  if (window.innerWidth <= 1024) {
+    applyExactMobileLayout();
+  }
+  
+  // Also apply when window is resized
+  window.addEventListener('resize', function() {
+    if (window.innerWidth <= 1024) {
+      applyExactMobileLayout();
+    }
+  });
+  
+  function applyExactMobileLayout() {
+    console.log("Applying exact mobile layout from reference image");
+    
+    // Create style element for the exact mobile layout
+    const mobileStyle = document.createElement('style');
+    mobileStyle.id = 'exact-mobile-layout';
+    mobileStyle.textContent = `
+      /* Reset container layout */
+      .container {
+        display: block !important;
+        padding-bottom: 100px !important;
+        background: white !important;
+      }
+      
+      /* Header styling */
+      header {
+        padding: 12px 20px !important;
+        border-bottom: 1px solid #f0f0f0 !important;
+      }
+      
+      /* Hide sidebar on mobile and show as a collapsible section */
+      .sidebar {
+        width: 100% !important;
+        padding: 15px 20px !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Hide redundant elements */
+      .upload-section, .planning-cards-section h3 {
+        display: none !important;
+      }
+      
+      /* Main content area */
+      .main {
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        order: 2 !important;
+      }
+      
+      /* Right sidebar styling */
+      .rightbar {
+        width: 100% !important;
+        padding: 15px 20px !important;
+        border: none !important;
+        max-height: 300px !important;
+        overflow-y: auto !important;
+      }
+      
+      /* Story cards */
+      .story-card {
+        margin-bottom: 8px !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+      }
+      
+      /* Avatar styling */
+      #userCircle {
+        padding: 15px 5px !important;
+        margin-bottom: 60px !important;
+      }
+      
+      .avatar-circle {
+        width: 60px !important;
+        height: 60px !important;
+        font-size: 24px !important;
+        background-color: #f5ba55 !important;
+        color: white !important;
+        border: none !important;
+      }
+      
+      /* Vote card space */
+      .vote-card-space {
+        width: 60px !important;
+        height: 80px !important;
+        border: 2px dashed #ccc !important;
+        background-color: white !important;
+        border-radius: 8px !important;
+      }
+      
+      /* Reveal votes button */
+      .reveal-votes-button {
+        background-color: white !important;
+        color: #673ab7 !important;
+        border: 2px solid #673ab7 !important;
+        text-transform: uppercase !important;
+        font-weight: bold !important;
+        border-radius: 30px !important;
+        padding: 10px 20px !important;
+      }
+      
+      /* Fixed card panel at bottom */
+      .card-panel {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        background: white !important;
+        border-top: 1px solid #e0e0e0 !important;
+        padding: 10px 5px !important;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1) !important;
+        display: flex !important;
+        justify-content: center !important;
+        z-index: 1000 !important;
+      }
+      
+      /* Planning cards styling to match design */
+      .cards {
+        display: flex !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 8px 0 !important;
+      }
+      
+      .card {
+        width: 50px !important;
+        height: 50px !important;
+        background-color: #e1d4f9 !important;
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+      }
+      
+      /* Add exact colors from reference */
+      .button, #revealVotesBtn, #resetVotesBtn {
+        color: #673ab7 !important;
+        border-color: #673ab7 !important;
+        border-radius: 30px !important;
+      }
+      
+      /* Make invite and upload buttons match design */
+      .invite-button, .file-button {
+        border-radius: 30px !important;
+        min-width: 120px !important;
+      }
+      
+      /* Exact alignment for navigation buttons */
+      .navigation-buttons {
+        display: flex !important;
+        justify-content: space-between !important;
+        padding: 0 10px !important;
+        margin: 15px 0 !important;
+      }
+      
+      /* Enhance add ticket button */
+      .add-ticket-btn {
+        border-radius: 30px !important;
+        color: #673ab7 !important;
+        border-color: #673ab7 !important;
+        font-weight: bold !important;
+        margin-bottom: 15px !important;
+      }
+    `;
+    document.head.appendChild(mobileStyle);
+    
+    // Move the planning cards to the bottom in a fixed panel
+    const planningCards = document.querySelector('#planningCards');
+    if (planningCards && !document.querySelector('.mobile-card-panel')) {
+      const cardPanel = document.createElement('div');
+      cardPanel.className = 'card-panel mobile-card-panel';
+      
+      // Add PLANNING CARDS heading above the cards
+      const cardsHeading = document.createElement('div');
+      cardsHeading.textContent = 'PLANNING CARDS';
+      cardsHeading.style.cssText = 'color:#673ab7; font-size:14px; font-weight:600; margin-bottom:5px; text-align:center; width:100%; text-transform:uppercase;';
+      
+      // Move cards to the panel
+      cardPanel.appendChild(cardsHeading);
+      cardPanel.appendChild(planningCards);
+      document.body.appendChild(cardPanel);
+    }
+    
+    // Add Upload Ticket and Invite Others buttons at the top
+    const header = document.querySelector('header');
+    if (header && !document.querySelector('.mobile-action-buttons')) {
+      const actionButtons = document.createElement('div');
+      actionButtons.className = 'mobile-action-buttons';
+      actionButtons.style.cssText = 'display:flex; gap:10px; justify-content:flex-end; padding:10px 20px; border-bottom:1px solid #f0f0f0;';
+      
+      const uploadButton = document.createElement('button');
+      uploadButton.textContent = 'Upload Ticket';
+      uploadButton.className = 'invite-button';
+      uploadButton.onclick = function() {
+        document.getElementById('csvInput').click();
+      };
+      
+      const inviteButton = document.createElement('button');
+      inviteButton.textContent = 'Invite Others';
+      inviteButton.className = 'invite-button';
+      inviteButton.onclick = function() {
+        window.showInviteModalCustom();
+      };
+      
+      actionButtons.appendChild(uploadButton);
+      actionButtons.appendChild(inviteButton);
+      
+      header.insertAdjacentElement('afterend', actionButtons);
+    }
+    
+    // Enhance user voting area
+    setupMobileCardSelection();
+  }
+  
+  function setupMobileCardSelection() {
+    document.querySelectorAll('#planningCards .card').forEach(card => {
+      card.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        
+        // Get current user's vote space
+        const userName = sessionStorage.getItem('userName');
+        if (!userName) return;
+        
+        const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+        const voteSpace = document.getElementById(`vote-space-${safeId}`);
+        
+        if (voteSpace) {
+          const vote = this.getAttribute('data-value');
+          
+          // Clear selections and add to this card
+          document.querySelectorAll('#planningCards .card').forEach(c => {
+            c.classList.remove('selected-card');
+          });
+          this.classList.add('selected-card');
+          
+          // Use the emitVote function if available
+          if (typeof window.emitVote === 'function') {
+            window.emitVote(vote, userName);
+          } else if (typeof window.socket !== 'undefined') {
+            window.socket.emit('castVote', { vote, targetUserId: userName });
+          }
+        }
+      });
+    });
+  }
+});
+
+// Connection status indicator
+const statusIndicator = document.getElementById('connectionStatus');
+
+function updateConnectionStatus(status) {
+  if (!statusIndicator) return;
+  
+  switch(status) {
+    case 'connected':
+      statusIndicator.className = 'connection-status';
+      statusIndicator.title = 'Connected';
+      break;
+    case 'connecting':
+      statusIndicator.className = 'connection-status connecting';
+      statusIndicator.title = 'Connecting...';
+      break;
+    case 'disconnected':
+      statusIndicator.className = 'connection-status disconnected';
+      statusIndicator.title = 'Disconnected';
+      break;
+  }
+}
+
+// Update status when socket events occur
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.socket) {
+    window.socket.on('connect', () => updateConnectionStatus('connected'));
+    window.socket.on('disconnect', () => updateConnectionStatus('disconnected'));
+    window.socket.on('connecting', () => updateConnectionStatus('connecting'));
+    window.socket.on('reconnecting', () => updateConnectionStatus('connecting'));
+  }
+});
+
+        
+</script>
+<!-- Add this just before the closing </body> tag in index.html -->
+<script>
+// Mobile layout to match desktop view
+document.addEventListener('DOMContentLoaded', function() {
+  // Check if mobile device
+  const isMobile = window.innerWidth <= 1024;
+  if (isMobile) {
+    console.log("Applying mobile layout optimizations");
+    
+    // Create mobile-optimized styles
+    const mobileStyle = document.createElement('style');
+    mobileStyle.id = 'mobile-layout-inline';
+    mobileStyle.textContent = `
+      /* Mobile optimizations */
+      @media (max-width: 1024px) {
+        body {
+          overflow-x: hidden;
+        }
+        
+        /* Enable horizontal scrolling for container */
+        .container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+          padding-bottom: 0 !important;
+        }
+        
+        /* Make columns fixed-width for scrolling */
+        .sidebar, .rightbar {
+          min-width: 300px;
+          scroll-snap-align: start;
+        }
+        
+        .main {
+          min-width: 600px;
+          scroll-snap-align: start;
+        }
+        
+        /* Larger touch targets */
+        .card, .story-card, .button, .user-entry, .avatar-container {
+          min-height: 44px;
+        }
+        
+        /* Touch feedback */
+        .card:active {
+          transform: scale(0.95);
+          background-color: #d6bcfa !important;
+        }
+        
+        /* Story list scrolling */
+        .story-container {
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        
+        /* Larger gap between elements */
+        .avatar-row, .vote-row {
+          gap: 40px;
+        }
+        
+        /* Better visibility */
+        .vote-badge, .vote-card-space .vote-badge {
+          font-weight: bold;
+          font-size: 20px;
+        }
+        
+        /* Scale the user circle area */
+        #userCircle {
+          width: 100%;
+          max-width: 100%;
+        }
+        
+        /* Better card colors */
+        .card {
+          background-color: #e1d4f9 !important;
+        }
+        
+        /* Proper header alignment */
+        header {
+          padding: 15px 20px !important;
+        }
+      }
+    `;
+    
+    document.head.appendChild(mobileStyle);
+    
+    // Setup touch handling for cards
+    setupMobileTouchHandling();
+  }
+  
+  // Set up touch handling for mobile devices
+  function setupMobileTouchHandling() {
+    // Make cards work with touch events
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        
+        // Clear selections
+        document.querySelectorAll('.card').forEach(c => {
+          c.classList.remove('selected-card');
+        });
+        
+        // Select this card
+        this.classList.add('selected-card');
+        
+        // Get vote value
+        const vote = this.getAttribute('data-value');
+        const userName = sessionStorage.getItem('userName');
+        
+        // Emit vote if possible
+        if (userName && typeof window.emitVote === 'function') {
+          window.emitVote(vote, userName);
+        } else if (userName && window.socket) {
+          window.socket.emit('castVote', { vote, targetUserId: userName });
+        }
+      });
+    });
+  }
+});
+</script>
+
+    <script type="module" src="main.js"></script>
+  
+     
 </body>
 </html>
+        
+             
