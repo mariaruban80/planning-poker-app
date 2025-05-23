@@ -413,6 +413,11 @@ socket.on('storyVotes', ({ storyId, votes }) => {
 
 socket.on('votesRevealed', ({ storyId }) => {
   votesRevealed[storyId] = true;
+  const votes = votesPerStory[storyId] || {};
+  applyVotesToUI(votes, true); // <-- show the actual votes
+  showVoteStatistics(storyId, votes); // Optional: show average, emoji, etc.
+
+  triggerEmojiBurst(); // Optional burst
 });
 
 socket.on('votesReset', ({ storyId }) => {
