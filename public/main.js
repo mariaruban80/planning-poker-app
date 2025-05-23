@@ -1115,15 +1115,15 @@ function handleVotesRevealed(storyIndex, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyIndex);
   
   // Mark this story as having revealed votes
-  votesRevealed[storyIndex] = true;
+  votesRevealed[storyId] = true;
   
   // Store votes in local state for reconnection recovery
-  if (!votesPerStory[storyIndex]) {
-    votesPerStory[storyIndex] = {};
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
   }
   
   // Merge in any new votes
-  Object.assign(votesPerStory[storyIndex], votes);
+  Object.assign(votesPerStory[storyId], votes);
   
   // Get the planning cards container
   const planningCardsSection = document.querySelector('.planning-cards-section');
