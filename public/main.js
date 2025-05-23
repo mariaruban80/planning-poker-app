@@ -412,25 +412,26 @@ socket.on('storyVotes', ({ storyId, votes }) => {
 });
 
 socket.on('votesRevealed', ({ storyId }) => {
+  console.log('[SOCKET DEBUG] votesRevealed received:', storyId);
+  console.log('votesPerStory:', votesPerStory[storyId]);
+
   votesRevealed[storyId] = true;
   const votes = votesPerStory[storyId] || {};
 
-  // Show votes on cards
   applyVotesToUI(votes, true);
 
-  // Show statistics
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.innerHTML = '';
   statsContainer.appendChild(createFixedVoteDisplay(votes));
+
   if (planningCardsSection && planningCardsSection.parentNode) {
     planningCardsSection.style.display = 'none';
     planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     statsContainer.style.display = 'block';
   }
 
-  // Fix font sizes
   setTimeout(fixRevealedVoteFontSizes, 100);
 });
 
