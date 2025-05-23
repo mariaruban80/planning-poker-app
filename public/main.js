@@ -411,27 +411,28 @@ socket.on('storyVotes', ({ storyId, votes }) => {
   }
 });
 
+// When receiving votesRevealed event
 socket.on('votesRevealed', ({ storyId }) => {
-  console.log('[SOCKET DEBUG] votesRevealed received:', storyId);
-  console.log('votesPerStory:', votesPerStory[storyId]);
-
   votesRevealed[storyId] = true;
   const votes = votesPerStory[storyId] || {};
 
+  // Show votes on cards
   applyVotesToUI(votes, true);
 
+  // Show statistics
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.innerHTML = '';
   statsContainer.appendChild(createFixedVoteDisplay(votes));
-
+  
   if (planningCardsSection && planningCardsSection.parentNode) {
     planningCardsSection.style.display = 'none';
     planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     statsContainer.style.display = 'block';
   }
 
+  // Fix font sizes
   setTimeout(fixRevealedVoteFontSizes, 100);
 });
 
@@ -1889,29 +1890,45 @@ function updateUserList(users) {
   });
 
   // Create reveal button
-  const revealButtonContainer = document.createElement('div');
-  revealButtonContainer.classList.add('reveal-button-container');
-  
-  const revealBtn = document.createElement('button');
-  revealBtn.textContent = 'REVEAL VOTES';
-  revealBtn.classList.add('reveal-votes-button');
-  
-  // Handle guest mode for the reveal button
-  if (isGuestUser()) {
-    revealBtn.classList.add('hide-for-guests');
-  } else {
-    revealBtn.onclick = () => {
-      if (socket) {
-        socket.emit('revealVotes');
-        votesRevealed[currentStoryIndex] = true;
-        
-        // Update UI if we have votes for this story
-        if (votesPerStory[currentStoryIndex]) {
-          applyVotesToUI(votesPerStory[currentStoryIndex], false);
-        }
+
+const revealButtonContainer = document.createElement('div');
+revealButtonContainer.classList.add('reveal-button-container');
+
+const revealBtn = document.createElement('button');
+revealBtn.textContent = 'REVEAL VOTES';
+revealBtn.classList.add('reveal-votes-button');
+
+// Handle guest mode for the reveal button
+if (isGuestUser()) {
+  revealBtn.classList.add('hide-for-guests');
+} else {
+
+revealBtn.onclick = () => {
+  if (socket) {
+    // Get the current story ID
+    const storyId = getCurrentStoryId();
+    
+    // Make sure we have a valid story ID
+    if (storyId) {
+      console.log('[UI] Revealing votes for story:', storyId);
+      
+      // Send the storyId parameter with the event
+      socket.emit('revealVotes', { storyId });
+      
+      // Update local state
+      votesRevealed[currentStoryIndex] = true;
+      
+      // Update UI if we have votes for this story
+      if (votesPerStory[currentStoryIndex]) {
+        applyVotesToUI(votesPerStory[currentStoryIndex], false);
       }
-    };
+    } else {
+      console.warn('[UI] Cannot reveal votes: No story selected');
+    }
   }
+};
+  
+}
   
   revealButtonContainer.appendChild(revealBtn);
 
@@ -2372,26 +2389,36 @@ function handleSocketMessage(message) {
         }
       }
       break;
-      
-    case 'votesRevealed':
-      // Handle votes revealed with improved state persistence
-      if (typeof message.storyIndex === 'number') {
-        // First store the revealed state
-        votesRevealed[message.storyIndex] = true;
-        
-        // If this is the current story, update the UI
-        if (message.storyIndex === currentStoryIndex && votesPerStory[message.storyIndex]) {
-          handleVotesRevealed(message.storyIndex, votesPerStory[message.storyIndex]);
-        }
-        
-        // If we don't have votes for this story yet, request them
-        if (!votesPerStory[message.storyIndex] && socket && socket.connected) {
-          socket.emit('requestStoryVotes', { storyIndex: message.storyIndex });
-        }
-        
-        triggerGlobalEmojiBurst();
-      }
-      break;
+ 
+case 'votesRevealed':
+  console.log('[DEBUG] Received votesRevealed event', message);
+  if (typeof message.storyId === 'number' || typeof message.storyIndex === 'number') {
+    const storyIndex = message.storyIndex || message.storyId;
+    // First store the revealed state
+    votesRevealed[storyIndex] = true;
+    
+    console.log('[DEBUG] Setting votesRevealed for story:', storyIndex, 'to true');
+    
+    // If this is the current story, update the UI
+    if (storyIndex === currentStoryIndex && votesPerStory[storyIndex]) {
+      console.log('[DEBUG] Revealing votes for current story:', storyIndex);
+      handleVotesRevealed(storyIndex, votesPerStory[storyIndex]);
+    } else {
+      console.log('[DEBUG] Not current story or no votes yet:', 
+                 'current=', currentStoryIndex, 
+                 'hasVotes=', !!votesPerStory[storyIndex]);
+    }
+    
+    // If we don't have votes for this story yet, request them
+    if (!votesPerStory[storyIndex] && socket && socket.connected) {
+      console.log('[DEBUG] Requesting votes for story:', storyIndex);
+      socket.emit('requestStoryVotes', { storyIndex });
+    }
+    
+    triggerGlobalEmojiBurst();
+  }
+  break;
+
       
     case 'votesReset':
       // Handle votes reset
