@@ -942,7 +942,7 @@ function deleteStory(storyId) {
     return;
   }
   
-  // Get the story element
+  // Get the story element BEFORE we do anything else
   const storyCard = document.getElementById(storyId);
   if (!storyCard) {
     console.error('[DELETE] Story card not found:', storyId);
@@ -957,7 +957,7 @@ function deleteStory(storyId) {
   // Check if this is a CSV story
   const isCsvStory = storyId.startsWith('story_csv_');
   
-  // Emit deletion event to server (with special handling for CSV stories)
+  // **IMPORTANT: We'll emit to server BEFORE removing from DOM**
   if (socket) {
     console.log('[DELETE] Emitting deleteStory event to server');
     
@@ -973,42 +973,13 @@ function deleteStory(storyId) {
     console.warn('[DELETE] Socket not available, deleting locally only');
   }
   
-  // Remove from DOM
-  storyCard.remove();
+  // **IMPORTANT: Don't remove from DOM here as we'll let the socket event handler do it**
+  // Instead, we'll handle removal when we receive the deleteStory event from server
   
-  // Remove from preserved manual tickets if applicable
-  preservedManualTickets = preservedManualTickets.filter(ticket => ticket.id !== storyId);
-  
-  // If this was a manually added ticket, remove it from that list too
-  manuallyAddedTickets = manuallyAddedTickets.filter(ticket => ticket.id !== storyId);
-  
-  // Renumber remaining stories
-  normalizeStoryIndexes();
-  
-  // If the deleted story was the current selection, select another one if available
-  if (index === currentStoryIndex) {
-    const storyList = document.getElementById('storyList');
-    if (storyList && storyList.children.length > 0) {
-      // If we deleted the last story, select the new last one
-      const newIndex = Math.min(index, storyList.children.length - 1);
-      selectStory(newIndex);
-    } else {
-      // No stories left, hide cards and show message
-      const noStoriesMessage = document.getElementById('noStoriesMessage');
-      if (noStoriesMessage) {
-        noStoriesMessage.style.display = 'block';
-      }
-      
-      // Disable planning cards
-      document.querySelectorAll('#planningCards .card').forEach(card => {
-        card.classList.add('disabled');
-        card.setAttribute('draggable', 'false');
-      });
-    }
-  }
-  
-  console.log('[DELETE] Deletion completed for story:', storyId);
+  console.log('[DELETE] Deletion request sent for story:', storyId);
 }
+
+
 
 function createVoteStatisticsDisplay(votes) {
   // Create container
@@ -2357,37 +2328,49 @@ function handleSocketMessage(message) {
         updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
       }
       break;
-
-    case 'deleteStory':
-      // Handle story deletion from another user
-      if (message.storyId) {
-        console.log('[SOCKET] Story deletion received:', message.storyId);
-        
-        // Get the story element
-        const storyCard = document.getElementById(message.storyId);
-        if (storyCard) {
-          // Get the index for potential reselection
-          const index = parseInt(storyCard.dataset.index);
-          
-          // Remove the story
-          storyCard.remove();
-          
-          // Renumber remaining stories
-          normalizeStoryIndexes();
-          
-          // If this was the current story, select another one
-          if (index === currentStoryIndex) {
-            const storyList = document.getElementById('storyList');
-            if (storyList && storyList.children.length > 0) {
-              const newIndex = Math.min(index, storyList.children.length - 1);
-              selectStory(newIndex, false); // Don't emit selection to avoid loops
-            }
-          }
-          // Update card interactions after DOM changes
-          setupStoryCardInteractions();
+case 'deleteStory':
+  // Handle story deletion from another user
+  if (message.storyId) {
+    console.log('[SOCKET] Story deletion received for ID:', message.storyId);
+    
+    // Get the story element
+    const storyCard = document.getElementById(message.storyId);
+    if (storyCard) {
+      // Get the index for potential reselection
+      const index = parseInt(storyCard.dataset.index);
+      
+      console.log(`[SOCKET] Removing story card ${message.storyId} from DOM`);
+      // Remove the story
+      storyCard.remove();
+      
+      // Renumber remaining stories
+      normalizeStoryIndexes();
+      
+      // If this was the current story, select another one
+      if (index === currentStoryIndex) {
+        const storyList = document.getElementById('storyList');
+        if (storyList && storyList.children.length > 0) {
+          const newIndex = Math.min(index, storyList.children.length - 1);
+          selectStory(newIndex, false); // Don't emit selection to avoid loops
         }
       }
-      break;
+      // Update card interactions after DOM changes
+      setupStoryCardInteractions();
+    } else {
+      console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
+    }
+    
+    // Clean up votes for this story
+    if (votesPerStory[message.storyId]) {
+      delete votesPerStory[message.storyId];
+      console.log(`[SOCKET] Removed votes for deleted story ${message.storyId}`);
+    }
+    if (votesRevealed[message.storyId]) {
+      delete votesRevealed[message.storyId];
+    }
+  }
+  break;
+ 
       
     case 'votesRevealed':
       console.log('[DEBUG] Received votesRevealed event', message);
