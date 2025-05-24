@@ -185,12 +185,18 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle story deletion
+  // Handle story deletion with improved error handling
   socket.on('deleteStory', ({ storyId, isCsvStory, csvIndex }) => {
-    const roomId = socket.data.roomId;
-    
-    if (roomId && rooms[roomId]) {
-      console.log(`[SERVER] Story deleted in room ${roomId}: ${storyId}`);
+    try {
+      const roomId = socket.data.roomId;
+      
+      if (!roomId || !rooms[roomId]) {
+        console.error(`[SERVER] Invalid room for delete operation: ${roomId}`);
+        socket.emit('error', { message: 'Invalid room ID', operation: 'deleteStory' });
+        return;
+      }
+      
+      console.log(`[SERVER] Processing story deletion in room ${roomId}: ${storyId}`);
       
       // Handle CSV story deletion
       if (isCsvStory && rooms[roomId].csvData) {
@@ -207,8 +213,24 @@ io.on('connection', (socket) => {
         rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => ticket.id !== storyId);
       }
       
-      // Broadcast deletion to all other clients in the room
-      socket.broadcast.to(roomId).emit('deleteStory', { storyId });
+      // Clean up votes for this story if they exist
+      if (rooms[roomId].votesPerStory && rooms[roomId].votesPerStory[storyId]) {
+        delete rooms[roomId].votesPerStory[storyId];
+      }
+      
+      if (rooms[roomId].votesRevealed && rooms[roomId].votesRevealed[storyId]) {
+        delete rooms[roomId].votesRevealed[storyId];
+      }
+      
+      // Broadcast deletion to ALL clients in the room, including the sender
+      io.to(roomId).emit('deleteStory', { storyId });
+      
+      // Confirm to the sender that deletion was successful
+      socket.emit('deleteConfirmed', { storyId });
+      
+    } catch (error) {
+      console.error(`[SERVER] Error deleting story ${storyId}:`, error);
+      socket.emit('error', { message: 'Error deleting story', operation: 'deleteStory' });
     }
   });
   
@@ -260,7 +282,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle user votes
-socket.on('castVote', ({ vote, targetUserId, storyId }) => {
+  socket.on('castVote', ({ vote, targetUserId, storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId] && targetUserId === socket.id) {
       if (!rooms[roomId].votesPerStory) rooms[roomId].votesPerStory = {};
@@ -271,7 +293,6 @@ socket.on('castVote', ({ vote, targetUserId, storyId }) => {
       io.to(roomId).emit('voteUpdate', { userId: targetUserId, vote, storyId });
     }
   });
-
   
   // Handle requests for votes for a specific story
   socket.on('requestStoryVotes', ({ storyId }) => {
@@ -289,12 +310,12 @@ socket.on('castVote', ({ vote, targetUserId, storyId }) => {
   socket.on('revealVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] Revealing votes for story: ${storyId} in room ${roomId}`);
       if (!rooms[roomId].votesRevealed) rooms[roomId].votesRevealed = {};
       rooms[roomId].votesRevealed[storyId] = true;
       io.to(roomId).emit('votesRevealed', { storyId });
     }
   });
-
 
   // Handle vote reset for current story
   socket.on('resetVotes', ({ storyId }) => {
