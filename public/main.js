@@ -122,6 +122,7 @@ let reconnectingInProgress = false; // Flag for reconnection logic
 
 // Adding this function to main.js to be called whenever votes are revealed
 function fixRevealedVoteFontSizes() {
+  console.log('[DEBUG] Fixing revealed vote font sizes');
   // Target all vote badges in revealed state
   const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
   
@@ -148,6 +149,8 @@ function fixRevealedVoteFontSizes() {
     badge.style.maxWidth = '80%';
     badge.style.textAlign = 'center';
     badge.style.display = 'block';
+    
+    console.log(`[DEBUG] Applied font size ${fontSize} to vote badge with text "${text}"`);
   });
 }
 
@@ -400,49 +403,47 @@ function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
-socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  votesPerStory[storyId][userId] = vote;
-});
-socket.on('storyVotes', ({ storyId, votes }) => {
-  votesPerStory[storyId] = votes;
-  if (votesRevealed[storyId]) {
-    applyVotesToUI(votes, true);
-  }
-});
+  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    votesPerStory[storyId][userId] = vote;
+  });
+  socket.on('storyVotes', ({ storyId, votes }) => {
+    votesPerStory[storyId] = votes;
+    if (votesRevealed[storyId]) {
+      applyVotesToUI(votes, false);
+    }
+  });
 
-// When receiving votesRevealed event
-socket.on('votesRevealed', ({ storyId }) => {
-  votesRevealed[storyId] = true;
-  const votes = votesPerStory[storyId] || {};
+  socket.on('votesRevealed', ({ storyId }) => {
+    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
+    votesRevealed[storyId] = true;
+    const votes = votesPerStory[storyId] || {};
+    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
-  // Show votes on cards
-  applyVotesToUI(votes, true);
+    // Show votes on cards
+    applyVotesToUI(votes, false);
 
-  // Show statistics
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-  statsContainer.className = 'vote-statistics-container';
-  statsContainer.innerHTML = '';
-  statsContainer.appendChild(createFixedVoteDisplay(votes));
-  
-  if (planningCardsSection && planningCardsSection.parentNode) {
-    planningCardsSection.style.display = 'none';
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    statsContainer.style.display = 'block';
-  }
+    // Show statistics
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    statsContainer.innerHTML = '';
+    statsContainer.appendChild(createFixedVoteDisplay(votes));
+    if (planningCardsSection && planningCardsSection.parentNode) {
+      planningCardsSection.style.display = 'none';
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+      statsContainer.style.display = 'block';
+    }
 
-  // Fix font sizes
-  setTimeout(fixRevealedVoteFontSizes, 100);
-});
+    // Fix font sizes
+    setTimeout(fixRevealedVoteFontSizes, 100);
+  });
 
-
-
-socket.on('votesReset', ({ storyId }) => {
-  votesPerStory[storyId] = {};
-  votesRevealed[storyId] = false;
-  resetAllVoteVisuals();
-});
+  socket.on('votesReset', ({ storyId }) => {
+    votesPerStory[storyId] = {};
+    votesRevealed[storyId] = false;
+    resetAllVoteVisuals();
+  });
   
   // Add reconnection handlers for socket
   if (socket) {
@@ -453,19 +454,17 @@ socket.on('votesReset', ({ storyId }) => {
     });
     
     // Handle successful reconnection
-socket.on('reconnect', () => {
-  console.log('[SOCKET] Reconnected to server');
-  reconnectingInProgress = false;
-
-  // Request current state after reconnection
-  setTimeout(() => {
-    const storyId = getCurrentStoryId();
-    if (socket && socket.connected && storyId) {
-      socket.emit('requestStoryVotes', { storyId });
-    }
-  }, 500);
-});
-
+    socket.on('reconnect', () => {
+      console.log('[SOCKET] Reconnected to server');
+      reconnectingInProgress = false;
+      
+      // Request current state after reconnection
+      if (typeof currentStoryIndex === 'number') {
+        setTimeout(() => {
+          socket.emit('requestStoryVotes', { storyIndex: currentStoryIndex });
+        }, 500);
+      }
+    });
   }
   
   // Guest: Listen for host's voting system
@@ -1112,11 +1111,12 @@ function addVoteStatisticsStyles() {
 
 /**
  * Handle votes revealed event by showing statistics
- * @param {number} storyIndex - Index of the story
+ * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
-function handleVotesRevealed(storyIndex, votes) {
-  console.log('[VOTES] Handling votes revealed for story:', storyIndex);
+function handleVotesRevealed(storyId, votes) {
+  console.log('[VOTES] Handling votes revealed for story:', storyId);
+  console.log('[DEBUG] Current votes state:', JSON.stringify(votes));
   
   // Mark this story as having revealed votes
   votesRevealed[storyId] = true;
@@ -1156,8 +1156,9 @@ function handleVotesRevealed(storyIndex, votes) {
     statsContainer.style.display = 'block';
   }
   
-  // Apply the vote visuals as normal too
+  // Apply the vote visuals - false means SHOW the actual values
   applyVotesToUI(votes, false);
+  
   // Add a delay to ensure the DOM is updated before fixing font sizes
   setTimeout(fixRevealedVoteFontSizes, 100);
   
@@ -1387,12 +1388,10 @@ function processAllTickets(tickets) {
 }
 
 // Get storyId from selected card
-
 function getCurrentStoryId() {
   const selectedCard = document.querySelector('.story-card.selected');
   return selectedCard ? selectedCard.id : null;
 }
-
 
 /**
  * Setup reveal and reset buttons
@@ -1403,27 +1402,8 @@ function setupRevealResetButtons() {
     revealVotesBtn.addEventListener('click', () => {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
+        console.log('[UI] Revealing votes for story:', storyId);
         socket.emit('revealVotes', { storyId });
-        votesRevealed[storyId] = true;
-
-        if (votesPerStory[storyId]) {
-          applyVotesToUI(votesPerStory[storyId], true);
-          
-          // Also show vote stats UI
-          const planningCardsSection = document.querySelector('.planning-cards-section');
-          const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-          statsContainer.className = 'vote-statistics-container';
-          statsContainer.innerHTML = '';
-          statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
-
-          if (planningCardsSection && planningCardsSection.parentNode) {
-            planningCardsSection.style.display = 'none';
-            planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-            statsContainer.style.display = 'block';
-          }
-
-          setTimeout(fixRevealedVoteFontSizes, 100);
-        }
       }
     });
   }
@@ -1441,9 +1421,6 @@ function setupRevealResetButtons() {
     });
   }
 }
-
-
-
 
 /**
  * Setup CSV file uploader
@@ -1756,9 +1733,15 @@ function selectStory(index, emitToServer = true) {
     
     // Request votes for this story
     if (typeof requestStoryVotes === 'function') {
-      requestStoryVotes(index);
+      const storyId = getCurrentStoryId();
+      if (storyId) {
+        requestStoryVotes(storyId);
+      }
     } else {
-      socket.emit('requestStoryVotes', { storyIndex: index });
+      const storyId = getCurrentStoryId();
+      if (storyId) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
     }
   }
 }
@@ -1769,29 +1752,40 @@ function selectStory(index, emitToServer = true) {
 function resetOrRestoreVotes(index) {
   resetAllVoteVisuals();
   
+  // Get the current story ID
+  const storyId = getCurrentStoryId();
+  if (!storyId) return;
+  
   // If we have stored votes for this story and they've been revealed
-  if (votesPerStory[index] && votesRevealed[index]) {
-    applyVotesToUI(votesPerStory[index], false);
+  if (votesPerStory[storyId] && votesRevealed[storyId]) {
+    // Show the actual vote values
+    applyVotesToUI(votesPerStory[storyId], false);
     
     // If votes were revealed, also show the statistics
     setTimeout(() => {
-      if (votesRevealed[index]) {
-        handleVotesRevealed(index, votesPerStory[index]);
+      if (votesRevealed[storyId]) {
+        handleVotesRevealed(storyId, votesPerStory[storyId]);
       }
     }, 100);
   } else {
-    // If we have votes but they're not revealed, still show that people voted
-    if (votesPerStory[index]) {
-      applyVotesToUI(votesPerStory[index], true);
+        // If we have votes but they're not revealed, still show that people voted (with thumbs up)
+    if (votesPerStory[storyId]) {
+      applyVotesToUI(votesPerStory[storyId], true);
     }
   }
 }
 
 /**
  * Apply votes to UI
+ * @param {Object} votes - Map of user IDs to vote values
+ * @param {boolean} hideValues - Whether to hide actual vote values and show thumbs up
  */
 function applyVotesToUI(votes, hideValues) {
+  console.log('[DEBUG] applyVotesToUI called with:', 
+    { votes: JSON.stringify(votes), hideValues });
+  
   Object.entries(votes).forEach(([userId, vote]) => {
+    console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
     updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
   });
 }
@@ -1890,45 +1884,38 @@ function updateUserList(users) {
   });
 
   // Create reveal button
-
-const revealButtonContainer = document.createElement('div');
-revealButtonContainer.classList.add('reveal-button-container');
-
-const revealBtn = document.createElement('button');
-revealBtn.textContent = 'REVEAL VOTES';
-revealBtn.classList.add('reveal-votes-button');
-
-// Handle guest mode for the reveal button
-if (isGuestUser()) {
-  revealBtn.classList.add('hide-for-guests');
-} else {
-
-revealBtn.onclick = () => {
-  if (socket) {
-    // Get the current story ID
-    const storyId = getCurrentStoryId();
-    
-    // Make sure we have a valid story ID
-    if (storyId) {
-      console.log('[UI] Revealing votes for story:', storyId);
-      
-      // Send the storyId parameter with the event
-      socket.emit('revealVotes', { storyId });
-      
-      // Update local state
-      votesRevealed[currentStoryIndex] = true;
-      
-      // Update UI if we have votes for this story
-      if (votesPerStory[currentStoryIndex]) {
-        applyVotesToUI(votesPerStory[currentStoryIndex], false);
-      }
-    } else {
-      console.warn('[UI] Cannot reveal votes: No story selected');
-    }
-  }
-};
+  const revealButtonContainer = document.createElement('div');
+  revealButtonContainer.classList.add('reveal-button-container');
   
-}
+  const revealBtn = document.createElement('button');
+  revealBtn.textContent = 'REVEAL VOTES';
+  revealBtn.classList.add('reveal-votes-button');
+  
+  // Handle guest mode for the reveal button
+  if (isGuestUser()) {
+    revealBtn.classList.add('hide-for-guests');
+  } else {
+    revealBtn.onclick = () => {
+      // Get the current story ID
+      const storyId = getCurrentStoryId();
+      
+      if (socket && storyId) {
+        console.log('[UI] Revealing votes for story:', storyId);
+        // Send the storyId parameter with the event
+        socket.emit('revealVotes', { storyId });
+        
+        // Update local state
+        votesRevealed[storyId] = true;
+        
+        // Update UI if we have votes for this story
+        if (votesPerStory[storyId]) {
+          applyVotesToUI(votesPerStory[storyId], false);
+        }
+      } else {
+        console.warn('[UI] Cannot reveal votes: No story selected');
+      }
+    };
+  }
   
   revealButtonContainer.appendChild(revealBtn);
 
@@ -1970,17 +1957,20 @@ revealBtn.onclick = () => {
     }, 500);
   }
   
+  // Get current story ID
+  const storyId = getCurrentStoryId();
+  
   // After updating users, also update votes
-  if (votesPerStory[currentStoryIndex]) {
+  if (storyId && votesPerStory[storyId]) {
     // Apply the votes
-    const votes = votesPerStory[currentStoryIndex];
-    const reveal = votesRevealed[currentStoryIndex];
+    const votes = votesPerStory[storyId];
+    const reveal = votesRevealed[storyId];
     applyVotesToUI(votes, !reveal);
     
     // If votes were revealed, also show statistics
     if (reveal) {
       setTimeout(() => {
-        handleVotesRevealed(currentStoryIndex, votes);
+        handleVotesRevealed(storyId, votes);
       }, 200);
     }
   }
@@ -2001,8 +1991,11 @@ function createAvatarContainer(user) {
   
   avatarContainer.setAttribute('data-user-id', user.id);
   
+  // Get current story ID
+  const storyId = getCurrentStoryId();
+  
   // Check if there's an existing vote for this user in the current story
-  const existingVote = votesPerStory[currentStoryIndex]?.[user.id];
+  const existingVote = storyId && votesPerStory[storyId]?.[user.id];
   if (existingVote) {
     avatarContainer.classList.add('has-voted');
   }
@@ -2013,7 +2006,6 @@ function createAvatarContainer(user) {
 /**
  * Create vote card space for a user
  */
-
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
@@ -2057,16 +2049,22 @@ function createVoteCardSpace(user, isCurrentUser) {
   return voteCard;
 }
 
-
-
-
-
 /**
  * Update vote visuals for a user
  */
 function updateVoteVisuals(userId, vote, hasVoted = false) {
+  console.log(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${hasVoted}`);
+  
+  // Get the story ID and check its reveal state
+  const storyId = getCurrentStoryId();
+  const isRevealed = storyId && votesRevealed[storyId] === true;
+  
+  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
+  
   // Determine what to show based on reveal state
-  const displayVote = votesRevealed[currentStoryIndex] ? vote : '👍';
+  const displayVote = isRevealed ? vote : '👍';
+  
+  console.log(`[DEBUG] Will display: ${displayVote}`);
   
   // Update badges in sidebar
   const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
@@ -2091,6 +2089,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
         voteBadge.textContent = displayVote;
         voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
         voteBadge.style.opacity = '1'; // Ensure full opacity
+        console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
       } else {
         voteBadge.textContent = ''; // Empty if no vote
       }
@@ -2351,11 +2350,11 @@ function handleSocketMessage(message) {
     case 'voteUpdate':
       // Handle vote received
       if (message.userId && message.vote) {
-        if (!votesPerStory[currentStoryIndex]) {
-          votesPerStory[currentStoryIndex] = {};
+        if (!votesPerStory[message.storyId]) {
+          votesPerStory[message.storyId] = {};
         }
-        votesPerStory[currentStoryIndex][message.userId] = message.vote;
-        updateVoteVisuals(message.userId, votesRevealed[currentStoryIndex] ? message.vote : '👍', true);
+        votesPerStory[message.storyId][message.userId] = message.vote;
+        updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
       }
       break;
 
@@ -2389,50 +2388,45 @@ function handleSocketMessage(message) {
         }
       }
       break;
- 
-case 'votesRevealed':
-  console.log('[DEBUG] Received votesRevealed event', message);
-  if (typeof message.storyId === 'number' || typeof message.storyIndex === 'number') {
-    const storyIndex = message.storyIndex || message.storyId;
-    // First store the revealed state
-    votesRevealed[storyIndex] = true;
-    
-    console.log('[DEBUG] Setting votesRevealed for story:', storyIndex, 'to true');
-    
-    // If this is the current story, update the UI
-    if (storyIndex === currentStoryIndex && votesPerStory[storyIndex]) {
-      console.log('[DEBUG] Revealing votes for current story:', storyIndex);
-      handleVotesRevealed(storyIndex, votesPerStory[storyIndex]);
-    } else {
-      console.log('[DEBUG] Not current story or no votes yet:', 
-                 'current=', currentStoryIndex, 
-                 'hasVotes=', !!votesPerStory[storyIndex]);
-    }
-    
-    // If we don't have votes for this story yet, request them
-    if (!votesPerStory[storyIndex] && socket && socket.connected) {
-      console.log('[DEBUG] Requesting votes for story:', storyIndex);
-      socket.emit('requestStoryVotes', { storyIndex });
-    }
-    
-    triggerGlobalEmojiBurst();
-  }
-  break;
-
+      
+    case 'votesRevealed':
+      console.log('[DEBUG] Received votesRevealed event', message);
+      const storyId = message.storyId;
+      
+      if (storyId) {
+        // Store the revealed state
+        votesRevealed[storyId] = true;
+        console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
+        
+        // Get the votes for this story
+        const votes = votesPerStory[storyId] || {};
+        console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
+        
+        // This is where we display the actual vote values
+        applyVotesToUI(votes, false);
+        
+        // Show statistics  
+        handleVotesRevealed(storyId, votes);
+        
+        // Trigger emoji burst for fun effect
+        triggerGlobalEmojiBurst();
+      }
+      break;
       
     case 'votesReset':
       // Handle votes reset
-      if (typeof message.storyIndex === 'number') {
+      if (message.storyId) {
         // Clear votes for the specified story
-        if (votesPerStory[message.storyIndex]) {
-          votesPerStory[message.storyIndex] = {};
+        if (votesPerStory[message.storyId]) {
+          votesPerStory[message.storyId] = {};
         }
         
         // Reset revealed status
-        votesRevealed[message.storyIndex] = false;
+        votesRevealed[message.storyId] = false;
         
         // Update UI if this is the current story
-        if (message.storyIndex === currentStoryIndex) {
+        const currentId = getCurrentStoryId();
+        if (message.storyId === currentId) {
           resetAllVoteVisuals();
           
           // ✅ Hide vote statistics and show planning cards again
@@ -2454,21 +2448,22 @@ case 'votesRevealed':
       
     case 'storyVotes':
       // Handle received votes for a specific story with improved state persistence
-      if (message.storyIndex !== undefined && message.votes) {
+      if (message.storyId !== undefined && message.votes) {
         // Store votes for this story
-        if (!votesPerStory[message.storyIndex]) {
-          votesPerStory[message.storyIndex] = {};
+        if (!votesPerStory[message.storyId]) {
+          votesPerStory[message.storyId] = {};
         }
         
         // Update with received votes
-        Object.assign(votesPerStory[message.storyIndex], message.votes);
+        Object.assign(votesPerStory[message.storyId], message.votes);
         
         // Update UI if this is the current story
-        if (message.storyIndex === currentStoryIndex) {
+        const currentId = getCurrentStoryId();
+        if (message.storyId === currentId) {
           // If votes are revealed, show them; otherwise, just show that people voted
-          if (votesRevealed[message.storyIndex]) {
+          if (votesRevealed[message.storyId]) {
             applyVotesToUI(message.votes, false);
-            handleVotesRevealed(message.storyIndex, votesPerStory[message.storyIndex]);
+            handleVotesRevealed(message.storyId, votesPerStory[message.storyId]);
           } else {
             applyVotesToUI(message.votes, true);
           }
@@ -2514,26 +2509,27 @@ case 'votesRevealed':
       }
       break;
 
-   case 'connect':
-  updateConnectionStatus('connected');
-
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      if (!hasRequestedTickets) {
-        console.log('[SOCKET] Connected, requesting all tickets');
-        socket.emit('requestAllTickets');
-        hasRequestedTickets = true;
-      }
-
-      // ✅ Fix: request votes using storyId, not index
-      const storyId = getCurrentStoryId();
-      if (storyId) {
-        socket.emit('requestStoryVotes', { storyId });
-      }
-    }
-  }, 500);
-  break;
-
+    case 'connect':
+      // When connection is established
+      updateConnectionStatus('connected');
+      
+      // Request tickets and state after connection
+      setTimeout(() => {
+        if (socket && socket.connected) {
+          if (!hasRequestedTickets) {
+            console.log('[SOCKET] Connected, requesting all tickets');
+            socket.emit('requestAllTickets');
+            hasRequestedTickets = true;
+          }
+          
+          // Also request votes for current story
+          const currentId = getCurrentStoryId();
+          if (currentId) {
+            socket.emit('requestStoryVotes', { storyId: currentId });
+          }
+        }
+      }, 500);
+      break;
       
     case 'reconnect_attempt':
       // Show reconnecting status
@@ -2541,25 +2537,27 @@ case 'votesRevealed':
       reconnectingInProgress = true;
       break;
       
-   case 'reconnect':
-  updateConnectionStatus('connected');
-  reconnectingInProgress = false;
-
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      const storyId = getCurrentStoryId();
-      if (storyId) {
-        socket.emit('requestStoryVotes', { storyId });
-      }
-
-      if (!hasRequestedTickets) {
-        socket.emit('requestAllTickets');
-        hasRequestedTickets = true;
-      }
-    }
-  }, 500);
-  break;
-
+    case 'reconnect':
+      // Handle successful reconnection
+      updateConnectionStatus('connected');
+      reconnectingInProgress = false;
+      
+      // Request current state after reconnection
+      setTimeout(() => {
+        if (socket && socket.connected) {
+          // Request votes for current story
+          const currentId = getCurrentStoryId();
+          if (currentId) {
+            socket.emit('requestStoryVotes', { storyId: currentId });
+          }
+          
+          // Request all tickets if we don't have them
+          if (!hasRequestedTickets) {
+            socket.emit('requestAllTickets');
+            hasRequestedTickets = true;
+          }
+        }
+      }, 500);
       break;
       
     case 'error':
@@ -2578,3 +2576,4 @@ document.addEventListener('DOMContentLoaded', () => {
   appendRoomIdToURL(roomId);
   initializeApp(roomId);
 });
+    
