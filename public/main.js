@@ -539,7 +539,7 @@ function initializeApp(roomId) {
     votesRevealed[storyId] = false;
     setTimeout(() => {
     resetAllVoteVisuals();
-    // re-apply votes if we had them stored
+    const storyId = getCurrentStoryId();
     if (votesPerStory[storyId]) {
       const hide = !votesRevealed[storyId];
       applyVotesToUI(votesPerStory[storyId], hide);
@@ -1518,7 +1518,7 @@ function setupRevealResetButtons() {
         // Reset UI
         setTimeout(() => {
     resetAllVoteVisuals();
-    // re-apply votes if we had them stored
+    const storyId = getCurrentStoryId();
     if (votesPerStory[storyId]) {
       const hide = !votesRevealed[storyId];
       applyVotesToUI(votesPerStory[storyId], hide);
@@ -1871,7 +1871,7 @@ function resetOrRestoreVotes(index) {
   ensureVotesPerStory();
   setTimeout(() => {
     resetAllVoteVisuals();
-    // re-apply votes if we had them stored
+    const storyId = getCurrentStoryId();
     if (votesPerStory[storyId]) {
       const hide = !votesRevealed[storyId];
       applyVotesToUI(votesPerStory[storyId], hide);
@@ -2225,14 +2225,15 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       // Only show vote if they've voted
       if (hasVoted) {
         voteBadge.textContent = displayVote;
-      // Ensure the 👍 remains visible briefly even if removed quickly
-      clearTimeout(voteBadge._hideTimer); // cancel previous timer
-      voteBadge._hideTimer = setTimeout(() => {
-        if (!votesRevealed[storyId]) {
-          voteBadge.textContent = '👍';
-        }
-      }, 300);
         voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
+        // Keep the thumbs-up visible briefly
+        clearTimeout(voteBadge._hideTimer);
+        voteBadge._hideTimer = setTimeout(() => {
+          const currentStoryId = getCurrentStoryId();
+          if (!votesRevealed[currentStoryId]) {
+            voteBadge.textContent = '👍';
+          }
+        }, 500);
         voteBadge.style.opacity = '1'; // Ensure full opacity
         console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
       } else {
@@ -2660,7 +2661,7 @@ function handleSocketMessage(message) {
         if (message.storyId === currentId) {
           setTimeout(() => {
     resetAllVoteVisuals();
-    // re-apply votes if we had them stored
+    const storyId = getCurrentStoryId();
     if (votesPerStory[storyId]) {
       const hide = !votesRevealed[storyId];
       applyVotesToUI(votesPerStory[storyId], hide);
