@@ -120,7 +120,100 @@ let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 let reconnectingInProgress = false; // Flag for reconnection logic
 
-// Adding this function to main.js to be called whenever votes are revealed
+/**
+ * Ensure global vote tracking objects exist
+ */
+function ensureVotesPerStory() {
+  // Make sure we have votesPerStory object
+  if (typeof window.votesPerStory === 'undefined') {
+    window.votesPerStory = {};
+    console.log("[FIX] Created global votesPerStory object");
+  }
+  
+  // Make sure we have votesRevealed object
+  if (typeof window.votesRevealed === 'undefined') {
+    window.votesRevealed = {};
+    console.log("[FIX] Created global votesRevealed object");
+  }
+}
+
+/**
+ * Load persisted votes from sessionStorage
+ */
+function loadPersistedVotes() {
+  ensureVotesPerStory();
+  
+  console.log("[PERSIST] Loading persisted votes from sessionStorage");
+  
+  // Find all keys that start with votesPerStory_ or votesRevealed_
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    
+    if (key && key.startsWith('votesPerStory_')) {
+      const storyId = key.replace('votesPerStory_', '');
+      try {
+        const votes = JSON.parse(sessionStorage.getItem(key));
+        if (votes && typeof votes === 'object') {
+          votesPerStory[storyId] = votes;
+          console.log(`[PERSIST] Restored votes for ${storyId} from sessionStorage`);
+        }
+      } catch (e) {
+        console.error(`[PERSIST] Failed to parse votes for ${storyId}:`, e);
+      }
+    }
+    
+    if (key && key.startsWith('votesRevealed_')) {
+      const storyId = key.replace('votesRevealed_', '');
+      votesRevealed[storyId] = sessionStorage.getItem(key) === 'true';
+      console.log(`[PERSIST] Restored revealed state for ${storyId}: ${votesRevealed[storyId]}`);
+    }
+  }
+}
+
+/**
+ * Save vote data to session storage
+ */
+function persistVotesForStory(storyId, votes) {
+  if (!storyId || !votes) return;
+  
+  try {
+    sessionStorage.setItem('votesPerStory_' + storyId, JSON.stringify(votes));
+    console.log(`[PERSIST] Saved votes for ${storyId} to sessionStorage`);
+  } catch (e) {
+    console.error("[PERSIST] Failed to save votes to sessionStorage:", e);
+  }
+}
+
+/**
+ * Save reveal state to session storage
+ */
+function persistRevealedState(storyId, isRevealed) {
+  if (!storyId) return;
+  
+  try {
+    sessionStorage.setItem('votesRevealed_' + storyId, isRevealed ? 'true' : 'false');
+    console.log(`[PERSIST] Saved revealed state for ${storyId}: ${isRevealed}`);
+  } catch (e) {
+    console.error("[PERSIST] Failed to save revealed state to sessionStorage:", e);
+  }
+}
+
+/**
+ * Clear persisted votes for deleted stories
+ * Call this when a story is deleted
+ */
+function clearPersistedVotesForStory(storyId) {
+  if (!storyId) return;
+  
+  try {
+    sessionStorage.removeItem('votesPerStory_' + storyId);
+    sessionStorage.removeItem('votesRevealed_' + storyId);
+    console.log(`[PERSIST] Cleared persisted data for story ${storyId}`);
+  } catch (e) {
+    console.error("[PERSIST] Failed to clear persisted data:", e);
+  }
+}
+
 function fixRevealedVoteFontSizes() {
   console.log('[DEBUG] Fixing revealed vote font sizes');
   // Target all vote badges in revealed state
@@ -400,7 +493,9 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
+   loadPersistedVotes();
   // Initialize socket with userName from sessionStorage
+
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
   socket.on('voteUpdate', ({ userId, vote, storyId }) => {
@@ -928,6 +1023,7 @@ function deleteStory(storyId) {
   }
   
   deleteConfirmationInProgress = true;
+  clearPersistedVotesForStory(storyId);
   
   // Confirm deletion
   const confirmResult = confirm('Are you sure you want to delete this story?');
@@ -1722,7 +1818,9 @@ function selectStory(index, emitToServer = true) {
  * Reset or restore votes for a story
  */
 function resetOrRestoreVotes(index) {
+  ensureVotesPerStory();
   resetAllVoteVisuals();
+
   
   // Get the current story ID
   const storyId = getCurrentStoryId();
@@ -1732,7 +1830,7 @@ function resetOrRestoreVotes(index) {
   
   // If we have stored votes for this story 
   if (votesPerStory[storyId]) {
-    if (votesRevealed[storyId]) {
+    if (votesRevealed[storyId] === true) {
       // Show the actual vote values if votes were revealed
       console.log(`[DEBUG] Showing revealed votes for ${storyId}:`, JSON.stringify(votesPerStory[storyId]));
       applyVotesToUI(votesPerStory[storyId], false);
@@ -1755,9 +1853,16 @@ function resetOrRestoreVotes(index) {
  * @param {boolean} hideValues - Whether to hide actual vote values and show thumbs up
  */
 function applyVotesToUI(votes, hideValues) {
+   ensureVotesPerStory(); // Make sure our global objects exist
   console.log('[DEBUG] applyVotesToUI called with:', 
     { votes: JSON.stringify(votes), hideValues });
   
+  // Make sure votes is an object
+  if (!votes || typeof votes !== 'object') {
+    console.warn('[DEBUG] applyVotesToUI called with invalid votes:', votes);
+    return;
+  }
+   
   Object.entries(votes).forEach(([userId, vote]) => {
     console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
     updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
@@ -2321,74 +2426,93 @@ function handleSocketMessage(message) {
       break;
       
     case 'voteReceived':
+            // Handle vote received
+      if (message.userId && message.vote && message.storyId) {
+        if (!votesPerStory[message.storyId]) {
+          votesPerStory[message.storyId] = {};
+        }
+        votesPerStory[message.storyId][message.userId] = message.vote;
+        
+        // Persist to sessionStorage
+        persistVotesForStory(message.storyId, votesPerStory[message.storyId]);
+        
+        updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
+      }
+      break;
     case 'voteUpdate':
       // Handle vote received
-      if (message.userId && message.vote) {
+ /**     if (message.userId && message.vote) {
         if (!votesPerStory[message.storyId]) {
           votesPerStory[message.storyId] = {};
         }
         votesPerStory[message.storyId][message.userId] = message.vote;
         updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
       }
-      break;
-case 'deleteStory':
-      
-  if (message.storyId) {
-    console.log('[SOCKET] Story deletion received for ID:', message.storyId);
-    
-    // Get the story element
-    const storyCard = document.getElementById(message.storyId);
-    if (storyCard) {
-      // Get the index for potential reselection
-      const index = parseInt(storyCard.dataset.index);
-      
-      console.log(`[SOCKET] Removing story card ${message.storyId} from DOM`);
-      // Remove the story
-      storyCard.remove();
-      
-      // Renumber remaining stories
-      normalizeStoryIndexes();
-      
-      // If this was the current story, select another one
-      if (index === currentStoryIndex) {
-        const storyList = document.getElementById('storyList');
-        if (storyList && storyList.children.length > 0) {
-          const newIndex = Math.min(index, storyList.children.length - 1);
-          selectStory(newIndex, false); // Don't emit selection to avoid loops
+      break;*/
+
+      case 'deleteStory':
+      // Handle story deletion from another user
+      if (message.storyId) {
+        console.log('[SOCKET] Story deletion received for ID:', message.storyId);
+        
+        // Clear persisted votes for this story
+        clearPersistedVotesForStory(message.storyId);
+        
+        // Get the story element
+        const storyCard = document.getElementById(message.storyId);
+        if (storyCard) {
+          // Get the index for potential reselection
+          const index = parseInt(storyCard.dataset.index);
+          
+          console.log(`[SOCKET] Removing story card ${message.storyId} from DOM`);
+          // Remove the story
+          storyCard.remove();
+          
+          // Renumber remaining stories
+          normalizeStoryIndexes();
+          
+          // If this was the current story, select another one
+          if (index === currentStoryIndex) {
+            const storyList = document.getElementById('storyList');
+            if (storyList && storyList.children.length > 0) {
+              const newIndex = Math.min(index, storyList.children.length - 1);
+              selectStory(newIndex, false); // Don't emit selection to avoid loops
+            }
+          }
+          // Update card interactions after DOM changes
+          setupStoryCardInteractions();
+        } else {
+          console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
+        }
+        
+        // Clean up votes for this story
+        if (votesPerStory[message.storyId]) {
+          delete votesPerStory[message.storyId];
+          console.log(`[SOCKET] Removed votes for deleted story ${message.storyId}`);
+        }
+        if (votesRevealed[message.storyId]) {
+          delete votesRevealed[message.storyId];
         }
       }
-      // Update card interactions after DOM changes
-      setupStoryCardInteractions();
-    } else {
-      console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
-    }
-    
-    // Clean up votes for this story
-    if (votesPerStory[message.storyId]) {
-      delete votesPerStory[message.storyId];
-      console.log(`[SOCKET] Removed votes for deleted story ${message.storyId}`);
-    }
-    if (votesRevealed[message.storyId]) {
-      delete votesRevealed[message.storyId];
-    }
-  }
-  break;
- 
-      
-   case 'votesRevealed':
+      break;
+ case 'votesRevealed':
       console.log('[DEBUG] Received votesRevealed event', message);
       const storyId = message.storyId;
       
       if (storyId) {
-        // Critical: Store the revealed state FIRST
+        // Store the revealed state
         votesRevealed[storyId] = true;
+        
+        // Persist to sessionStorage
+        persistRevealedState(storyId, true);
+        
         console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
         
         // Get the votes for this story
         const votes = votesPerStory[storyId] || {};
         console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
         
-        // Only handle if this is the current story
+        // Update UI if this is the current story
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
           // This is where we display the actual vote values
@@ -2401,7 +2525,7 @@ case 'deleteStory':
           triggerGlobalEmojiBurst();
         }
       }
-      break;
+      break;     
       
     case 'votesReset':
       // Handle votes reset
@@ -2414,12 +2538,16 @@ case 'deleteStory':
         // Reset revealed status
         votesRevealed[message.storyId] = false;
         
+        // Update persistence
+        persistVotesForStory(message.storyId, {});
+        persistRevealedState(message.storyId, false);
+        
         // Update UI if this is the current story
         const currentId = getCurrentStoryId();
         if (message.storyId === currentId) {
           resetAllVoteVisuals();
           
-          // ✅ Hide vote statistics and show planning cards again
+          // Show planning cards again and hide statistics
           const planningCardsSection = document.querySelector('.planning-cards-section');
           const statsContainer = document.querySelector('.vote-statistics-container');
           
@@ -2435,36 +2563,39 @@ case 'deleteStory':
         selectStory(message.storyIndex, false); // false to avoid re-emitting
       }
       break;
-      
-case 'storyVotes':
+   case 'storyVotes':
       // Handle received votes for a specific story with improved state persistence
       if (message.storyId !== undefined && message.votes) {
         console.log(`[SOCKET] Received votes for story ${message.storyId}:`, JSON.stringify(message.votes));
         
-        // Store votes for this story
+        // Store votes for this story in the global object
         if (!votesPerStory[message.storyId]) {
           votesPerStory[message.storyId] = {};
         }
         
-        // Update with received votes
+        // Use Object.assign to merge votes
         Object.assign(votesPerStory[message.storyId], message.votes);
+        
+        // Persist to sessionStorage
+        persistVotesForStory(message.storyId, votesPerStory[message.storyId]);
         
         // Update UI if this is the current story
         const currentId = getCurrentStoryId();
         if (message.storyId === currentId) {
           // If votes are revealed, show them; otherwise, just show that people voted
-          if (votesRevealed[message.storyId]) {
-            // Show actual vote values
+          if (votesRevealed[message.storyId] === true) {
             console.log(`[SOCKET] Showing revealed votes for ${message.storyId}`);
             applyVotesToUI(message.votes, false);
           } else {
-            // Just show that people voted (with thumbs up)
             console.log(`[SOCKET] Showing unrevealed votes for ${message.storyId}`);
             applyVotesToUI(message.votes, true);
           }
         }
       }
-      break;
+      break;   
+
+
+
       
     case 'syncCSVData':
       // Handle CSV data sync with improved state handling
