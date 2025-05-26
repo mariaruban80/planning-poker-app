@@ -22,11 +22,32 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(join(__dirname, 'public')));
 
+// Track deleted story IDs to ensure they don't reappear on reconnect
+const roomDeletedStoryIds = {};  // roomId → Set of deleted story IDs
 
 // Enhanced room structure with vote revealing state
-const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory, votesRevealed, tickets }
+const rooms = {}; // roomId: { users, votes, story, revealed, csvData, selectedIndex, votesPerStory, votesRevealed, tickets, deletedStoryIds }
 const roomVotingSystems = {}; // roomId → voting system
 
+// Helper function to log room state for debugging
+function logRoomState(roomId) {
+  if (!rooms[roomId]) return;
+  
+  const room = rooms[roomId];
+  console.log(`[DEBUG] Room ${roomId} state:`);
+  console.log(`- Users: ${room.users.length}`);
+  console.log(`- CSV data: ${room.csvData ? room.csvData.length : 0} rows`);
+  console.log(`- Tickets: ${room.tickets ? room.tickets.length : 0}`);
+  console.log(`- Deleted story IDs: ${room.deletedStoryIds ? [...room.deletedStoryIds].length : 0}`);
+  
+  if (room.tickets && room.tickets.length > 0) {
+    console.log(`- Ticket IDs: ${room.tickets.map(t => t.id).join(', ')}`);
+  }
+  
+  if (room.deletedStoryIds && room.deletedStoryIds.size > 0) {
+    console.log(`- Deleted IDs: ${[...room.deletedStoryIds].join(', ')}`);
+  }
+}
 
 io.on('connection', (socket) => {
   console.log(`[SERVER] New client connected: ${socket.id}`);
@@ -54,7 +75,8 @@ io.on('connection', (socket) => {
         selectedIndex: 0, // Default to first story
         votesPerStory: {},
         votesRevealed: {}, // Track which stories have revealed votes
-        tickets: [] // Initialize tickets array
+        tickets: [], // Initialize tickets array
+        deletedStoryIds: new Set() // Track deleted story IDs
       };
     }
 
@@ -77,10 +99,16 @@ io.on('connection', (socket) => {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
     
-    // Send all tracked tickets - ensure this happens AFTER CSV data
-    if (rooms[roomId].tickets && rooms[roomId].tickets.length > 0) {
-      console.log(`[SERVER] Sending ${rooms[roomId].tickets.length} tickets to joining user ${socket.id}`);
-      socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+    // CRITICAL: Filter out any deleted stories before sending tickets
+    if (rooms[roomId].tickets && rooms[roomId].deletedStoryIds) {
+      const filteredTickets = rooms[roomId].tickets.filter(ticket => 
+        !rooms[roomId].deletedStoryIds.has(ticket.id)
+      );
+      
+      if (filteredTickets.length > 0) {
+        console.log(`[SERVER] Sending ${filteredTickets.length} active tickets to joining user ${socket.id}`);
+        socket.emit('allTickets', { tickets: filteredTickets });
+      }
     }
     
     // Send currently selected story
@@ -102,6 +130,9 @@ io.on('connection', (socket) => {
         });
       }
     });
+    
+    // Debug logging of room state after join
+    logRoomState(roomId);
   });
   
   // Handle reconnection
@@ -118,10 +149,15 @@ io.on('connection', (socket) => {
         socket.emit('syncCSVData', rooms[roomId].csvData);
       }
       
-      // Send all tickets AFTER CSV data - ensure correct order
-      if (rooms[roomId].tickets && rooms[roomId].tickets.length > 0) {
-        console.log(`[SERVER] Resending ${rooms[roomId].tickets.length} tickets to reconnected user ${socket.id}`);
-        socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+      // CRITICAL: Send filtered list of tickets without deleted stories
+      if (rooms[roomId].tickets && rooms[roomId].deletedStoryIds) {
+        const filteredTickets = rooms[roomId].tickets.filter(ticket => 
+          !rooms[roomId].deletedStoryIds.has(ticket.id)
+        );
+        
+        console.log(`[SERVER] Sending ${filteredTickets.length} active tickets to reconnected user ${socket.id}`);
+        console.log(`[SERVER] Filtered out ${rooms[roomId].deletedStoryIds.size} deleted tickets`);
+        socket.emit('allTickets', { tickets: filteredTickets });
       }
       
       // Send current story selection
@@ -132,7 +168,8 @@ io.on('connection', (socket) => {
       // Re-send revealed votes state
       const votesRevealed = rooms[roomId].votesRevealed || {};
       Object.keys(votesRevealed).forEach(storyId => {
-        if (votesRevealed[storyId]) {
+        // Only send if the story hasn't been deleted
+        if (votesRevealed[storyId] && !rooms[roomId].deletedStoryIds.has(storyId)) {
           const votes = rooms[roomId].votesPerStory[storyId] || {};
           socket.emit('storyVotes', { 
             storyId, 
@@ -143,6 +180,9 @@ io.on('connection', (socket) => {
           });
         }
       });
+      
+      // Debug - log the current state of the room
+      logRoomState(roomId);
     }
   });
   
@@ -151,6 +191,12 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       console.log(`[SERVER] New ticket added to room ${roomId}:`, ticketData.id);
+      
+      // Make sure the ticket isn't in the deleted set
+      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(ticketData.id)) {
+        console.log(`[SERVER] Ticket ${ticketData.id} was previously deleted, removing from deleted set`);
+        rooms[roomId].deletedStoryIds.delete(ticketData.id);
+      }
       
       // Broadcast the new ticket to everyone in the room EXCEPT sender
       socket.broadcast.to(roomId).emit('addTicket', { ticketData });
@@ -177,6 +223,12 @@ io.on('connection', (socket) => {
     if (roomId && rooms[roomId]) {
       console.log(`[SERVER] CSV story deleted in room ${roomId}: ${storyId}, csvIndex: ${csvIndex}`);
       
+      // Track this story ID as deleted
+      if (!rooms[roomId].deletedStoryIds) {
+        rooms[roomId].deletedStoryIds = new Set();
+      }
+      rooms[roomId].deletedStoryIds.add(storyId);
+      
       // Update the CSV data by removing the entry
       if (rooms[roomId].csvData && !isNaN(csvIndex) && csvIndex >= 0 && csvIndex < rooms[roomId].csvData.length) {
         rooms[roomId].csvData.splice(csvIndex, 1);
@@ -186,7 +238,7 @@ io.on('connection', (socket) => {
         console.log(`[SERVER] Resynced CSV data after deletion, ${rooms[roomId].csvData.length} items remain`);
       }
       
-      // Also remove from the tickets array
+      // Also remove from the tickets array but keep in deleted set
       if (rooms[roomId].tickets) {
         const previousCount = rooms[roomId].tickets.length;
         rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => ticket.id !== storyId);
@@ -195,6 +247,9 @@ io.on('connection', (socket) => {
       
       // Also send the standard deleteStory event to ensure UI is updated everywhere
       io.to(roomId).emit('deleteStory', { storyId });
+      
+      // Debug - log the current state of the room
+      logRoomState(roomId);
     }
   });
   
@@ -222,6 +277,12 @@ io.on('connection', (socket) => {
       
       console.log(`[SERVER] Processing story deletion in room ${roomId}: ${storyId}`);
       
+      // CRITICAL: Add this story ID to the set of deleted stories
+      if (!rooms[roomId].deletedStoryIds) {
+        rooms[roomId].deletedStoryIds = new Set();
+      }
+      rooms[roomId].deletedStoryIds.add(storyId);
+      
       // Handle CSV story deletion
       if (isCsvStory && rooms[roomId].csvData) {
         if (!isNaN(csvIndex) && csvIndex >= 0 && csvIndex < rooms[roomId].csvData.length) {
@@ -232,29 +293,24 @@ io.on('connection', (socket) => {
         }
       }
       
-      // IMPORTANT: Remove from tracked tickets to fix reconnection issue
+      // IMPORTANT: Remove from tracked tickets but KEEP in deleted set
       if (rooms[roomId].tickets) {
         const previousCount = rooms[roomId].tickets.length;
         rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => ticket.id !== storyId);
         console.log(`[SERVER] Removed story from tickets array. Before: ${previousCount}, After: ${rooms[roomId].tickets.length}`);
       }
       
-      // Clean up votes for this story if they exist
-      if (rooms[roomId].votesPerStory && rooms[roomId].votesPerStory[storyId]) {
-        delete rooms[roomId].votesPerStory[storyId];
-        console.log(`[SERVER] Cleaned up votes for deleted story: ${storyId}`);
-      }
-      
-      if (rooms[roomId].votesRevealed && rooms[roomId].votesRevealed[storyId]) {
-        delete rooms[roomId].votesRevealed[storyId];
-        console.log(`[SERVER] Cleaned up revealed state for deleted story: ${storyId}`);
-      }
+      // PRESERVE votes for historical reference - don't delete vote data
+      // This ensures that if other users refresh, their votes remain intact
       
       // Broadcast deletion to ALL clients in the room, including the sender
       io.to(roomId).emit('deleteStory', { storyId });
       
       // Confirm to the sender that deletion was successful
       socket.emit('deleteConfirmed', { storyId });
+      
+      // Debug - log the current state of the room
+      logRoomState(roomId);
       
     } catch (error) {
       console.error(`[SERVER] Error deleting story ${storyId}:`, error);
@@ -266,8 +322,19 @@ io.on('connection', (socket) => {
   socket.on('requestAllTickets', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId] && rooms[roomId].tickets) {
-      console.log(`[SERVER] Sending all tickets (${rooms[roomId].tickets.length}) to client ${socket.id}`);
-      socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+      console.log(`[SERVER] Ticket request from client ${socket.id}`);
+      
+      // CRITICAL: Filter out deleted stories before sending
+      if (rooms[roomId].deletedStoryIds) {
+        const filteredTickets = rooms[roomId].tickets.filter(ticket => 
+          !rooms[roomId].deletedStoryIds.has(ticket.id)
+        );
+        
+        console.log(`[SERVER] Sending ${filteredTickets.length} active tickets (filtered from ${rooms[roomId].tickets.length} total)`);
+        socket.emit('allTickets', { tickets: filteredTickets });
+      } else {
+        socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+      }
     } else {
       console.log(`[SERVER] No tickets available to send to client ${socket.id}`);
       socket.emit('allTickets', { tickets: [] });
@@ -300,6 +367,9 @@ io.on('connection', (socket) => {
           }
         }
       }
+      
+      // Debug - log the current state of the room
+      logRoomState(roomId);
     }
   });
 
@@ -307,9 +377,14 @@ io.on('connection', (socket) => {
   function getCurrentStoryId(roomId, storyIndex) {
     if (!rooms[roomId] || !rooms[roomId].tickets) return null;
     
+    // Get only active tickets (not deleted)
+    const activeTickets = rooms[roomId].tickets.filter(ticket => 
+      !rooms[roomId].deletedStoryIds.has(ticket.id)
+    );
+    
     // Try to find the storyId at the given index
-    if (storyIndex >= 0 && storyIndex < rooms[roomId].tickets.length) {
-      return rooms[roomId].tickets[storyIndex].id;
+    if (storyIndex >= 0 && storyIndex < activeTickets.length) {
+      return activeTickets[storyIndex].id;
     }
     
     return null;
@@ -333,6 +408,12 @@ io.on('connection', (socket) => {
   socket.on('castVote', ({ vote, targetUserId, storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId] && targetUserId === socket.id) {
+      // Don't allow votes for deleted stories
+      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
+        console.log(`[SERVER] Ignoring vote for deleted story: ${storyId}`);
+        return;
+      }
+      
       if (!rooms[roomId].votesPerStory) rooms[roomId].votesPerStory = {};
       if (!rooms[roomId].votesPerStory[storyId]) {
         rooms[roomId].votesPerStory[storyId] = {};
@@ -346,6 +427,13 @@ io.on('connection', (socket) => {
   socket.on('requestStoryVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      // Don't send votes for deleted stories
+      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
+        console.log(`[SERVER] Not sending votes for deleted story: ${storyId}`);
+        socket.emit('storyVotes', { storyId, votes: {} });
+        return;
+      }
+      
       const votes = rooms[roomId].votesPerStory?.[storyId] || {};
       socket.emit('storyVotes', { storyId, votes });
       if (rooms[roomId].votesRevealed?.[storyId]) {
@@ -359,6 +447,13 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
       console.log(`[SERVER] Revealing votes for story: ${storyId} in room ${roomId}`);
+      
+      // Don't reveal votes for deleted stories
+      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
+        console.log(`[SERVER] Cannot reveal votes for deleted story: ${storyId}`);
+        return;
+      }
+      
       if (!rooms[roomId].votesRevealed) rooms[roomId].votesRevealed = {};
       rooms[roomId].votesRevealed[storyId] = true;
       io.to(roomId).emit('votesRevealed', { storyId });
@@ -369,6 +464,12 @@ io.on('connection', (socket) => {
   socket.on('resetVotes', ({ storyId }) => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      // Don't reset votes for deleted stories
+      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
+        console.log(`[SERVER] Cannot reset votes for deleted story: ${storyId}`);
+        return;
+      }
+      
       if (rooms[roomId].votesPerStory?.[storyId]) {
         rooms[roomId].votesPerStory[storyId] = {};
         rooms[roomId].votesRevealed[storyId] = false;
@@ -403,7 +504,7 @@ io.on('connection', (socket) => {
       // Store the CSV data
       rooms[roomId].csvData = csvData;
       
-      // Reset votes and selection when new CSV data is loaded
+      // Reset selection when new CSV data is loaded
       rooms[roomId].selectedIndex = 0;
       
       // Keep track of manually added tickets (not from CSV)
@@ -416,15 +517,33 @@ io.on('connection', (socket) => {
         console.log(`[SERVER] Preserved ${manualTickets.length} manual tickets during CSV sync`);
       }
       
-      // Reset the votes state for CSV stories
+      // Remove all old CSV tickets
+      if (rooms[roomId].tickets) {
+        rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => 
+          !ticket.id.startsWith('story_csv_')
+        );
+      }
+      
+      // Reset the deleted story IDs for CSV stories only
+      if (rooms[roomId].deletedStoryIds) {
+        const newDeletedSet = new Set();
+        rooms[roomId].deletedStoryIds.forEach(id => {
+          // Keep only non-CSV story IDs in the deleted set
+          if (!id.startsWith('story_csv_')) {
+            newDeletedSet.add(id);
+          }
+        });
+        rooms[roomId].deletedStoryIds = newDeletedSet;
+      }
+      
+      // Preserve votes only for manual tickets that still exist
       const preservedVotes = {};
       const preservedRevealed = {};
       
-      // Preserve votes only for manual tickets that still exist
       if (rooms[roomId].votesPerStory) {
         Object.keys(rooms[roomId].votesPerStory).forEach(storyId => {
-          const isManualTicket = manualTickets.some(t => t.id === storyId);
-          if (isManualTicket) {
+          // Keep votes only for non-CSV stories
+          if (!storyId.startsWith('story_csv_')) {
             preservedVotes[storyId] = rooms[roomId].votesPerStory[storyId];
           }
         });
@@ -432,8 +551,8 @@ io.on('connection', (socket) => {
       
       if (rooms[roomId].votesRevealed) {
         Object.keys(rooms[roomId].votesRevealed).forEach(storyId => {
-          const isManualTicket = manualTickets.some(t => t.id === storyId);
-          if (isManualTicket) {
+          // Keep revealed status only for non-CSV stories
+          if (!storyId.startsWith('story_csv_')) {
             preservedRevealed[storyId] = rooms[roomId].votesRevealed[storyId];
           }
         });
@@ -445,6 +564,9 @@ io.on('connection', (socket) => {
       
       // Broadcast to ALL clients in the room
       io.to(roomId).emit('syncCSVData', csvData);
+      
+      // Debug - log the current state of the room
+      logRoomState(roomId);
     }
   });
 
@@ -452,12 +574,38 @@ io.on('connection', (socket) => {
   socket.on('exportVotes', () => {
     const roomId = socket.data.roomId;
     if (roomId && rooms[roomId]) {
+      // Filter out deleted story data from export
+      const filteredVotes = {};
+      const filteredRevealed = {};
+      
+      if (rooms[roomId].votesPerStory && rooms[roomId].deletedStoryIds) {
+        Object.keys(rooms[roomId].votesPerStory).forEach(storyId => {
+          if (!rooms[roomId].deletedStoryIds.has(storyId)) {
+            filteredVotes[storyId] = rooms[roomId].votesPerStory[storyId];
+          }
+        });
+      }
+      
+      if (rooms[roomId].votesRevealed && rooms[roomId].deletedStoryIds) {
+        Object.keys(rooms[roomId].votesRevealed).forEach(storyId => {
+          if (!rooms[roomId].deletedStoryIds.has(storyId)) {
+            filteredRevealed[storyId] = rooms[roomId].votesRevealed[storyId];
+          }
+        });
+      }
+      
+      // Get active tickets only
+      const activeTickets = rooms[roomId].tickets ? 
+        rooms[roomId].tickets.filter(ticket => 
+          !rooms[roomId].deletedStoryIds.has(ticket.id)
+        ) : [];
+      
       const exportData = {
         room: roomId,
         stories: rooms[roomId].csvData,
-        votes: rooms[roomId].votesPerStory,
-        revealed: rooms[roomId].votesRevealed,
-        tickets: rooms[roomId].tickets,
+        votes: filteredVotes,
+        revealed: filteredRevealed,
+        tickets: activeTickets,
         timestamp: new Date().toISOString()
       };
       
