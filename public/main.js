@@ -1013,6 +1013,7 @@ function setupCSVDeleteButtons() {
 /**
  * Delete a story by ID with duplicate confirmation prevention
  */
+// Modify the deleteStory function to preserve vote visuals
 function deleteStory(storyId) {
   console.log('[DELETE] Attempting to delete story:', storyId);
   
@@ -1023,6 +1024,16 @@ function deleteStory(storyId) {
   }
   
   deleteConfirmationInProgress = true;
+  
+  // Store current votes before deletion
+  let currentVotes = {};
+  let currentRevealed = false;
+  const currentStoryId = getCurrentStoryId();
+  if (currentStoryId && votesPerStory[currentStoryId]) {
+    currentVotes = {...votesPerStory[currentStoryId]};
+    currentRevealed = votesRevealed[currentStoryId] || false;
+  }
+  
   clearPersistedVotesForStory(storyId);
   
   // Confirm deletion
@@ -1053,7 +1064,7 @@ function deleteStory(storyId) {
   // Check if this is a CSV story
   const isCsvStory = storyId.startsWith('story_csv_');
   
-  // **IMPORTANT: We'll emit to server BEFORE removing from DOM**
+  // Emit to server BEFORE removing from DOM
   if (socket) {
     console.log('[DELETE] Emitting deleteStory event to server');
     
@@ -1069,12 +1080,19 @@ function deleteStory(storyId) {
     console.warn('[DELETE] Socket not available, deleting locally only');
   }
   
-  // **IMPORTANT: Don't remove from DOM here as we'll let the socket event handler do it**
-  // Instead, we'll handle removal when we receive the deleteStory event from server
-  
   console.log('[DELETE] Deletion request sent for story:', storyId);
+  
+  // When moving to a new story after deletion, reapply votes after a short delay
+  setTimeout(() => {
+    const newStoryId = getCurrentStoryId();
+    if (newStoryId && newStoryId !== storyId) {
+      console.log('[DELETE] Reapplying votes after story transition');
+      if (votesPerStory[newStoryId]) {
+        applyVotesToUI(votesPerStory[newStoryId], !votesRevealed[newStoryId]);
+      }
+    }
+  }, 500);
 }
-
 
 
 function createVoteStatisticsDisplay(votes) {
@@ -1853,16 +1871,20 @@ function selectStory(index, emitToServer = true) {
 /**
  * Reset or restore votes for a story
  */
+
 function resetOrRestoreVotes(index) {
   ensureVotesPerStory();
-  resetAllVoteVisuals();
-
   
   // Get the current story ID
   const storyId = getCurrentStoryId();
   if (!storyId) return;
   
   console.log(`[DEBUG] Checking votes for story ${storyId}, revealed=${votesRevealed[storyId]}`);
+  
+  // Only reset vote visuals if we don't have votes for this story
+  if (!votesPerStory[storyId]) {
+    resetAllVoteVisuals();
+  }
   
   // If we have stored votes for this story 
   if (votesPerStory[storyId]) {
@@ -1882,6 +1904,7 @@ function resetOrRestoreVotes(index) {
     }
   }
 }
+
 
 /**
  * Apply votes to UI
