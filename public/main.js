@@ -537,7 +537,14 @@ function initializeApp(roomId) {
   socket.on('votesReset', ({ storyId }) => {
     votesPerStory[storyId] = {};
     votesRevealed[storyId] = false;
+    setTimeout(() => {
     resetAllVoteVisuals();
+    // re-apply votes if we had them stored
+    if (votesPerStory[storyId]) {
+      const hide = !votesRevealed[storyId];
+      applyVotesToUI(votesPerStory[storyId], hide);
+    }
+  }, 200);
   });
   
   // Add reconnection handlers for socket
@@ -1013,7 +1020,6 @@ function setupCSVDeleteButtons() {
 /**
  * Delete a story by ID with duplicate confirmation prevention
  */
-// Modify the deleteStory function to preserve vote visuals
 function deleteStory(storyId) {
   console.log('[DELETE] Attempting to delete story:', storyId);
   
@@ -1024,16 +1030,6 @@ function deleteStory(storyId) {
   }
   
   deleteConfirmationInProgress = true;
-  
-  // Store current votes before deletion
-  let currentVotes = {};
-  let currentRevealed = false;
-  const currentStoryId = getCurrentStoryId();
-  if (currentStoryId && votesPerStory[currentStoryId]) {
-    currentVotes = {...votesPerStory[currentStoryId]};
-    currentRevealed = votesRevealed[currentStoryId] || false;
-  }
-  
   clearPersistedVotesForStory(storyId);
   
   // Confirm deletion
@@ -1064,7 +1060,7 @@ function deleteStory(storyId) {
   // Check if this is a CSV story
   const isCsvStory = storyId.startsWith('story_csv_');
   
-  // Emit to server BEFORE removing from DOM
+  // **IMPORTANT: We'll emit to server BEFORE removing from DOM**
   if (socket) {
     console.log('[DELETE] Emitting deleteStory event to server');
     
@@ -1080,19 +1076,12 @@ function deleteStory(storyId) {
     console.warn('[DELETE] Socket not available, deleting locally only');
   }
   
-  console.log('[DELETE] Deletion request sent for story:', storyId);
+  // **IMPORTANT: Don't remove from DOM here as we'll let the socket event handler do it**
+  // Instead, we'll handle removal when we receive the deleteStory event from server
   
-  // When moving to a new story after deletion, reapply votes after a short delay
-  setTimeout(() => {
-    const newStoryId = getCurrentStoryId();
-    if (newStoryId && newStoryId !== storyId) {
-      console.log('[DELETE] Reapplying votes after story transition');
-      if (votesPerStory[newStoryId]) {
-        applyVotesToUI(votesPerStory[newStoryId], !votesRevealed[newStoryId]);
-      }
-    }
-  }, 500);
+  console.log('[DELETE] Deletion request sent for story:', storyId);
 }
+
 
 
 function createVoteStatisticsDisplay(votes) {
@@ -1527,7 +1516,14 @@ function setupRevealResetButtons() {
         persistRevealedState(storyId, false);
         
         // Reset UI
-        resetAllVoteVisuals();
+        setTimeout(() => {
+    resetAllVoteVisuals();
+    // re-apply votes if we had them stored
+    if (votesPerStory[storyId]) {
+      const hide = !votesRevealed[storyId];
+      applyVotesToUI(votesPerStory[storyId], hide);
+    }
+  }, 200);
         
         // Show planning cards and hide stats
         const planningCardsSection = document.querySelector('.planning-cards-section');
@@ -1871,20 +1867,23 @@ function selectStory(index, emitToServer = true) {
 /**
  * Reset or restore votes for a story
  */
-
 function resetOrRestoreVotes(index) {
   ensureVotesPerStory();
+  setTimeout(() => {
+    resetAllVoteVisuals();
+    // re-apply votes if we had them stored
+    if (votesPerStory[storyId]) {
+      const hide = !votesRevealed[storyId];
+      applyVotesToUI(votesPerStory[storyId], hide);
+    }
+  }, 200);
+
   
   // Get the current story ID
   const storyId = getCurrentStoryId();
   if (!storyId) return;
   
   console.log(`[DEBUG] Checking votes for story ${storyId}, revealed=${votesRevealed[storyId]}`);
-  
-  // Only reset vote visuals if we don't have votes for this story
-  if (!votesPerStory[storyId]) {
-    resetAllVoteVisuals();
-  }
   
   // If we have stored votes for this story 
   if (votesPerStory[storyId]) {
@@ -1904,7 +1903,6 @@ function resetOrRestoreVotes(index) {
     }
   }
 }
-
 
 /**
  * Apply votes to UI
@@ -2227,6 +2225,13 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       // Only show vote if they've voted
       if (hasVoted) {
         voteBadge.textContent = displayVote;
+      // Ensure the 👍 remains visible briefly even if removed quickly
+      clearTimeout(voteBadge._hideTimer); // cancel previous timer
+      voteBadge._hideTimer = setTimeout(() => {
+        if (!votesRevealed[storyId]) {
+          voteBadge.textContent = '👍';
+        }
+      }, 300);
         voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
         voteBadge.style.opacity = '1'; // Ensure full opacity
         console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
@@ -2653,7 +2658,14 @@ function handleSocketMessage(message) {
         // Update UI if this is the current story
         const currentId = getCurrentStoryId();
         if (message.storyId === currentId) {
-          resetAllVoteVisuals();
+          setTimeout(() => {
+    resetAllVoteVisuals();
+    // re-apply votes if we had them stored
+    if (votesPerStory[storyId]) {
+      const hide = !votesRevealed[storyId];
+      applyVotesToUI(votesPerStory[storyId], hide);
+    }
+  }, 200);
           
           // Show planning cards again and hide statistics
           const planningCardsSection = document.querySelector('.planning-cards-section');
