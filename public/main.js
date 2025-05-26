@@ -2329,7 +2329,7 @@ function handleSocketMessage(message) {
       }
       break;
 case 'deleteStory':
-  // Handle story deletion from another user
+      
   if (message.storyId) {
     console.log('[SOCKET] Story deletion received for ID:', message.storyId);
     
