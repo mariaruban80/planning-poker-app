@@ -1181,12 +1181,16 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
+
 function handleVotesRevealed(storyId, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyId);
   console.log('[DEBUG] Current votes state:', JSON.stringify(votes));
   
   // Mark this story as having revealed votes
   votesRevealed[storyId] = true;
+  
+  // Persist the revealed state
+  persistRevealedState(storyId, true);
   
   // Store votes in local state for reconnection recovery
   if (!votesPerStory[storyId]) {
@@ -1196,12 +1200,18 @@ function handleVotesRevealed(storyId, votes) {
   // Merge in any new votes
   Object.assign(votesPerStory[storyId], votes);
   
+  // Persist the votes
+  persistVotesForStory(storyId, votesPerStory[storyId]);
+  
   // Get the planning cards container
   const planningCardsSection = document.querySelector('.planning-cards-section');
+  
   // Make sure the fixed styles are added
   addFixedVoteStatisticsStyles();
+  
   // Create vote statistics display
   const voteStats = createFixedVoteDisplay(votes);
+  
   // Hide planning cards and show statistics
   if (planningCardsSection) {
     // Create container for statistics if it doesn't exist
@@ -1470,6 +1480,16 @@ function setupRevealResetButtons() {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
         console.log('[UI] Revealing votes for story:', storyId);
+        
+        // Mark as revealed locally first for immediate feedback
+        votesRevealed[storyId] = true;
+        persistRevealedState(storyId, true);
+        
+        // Show current votes without waiting for server response
+        const currentVotes = votesPerStory[storyId] || {};
+        applyVotesToUI(currentVotes, false);
+        
+        // Then emit to server
         socket.emit('revealVotes', { storyId });
       }
     });
@@ -1480,10 +1500,26 @@ function setupRevealResetButtons() {
     resetVotesBtn.addEventListener('click', () => {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
-        socket.emit('resetVotes', { storyId });
+        // Reset locally first
         votesPerStory[storyId] = {};
         votesRevealed[storyId] = false;
+        
+        // Update persistence
+        persistVotesForStory(storyId, {});
+        persistRevealedState(storyId, false);
+        
+        // Reset UI
         resetAllVoteVisuals();
+        
+        // Show planning cards and hide stats
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        const statsContainer = document.querySelector('.vote-statistics-container');
+        
+        if (planningCardsSection) planningCardsSection.style.display = 'block';
+        if (statsContainer) statsContainer.style.display = 'none';
+        
+        // Then emit to server
+        socket.emit('resetVotes', { storyId });
       }
     });
   }
@@ -1853,17 +1889,19 @@ function resetOrRestoreVotes(index) {
  * @param {boolean} hideValues - Whether to hide actual vote values and show thumbs up
  */
 function applyVotesToUI(votes, hideValues) {
-   ensureVotesPerStory(); // Make sure our global objects exist
+  ensureVotesPerStory(); // Make sure our global objects exist
+  
   console.log('[DEBUG] applyVotesToUI called with:', 
-    { votes: JSON.stringify(votes), hideValues });
+    { votes: typeof votes === 'string' ? votes : JSON.stringify(votes), hideValues });
   
   // Make sure votes is an object
-  if (!votes || typeof votes !== 'object') {
+  if (!votes || typeof votes !== 'object' || Array.isArray(votes)) {
     console.warn('[DEBUG] applyVotesToUI called with invalid votes:', votes);
     return;
   }
-   
+  
   Object.entries(votes).forEach(([userId, vote]) => {
+    if (!userId) return;
     console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
     updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
   });
@@ -2346,6 +2384,53 @@ function setupVoteCardsDrag() {
     card.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', card.textContent.trim());
     });
+  });
+
+  // Also ensure vote spaces are properly set up for drop
+  document.querySelectorAll('.vote-card-space').forEach(space => {
+    // Get the user ID from the space ID
+    const spaceId = space.id;
+    if (!spaceId || !spaceId.startsWith('vote-space-')) return;
+    
+    const userId = spaceId.replace('vote-space-', '');
+    
+    // Check if this is the current user's space
+    const currentUserId = socket ? socket.id : null;
+    const isCurrentUser = userId === currentUserId;
+    
+    if (isCurrentUser) {
+      // Only allow drop on the current user's space
+      space.addEventListener('dragover', (e) => e.preventDefault());
+      
+      space.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const vote = e.dataTransfer.getData('text/plain');
+        const storyId = getCurrentStoryId();
+        
+        if (socket && vote && storyId) {
+          // Emit vote to server
+          socket.emit('castVote', { vote, targetUserId: userId, storyId });
+          
+          // Update local state
+          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+          votesPerStory[storyId][userId] = vote;
+          
+          // Save to sessionStorage
+          persistVotesForStory(storyId, votesPerStory[storyId]);
+          
+          // Update UI - show thumbs up if votes aren't revealed yet
+          const shouldHideValue = !votesRevealed[storyId];
+          updateVoteVisuals(userId, shouldHideValue ? '👍' : vote, true);
+        }
+      });
+    } else {
+      // For other users' spaces, show "not allowed" indication when dragging over
+      space.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        space.classList.add('drop-not-allowed');
+        setTimeout(() => space.classList.remove('drop-not-allowed'), 300);
+      });
+    }
   });
 }
 
