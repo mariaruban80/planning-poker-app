@@ -1676,23 +1676,30 @@ function selectStory(index, emitToServer = true) {
   
   // Update local state
   currentStoryIndex = index;
-  // ✅ Ensure vote reveal state is initialized
-  if (typeof votesRevealed[index] === 'undefined') {
-    votesRevealed[index] = false;
+  
+  // Get the current story ID BEFORE checking votes
+  const storyId = getCurrentStoryId();
+  console.log(`[UI] Selected story ID: ${storyId}`);
+  
+  // Ensure vote reveal state is initialized
+  if (typeof votesRevealed[storyId] === 'undefined') {
+    votesRevealed[storyId] = false;
   }
+  
   // Show planning cards again and hide statistics when changing stories
+  // UNLESS votes are already revealed for this story
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const statsContainer = document.querySelector('.vote-statistics-container');
   
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'block';
+  if (votesRevealed[storyId]) {
+    // If votes were already revealed, hide planning cards and show stats
+    if (planningCardsSection) planningCardsSection.style.display = 'none';
+    if (statsContainer) statsContainer.style.display = 'block';
+  } else {
+    // Otherwise show planning cards and hide stats
+    if (planningCardsSection) planningCardsSection.style.display = 'block';
+    if (statsContainer) statsContainer.style.display = 'none';
   }
-  
-  if (statsContainer) {
-    statsContainer.style.display = 'none';
-  }
-  
-  renderCurrentStory();
   
   // Reset or restore vote badges for the current story
   resetOrRestoreVotes(index);
@@ -1703,16 +1710,10 @@ function selectStory(index, emitToServer = true) {
     socket.emit('storySelected', { storyIndex: index });
     
     // Request votes for this story
-    if (typeof requestStoryVotes === 'function') {
-      const storyId = getCurrentStoryId();
-      if (storyId) {
-        requestStoryVotes(storyId);
-      }
-    } else {
-      const storyId = getCurrentStoryId();
-      if (storyId) {
-        socket.emit('requestStoryVotes', { storyId });
-      }
+    if (typeof requestStoryVotes === 'function' && storyId) {
+      requestStoryVotes(storyId);
+    } else if (socket && storyId) {
+      socket.emit('requestStoryVotes', { storyId });
     }
   }
 }
@@ -1727,20 +1728,22 @@ function resetOrRestoreVotes(index) {
   const storyId = getCurrentStoryId();
   if (!storyId) return;
   
-  // If we have stored votes for this story and they've been revealed
-  if (votesPerStory[storyId] && votesRevealed[storyId]) {
-    // Show the actual vote values
-    applyVotesToUI(votesPerStory[storyId], false);
-    
-    // If votes were revealed, also show the statistics
-    setTimeout(() => {
-      if (votesRevealed[storyId]) {
+  console.log(`[DEBUG] Checking votes for story ${storyId}, revealed=${votesRevealed[storyId]}`);
+  
+  // If we have stored votes for this story 
+  if (votesPerStory[storyId]) {
+    if (votesRevealed[storyId]) {
+      // Show the actual vote values if votes were revealed
+      console.log(`[DEBUG] Showing revealed votes for ${storyId}:`, JSON.stringify(votesPerStory[storyId]));
+      applyVotesToUI(votesPerStory[storyId], false);
+      
+      // Also show the statistics
+      setTimeout(() => {
         handleVotesRevealed(storyId, votesPerStory[storyId]);
-      }
-    }, 100);
-  } else {
-        // If we have votes but they're not revealed, still show that people voted (with thumbs up)
-    if (votesPerStory[storyId]) {
+      }, 100);
+    } else {
+      // If votes weren't revealed, show thumbs up
+      console.log(`[DEBUG] Showing unrevealed votes for ${storyId}`);
       applyVotesToUI(votesPerStory[storyId], true);
     }
   }
@@ -2372,12 +2375,12 @@ case 'deleteStory':
   break;
  
       
-    case 'votesRevealed':
+   case 'votesRevealed':
       console.log('[DEBUG] Received votesRevealed event', message);
       const storyId = message.storyId;
       
       if (storyId) {
-        // Store the revealed state
+        // Critical: Store the revealed state FIRST
         votesRevealed[storyId] = true;
         console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
         
@@ -2385,14 +2388,18 @@ case 'deleteStory':
         const votes = votesPerStory[storyId] || {};
         console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
         
-        // This is where we display the actual vote values
-        applyVotesToUI(votes, false);
-        
-        // Show statistics  
-        handleVotesRevealed(storyId, votes);
-        
-        // Trigger emoji burst for fun effect
-        triggerGlobalEmojiBurst();
+        // Only handle if this is the current story
+        const currentId = getCurrentStoryId();
+        if (storyId === currentId) {
+          // This is where we display the actual vote values
+          applyVotesToUI(votes, false);
+          
+          // Show statistics  
+          handleVotesRevealed(storyId, votes);
+          
+          // Trigger emoji burst for fun effect
+          triggerGlobalEmojiBurst();
+        }
       }
       break;
       
@@ -2429,9 +2436,11 @@ case 'deleteStory':
       }
       break;
       
-    case 'storyVotes':
+case 'storyVotes':
       // Handle received votes for a specific story with improved state persistence
       if (message.storyId !== undefined && message.votes) {
+        console.log(`[SOCKET] Received votes for story ${message.storyId}:`, JSON.stringify(message.votes));
+        
         // Store votes for this story
         if (!votesPerStory[message.storyId]) {
           votesPerStory[message.storyId] = {};
@@ -2445,9 +2454,12 @@ case 'deleteStory':
         if (message.storyId === currentId) {
           // If votes are revealed, show them; otherwise, just show that people voted
           if (votesRevealed[message.storyId]) {
+            // Show actual vote values
+            console.log(`[SOCKET] Showing revealed votes for ${message.storyId}`);
             applyVotesToUI(message.votes, false);
-            handleVotesRevealed(message.storyId, votesPerStory[message.storyId]);
           } else {
+            // Just show that people voted (with thumbs up)
+            console.log(`[SOCKET] Showing unrevealed votes for ${message.storyId}`);
             applyVotesToUI(message.votes, true);
           }
         }
