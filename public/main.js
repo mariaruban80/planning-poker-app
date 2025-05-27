@@ -404,7 +404,11 @@ function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
   socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    if (!votesPerStory[storyId]) 
+  // Only clear vote data for the deleted story
+  delete votesPerStory[storyId];
+  delete votesRevealed[storyId];
+
     votesPerStory[storyId][userId] = vote;
   });
   socket.on('storyVotes', ({ storyId, votes }) => {
@@ -440,7 +444,11 @@ function initializeApp(roomId) {
   });
 
   socket.on('votesReset', ({ storyId }) => {
-    votesPerStory[storyId] = {};
+    
+  // Only clear vote data for the deleted story
+  delete votesPerStory[storyId];
+  delete votesRevealed[storyId];
+
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
   });
@@ -455,6 +463,19 @@ function initializeApp(roomId) {
     
     // Handle successful reconnection
     socket.on('reconnect', () => {
+  console.log('[SOCKET] Reconnected to server');
+  reconnectingInProgress = false;
+
+  // Request all tickets again to sync state
+  if (socket) {
+    socket.emit('requestAllTickets');
+    setTimeout(() => {
+      Object.keys(votesPerStory).forEach(storyId => {
+        socket.emit('requestStoryVotes', { storyId });
+      });
+    }, 500);
+  }
+
       console.log('[SOCKET] Reconnected to server');
       reconnectingInProgress = false;
       
@@ -1094,7 +1115,11 @@ function handleVotesRevealed(storyId, votes) {
   
   // Store votes in local state for reconnection recovery
   if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
+    
+  // Only clear vote data for the deleted story
+  delete votesPerStory[storyId];
+  delete votesRevealed[storyId];
+
   }
   
   // Merge in any new votes
@@ -1385,7 +1410,11 @@ function setupRevealResetButtons() {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
         socket.emit('resetVotes', { storyId });
-        votesPerStory[storyId] = {};
+        
+  // Only clear vote data for the deleted story
+  delete votesPerStory[storyId];
+  delete votesRevealed[storyId];
+
         votesRevealed[storyId] = false;
         resetAllVoteVisuals();
       }
@@ -1997,7 +2026,11 @@ function createVoteCardSpace(user, isCurrentUser) {
       const storyId = getCurrentStoryId();
       if (socket && vote && storyId) {
         socket.emit('castVote', { vote, targetUserId: user.id, storyId });
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        if (!votesPerStory[storyId]) 
+  // Only clear vote data for the deleted story
+  delete votesPerStory[storyId];
+  delete votesRevealed[storyId];
+
         votesPerStory[storyId][user.id] = vote;
         updateVoteVisuals(user.id, votesRevealed[storyId] ? vote : '👍', true);
       }
