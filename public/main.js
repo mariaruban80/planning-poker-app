@@ -4,6 +4,9 @@ let processingCSVData = false;
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket } from './socket.js'; 
 
+// Track deleted stories client-side
+let deletedStoryIds = new Set();
+
 // Flag to track manually added tickets that need to be preserved
 let preservedManualTickets = [];
 // Flag to prevent duplicate delete confirmation dialogs
@@ -411,18 +414,36 @@ function initializeApp(roomId) {
 
     votesPerStory[storyId][userId] = vote;
   });
-  socket.on('storyVotes', ({ storyId, votes }) => {
-    votesPerStory[storyId] = votes;
-    if (votesRevealed[storyId]) {
+socket.on('storyVotes', ({ storyId, votes }) => {
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  Object.assign(votesPerStory[storyId], votes);
+  if (votesRevealed[storyId]) {
+    applyVotesToUI(votes, false);
+  }
+});
+  
+// Updated resyncState handler to restore votes
+socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed }) => {
+  console.log('[SOCKET] Received resyncState from server');
+  handleSocketMessage({ type: 'resyncState', tickets, votesPerStory: serverVotes, votesRevealed });
+
+  // Update local vote state
+  for (const [storyId, votes] of Object.entries(serverVotes || {})) {
+    votesPerStory[storyId] = { ...(votesPerStory[storyId] || {}), ...votes };
+    if (votesRevealed?.[storyId]) {
       applyVotesToUI(votes, false);
     }
-  });
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
-  socket.on('resyncState', ({ tickets, votesPerStory, votesRevealed }) => {
-  console.log('[SOCKET] Received resyncState from server');
-  handleSocketMessage({ type: 'resyncState', tickets, votesPerStory, votesRevealed });
+  }
+});
+// Updated deleteStory event handler to track deletions locally
+socket.on('deleteStory', ({ storyId }) => {
+  console.log('[SOCKET] Story deletion event received:', storyId);
+  deletedStoryIds.add(storyId);
+  const el = document.getElementById(storyId);
+  if (el) el.remove();
 });
 
+  
 
   socket.on('votesRevealed', ({ storyId }) => {
     console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
@@ -468,30 +489,16 @@ function initializeApp(roomId) {
     });
     
     // Handle successful reconnection
-    socket.on('reconnect', () => {
+socket.on('reconnect', () => {
   console.log('[SOCKET] Reconnected to server');
   reconnectingInProgress = false;
-
-  // Request all tickets again to sync state
-  if (socket) {
-    socket.emit('requestAllTickets');
-    setTimeout(() => {
-      Object.keys(votesPerStory).forEach(storyId => {
-        socket.emit('requestStoryVotes', { storyId });
-      });
-    }, 500);
-  }
-
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
-      
-      // Request current state after reconnection
-      if (typeof currentStoryIndex === 'number') {
-        setTimeout(() => {
-          socket.emit('requestStoryVotes', { storyIndex: currentStoryIndex });
-        }, 500);
-      }
+  socket.emit('requestAllTickets');
+  setTimeout(() => {
+    Object.keys(votesPerStory).forEach(storyId => {
+      socket.emit('requestStoryVotes', { storyId });
     });
+  }, 500);
+});
   }
   
   // Guest: Listen for host's voting system
@@ -1351,42 +1358,23 @@ function applyGuestRestrictions() {
  * @param {Array} tickets - Array of ticket data objects
  */
 function processAllTickets(tickets) {
-  if (!Array.isArray(tickets) || tickets.length === 0) return;
-  
-  console.log('[INFO] Processing all tickets received from server:', tickets.length);
-  
-  // Clear the story list first
+  const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
   const storyList = document.getElementById('storyList');
   if (storyList) {
     const manualCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
     manualCards.forEach(card => card.remove());
   }
-  
-  // Add all tickets to the UI
-  tickets.forEach((ticket, index) => {
-    // Only add if it has required properties
-    if (ticket && ticket.id && ticket.text) {
-      // Add to UI without selecting
+
+  filtered.forEach(ticket => {
+    if (ticket?.id && ticket?.text) {
       addTicketToUI(ticket, false);
     }
   });
-  
-  // Select first story if any
-  if (tickets.length > 0) {
+
+  if (filtered.length > 0) {
     currentStoryIndex = 0;
-    selectStory(0, false); // Don't emit to avoid loops
+    selectStory(0, false);
   }
-  // ✅ Fix indexes to ensure navigation works
-  normalizeStoryIndexes();
-   
-  setupStoryCardInteractions();
-  
-  // Add delete button handling
-  cleanupDeleteButtonHandlers();
-  setupCSVDeleteButtons();
-  
-  // Apply guest restrictions if needed
-  applyGuestRestrictions();
 }
 
 // Get storyId from selected card
