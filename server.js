@@ -63,6 +63,29 @@ io.on('connection', (socket) => {
     rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
     rooms[roomId].users.push({ id: socket.id, name: userName });
     socket.join(roomId);
+
+    // Emit full resync state
+    const activeTickets = rooms[roomId].tickets.filter(ticket => 
+      !rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(ticket.id)
+    );
+    const activeVotes = {};
+    const revealedVotes = {};
+
+    for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory || {})) {
+      if (!rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(storyId)) {
+        activeVotes[storyId] = votes;
+        if (rooms[roomId].votesRevealed?.[storyId]) {
+          revealedVotes[storyId] = true;
+        }
+      }
+    }
+
+    socket.emit('resyncState', {
+      tickets: activeTickets,
+      votesPerStory: activeVotes,
+      votesRevealed: revealedVotes
+    });
+
     
     // Send the current voting system to the joining user
     const votingSystem = roomVotingSystems[roomId] || 'fibonacci';
