@@ -33,17 +33,11 @@ io.on('connection', (socket) => {
   
   // Handle room joining
   socket.on('joinRoom', ({ roomId, userName }) => {
-    // Validate username - reject if missing
-    if (!userName) {
-      console.log(`[SERVER] Rejected connection without username for socket ${socket.id}`);
-      socket.emit('error', { message: 'Username is required to join a room' });
-      return;
-    }
-    
+    if (!userName) return socket.emit('error', { message: 'Username is required' });
+
     socket.data.roomId = roomId;
     socket.data.userName = userName;
 
-    // Create room if it doesn't exist
     if (!rooms[roomId]) {
       rooms[roomId] = {
         users: [],
@@ -51,32 +45,26 @@ io.on('connection', (socket) => {
         story: [],
         revealed: false,
         csvData: [],
-        selectedIndex: 0, // Default to first story
+        selectedIndex: 0,
         votesPerStory: {},
-        votesRevealed: {}, // Track which stories have revealed votes
-        tickets: [], // Initialize tickets array
-        deletedStoryIds: new Set() // Track deleted story IDs
+        votesRevealed: {},
+        tickets: [],
+        deletedStoryIds: new Set()
       };
     }
 
-    // Update user list (remove if exists, then add)
     rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
     rooms[roomId].users.push({ id: socket.id, name: userName });
     socket.join(roomId);
 
-    // Emit full resync state
-    const activeTickets = rooms[roomId].tickets.filter(ticket => 
-      !rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(ticket.id)
-    );
+    const activeTickets = rooms[roomId].tickets.filter(t => !rooms[roomId].deletedStoryIds.has(t.id));
     const activeVotes = {};
     const revealedVotes = {};
 
-    for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory || {})) {
-      if (!rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(storyId)) {
+    for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory)) {
+      if (!rooms[roomId].deletedStoryIds.has(storyId)) {
         activeVotes[storyId] = votes;
-        if (rooms[roomId].votesRevealed?.[storyId]) {
-          revealedVotes[storyId] = true;
-        }
+        if (rooms[roomId].votesRevealed?.[storyId]) revealedVotes[storyId] = true;
       }
     }
 
@@ -86,59 +74,26 @@ io.on('connection', (socket) => {
       votesRevealed: revealedVotes
     });
 
-    
-    // Send the current voting system to the joining user
-    const votingSystem = roomVotingSystems[roomId] || 'fibonacci';
-    socket.emit('votingSystemUpdate', { votingSystem });
-
-    console.log(`[SERVER] User ${userName} (${socket.id}) joined room ${roomId}`);
-    
-    // Send user list to everyone in the room
+    socket.emit('votingSystemUpdate', { votingSystem: roomVotingSystems[roomId] || 'fibonacci' });
     io.to(roomId).emit('userList', rooms[roomId].users);
+    if (rooms[roomId].csvData.length > 0) socket.emit('syncCSVData', rooms[roomId].csvData);
 
-    // Send CSV data if available
-    if (rooms[roomId].csvData?.length > 0) {
-      socket.emit('syncCSVData', rooms[roomId].csvData);
-    }
-    
-    // Send all tracked tickets filtered to exclude deleted stories
-    if (rooms[roomId].tickets) {
-      const filteredTickets = rooms[roomId].tickets.filter(ticket => 
-        !rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(ticket.id)
-      );
-      
-      if (filteredTickets.length > 0) {
-        console.log(`[SERVER] Sending ${filteredTickets.length} active tickets to joining user ${socket.id}`);
-        socket.emit('allTickets', { tickets: filteredTickets });
-      }
-    }
-    
-    // Send currently selected story
     if (typeof rooms[roomId].selectedIndex === 'number') {
       socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
     }
-    
-    // Send vote data and revealed state for all active stories
-    const votesPerStory = rooms[roomId].votesPerStory || {};
-    Object.keys(votesPerStory).forEach(storyId => {
-      // Skip deleted stories
-      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
-        return;
-      }
 
-      // Always send vote data first, then reveal state
-      const votes = votesPerStory[storyId] || {};
-      if (Object.keys(votes).length > 0) {
-        console.log(`[SERVER] Sending votes for story ${storyId} to joining user:`, JSON.stringify(votes));
+    // Emit each vote explicitly for story-specific visibility
+    for (const storyId in rooms[roomId].votesPerStory) {
+      if (!rooms[roomId].deletedStoryIds.has(storyId)) {
+        const votes = rooms[roomId].votesPerStory[storyId];
         socket.emit('storyVotes', { storyId, votes });
-        
-        // Then if revealed, send the reveal status
         if (rooms[roomId].votesRevealed?.[storyId]) {
           socket.emit('votesRevealed', { storyId });
         }
       }
-    });
+    }
   });
+  
   
   // Handle reconnection
   socket.on('reconnect', () => {
@@ -267,55 +222,22 @@ io.on('connection', (socket) => {
   });
   
   // Handle story deletion with improved error handling
-  socket.on('deleteStory', ({ storyId, isCsvStory, csvIndex }) => {
-    try {
-      const roomId = socket.data.roomId;
-      
-      if (!roomId || !rooms[roomId]) {
-        console.error(`[SERVER] Invalid room for delete operation: ${roomId}`);
-        socket.emit('error', { message: 'Invalid room ID', operation: 'deleteStory' });
-        return;
-      }
-      
-      console.log(`[SERVER] Processing story deletion in room ${roomId}: ${storyId}`);
-      
-      // Add this story ID to the set of deleted stories
-      if (!rooms[roomId].deletedStoryIds) {
-        rooms[roomId].deletedStoryIds = new Set();
-      }
-      rooms[roomId].deletedStoryIds.add(storyId);
-      
-      // Handle CSV story deletion
-      if (isCsvStory && rooms[roomId].csvData) {
-        if (!isNaN(csvIndex) && csvIndex >= 0 && csvIndex < rooms[roomId].csvData.length) {
-          // Remove the item from csvData
-          rooms[roomId].csvData.splice(csvIndex, 1);
-          // Sync updated CSV data
-          io.to(roomId).emit('syncCSVData', rooms[roomId].csvData);
-        }
-      }
-      
-      // Remove from tracked tickets but keep in deleted set
-      if (rooms[roomId].tickets) {
-        const previousCount = rooms[roomId].tickets.length;
-        rooms[roomId].tickets = rooms[roomId].tickets.filter(ticket => ticket.id !== storyId);
-        console.log(`[SERVER] Removed story from tickets array. Before: ${previousCount}, After: ${rooms[roomId].tickets.length}`);
-      }
-      
-      // IMPORTANT: Keep votesPerStory and votesRevealed for the story to maintain consistency
-      // This ensures votes remain accessible if other users refresh
-      
-      // Broadcast deletion to ALL clients in the room, including the sender
-      io.to(roomId).emit('deleteStory', { storyId });
-      
-      // Confirm to the sender that deletion was successful
-      socket.emit('deleteConfirmed', { storyId });
-      
-    } catch (error) {
-      console.error(`[SERVER] Error deleting story ${storyId}:`, error);
-      socket.emit('error', { message: 'Error deleting story', operation: 'deleteStory' });
+ socket.on('deleteStory', ({ storyId, isCsvStory, csvIndex }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    rooms[roomId].deletedStoryIds.add(storyId);
+    rooms[roomId].tickets = rooms[roomId].tickets.filter(t => t.id !== storyId);
+
+    if (isCsvStory && !isNaN(csvIndex)) {
+      rooms[roomId].csvData.splice(csvIndex, 1);
+      io.to(roomId).emit('syncCSVData', rooms[roomId].csvData);
     }
+
+    // Votes not deleted — retained for reconnection
+    io.to(roomId).emit('deleteStory', { storyId });
   });
+ 
   
   // Handle getting all tickets
   socket.on('requestAllTickets', () => {
@@ -399,48 +321,30 @@ io.on('connection', (socket) => {
   // Handle user votes
   socket.on('castVote', ({ vote, targetUserId, storyId }) => {
     const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId] && targetUserId === socket.id) {
-      // Don't allow votes for deleted stories
-      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
-        console.log(`[SERVER] Ignoring vote for deleted story: ${storyId}`);
-        return;
+    if (!roomId || !rooms[roomId] || targetUserId !== socket.id) return;
+
+    if (rooms[roomId].deletedStoryIds.has(storyId)) return;
+    if (!rooms[roomId].votesPerStory[storyId]) rooms[roomId].votesPerStory[storyId] = {};
+
+    rooms[roomId].votesPerStory[storyId][targetUserId] = vote;
+    io.to(roomId).emit('voteUpdate', { userId: targetUserId, vote, storyId });
+  });
+
+  
+  
+  // Handle requests for votes for a specific story
+// Request specific story's votes
+  socket.on('requestStoryVotes', ({ storyId }) => {
+    const roomId = socket.data.roomId;
+    if (rooms[roomId]?.votesPerStory[storyId]) {
+      const votes = rooms[roomId].votesPerStory[storyId];
+      socket.emit('storyVotes', { storyId, votes });
+      if (rooms[roomId].votesRevealed?.[storyId]) {
+        socket.emit('votesRevealed', { storyId });
       }
-      
-      if (!rooms[roomId].votesPerStory) rooms[roomId].votesPerStory = {};
-      if (!rooms[roomId].votesPerStory[storyId]) {
-        rooms[roomId].votesPerStory[storyId] = {};
-      }
-      rooms[roomId].votesPerStory[storyId][targetUserId] = vote;
-      io.to(roomId).emit('voteUpdate', { userId: targetUserId, vote, storyId });
     }
   });
   
-  // Handle requests for votes for a specific story
-  socket.on('requestStoryVotes', ({ storyId }) => {
-    const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId]) {
-      // Don't send votes for deleted stories
-      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(storyId)) {
-        console.log(`[SERVER] Not sending votes for deleted story: ${storyId}`);
-        return;
-      }
-      
-      const votes = rooms[roomId].votesPerStory?.[storyId] || {};
-      
-      if (Object.keys(votes).length > 0) {
-        console.log(`[SERVER] Sending requested votes for story ${storyId}:`, JSON.stringify(votes));
-        socket.emit('storyVotes', { storyId, votes });
-        
-        // Send reveal state separately after votes
-        if (rooms[roomId].votesRevealed?.[storyId]) {
-          socket.emit('votesRevealed', { storyId });
-        }
-      } else {
-        console.log(`[SERVER] No votes found for story ${storyId}`);
-        socket.emit('storyVotes', { storyId, votes: {} });
-      }
-    }
-  });
 
   // Handle vote revealing with improved persistence
   socket.on('revealVotes', ({ storyId }) => {
