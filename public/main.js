@@ -417,6 +417,12 @@ function initializeApp(roomId) {
       applyVotesToUI(votes, false);
     }
   });
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  socket.on('resyncState', ({ tickets, votesPerStory, votesRevealed }) => {
+  console.log('[SOCKET] Received resyncState from server');
+  handleSocketMessage({ type: 'resyncState', tickets, votesPerStory, votesRevealed });
+});
+
 
   socket.on('votesRevealed', ({ storyId }) => {
     console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
@@ -2332,6 +2338,18 @@ function handleSocketMessage(message) {
       sessionStorage.setItem('votingSystem', message.votingSystem);
       setupPlanningCards(); // Regenerate cards
       break;
+
+      case 'resyncState':
+      processAllTickets(message.tickets);
+      Object.entries(message.votesPerStory || {}).forEach(([storyId, votes]) => {
+        votesPerStory[storyId] = votes;
+        if (message.votesRevealed?.[storyId]) {
+          votesRevealed[storyId] = true;
+          applyVotesToUI(votes, false);
+        }
+      });
+  break;
+
 
     case 'allTickets':
       // Handle receiving all tickets (used when joining a room)
