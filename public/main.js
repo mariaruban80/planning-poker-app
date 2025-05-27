@@ -1484,8 +1484,22 @@ function setupCSVUploader() {
       emitCSVData(parsedData);
       
       // Reset voting state for new data
-      votesPerStory = {};
-      votesRevealed = {};
+    //  votesPerStory = {};
+     // votesRevealed = {};
+      const activeStoryIds = new Set(tickets.map(ticket => ticket.id));
+      
+      Object.keys(votesPerStory).forEach(storyId => {
+        if (!activeStoryIds.has(storyId)) {
+          delete votesPerStory[storyId];
+        }
+      });
+      
+      Object.keys(votesRevealed).forEach(storyId => {
+        if (!activeStoryIds.has(storyId)) {
+          delete votesRevealed[storyId];
+        }
+      });
+      
       
       // Reset current story index only if no stories were selected before
       if (!document.querySelector('.story-card.selected')) {
@@ -2339,15 +2353,14 @@ function handleSocketMessage(message) {
       setupPlanningCards(); // Regenerate cards
       break;
 
-      case 'resyncState':
-      processAllTickets(message.tickets);
-      Object.entries(message.votesPerStory || {}).forEach(([storyId, votes]) => {
-        votesPerStory[storyId] = votes;
-        if (message.votesRevealed?.[storyId]) {
-          votesRevealed[storyId] = true;
-          applyVotesToUI(votes, false);
-        }
-      });
+    case 'resyncState':
+  processAllTickets(message.tickets);
+  for (const [storyId, votes] of Object.entries(message.votesPerStory || {})) {
+    votesPerStory[storyId] = votes;
+    if (message.votesRevealed?.[storyId]) {
+      votesRevealed[storyId] = true;
+    }
+  }
   break;
 
 
