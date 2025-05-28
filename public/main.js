@@ -432,6 +432,20 @@ socket.on('storyVotes', ({ storyId, votes }) => {
   // Reflect vote on UI
   applyVotesToUI(votesPerStory[storyId], false);
 });
+  socket.on('storySelected', ({ storyIndex }) => {
+  console.log('[SOCKET] Story selected:', storyIndex);
+  currentStoryIndex = storyIndex;
+
+  // Ensure the correct story card is selected visually
+  highlightSelectedStory(storyIndex);
+
+  // Optionally re-request votes if not present
+  const currentTicket = document.querySelectorAll('.story-card')[storyIndex];
+  if (currentTicket && !votesPerStory[currentTicket.id]) {
+    socket.emit('requestStoryVotes', { storyId: currentTicket.id });
+  }
+});
+
 
   
 // Updated resyncState handler to restore votes
@@ -452,6 +466,10 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed, 
       applyVotesToUI(votes, false);
     }
   }
+  // 🔍 DEBUG: Verify state
+  setTimeout(() => {
+    console.log('[VERIFY] votesPerStory after reconnect:', JSON.stringify(votesPerStory));
+  }, 1500);
 });
 
 // Updated deleteStory event handler to track deletions locally
@@ -840,7 +858,12 @@ function addNewLayoutStyles() {
       position: relative;
       padding-right: 35px;
     }
-    
+
+    .selected-story {
+  border: 2px solid #673ab7;
+  background-color: #f3e5f5;
+}
+
     /* Connection status indicator */
     .connection-status {
       position: fixed;
@@ -891,6 +914,21 @@ function addNewLayoutStyles() {
     statusIndicator.classList.remove('connected');
   }, 4000);
 }
+
+function highlightSelectedStory(index) {
+  const storyCards = document.querySelectorAll('.story-card');
+  storyCards.forEach((card, i) => {
+    if (i === index) {
+      card.classList.add('selected-story');
+      const storyId = card.id;
+      const votes = votesPerStory[storyId] || {};
+      applyVotesToUI(votes, false); // false = show actual votes
+    } else {
+      card.classList.remove('selected-story');
+    }
+  });
+}
+
 
 /**
  * Update connection status UI
