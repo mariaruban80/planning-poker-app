@@ -120,35 +120,6 @@ function loadDeletedStoriesFromStorage(roomId) {
     console.warn('[STORAGE] Error loading deleted stories:', err);
   }
 }
-/**
- * Select a story by its ID rather than index
- * @param {string} storyId - ID of the story to select
- */
-function selectStoryById(storyId) {
-  if (!storyId) return;
-  
-  // Skip if this is a deleted story
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[SELECT] Cannot select deleted story: ${storyId}`);
-    return;
-  }
-  
-  // Find the story element
-  const storyElement = document.getElementById(storyId);
-  if (!storyElement) {
-    console.log(`[SELECT] Story element not found: ${storyId}`);
-    return;
-  }
-  
-  // Get the index from the data attribute
-  const index = parseInt(storyElement.dataset.index);
-  if (isNaN(index)) return;
-  
-  // Select by index but don't emit (to avoid loops)
-  selectStory(index, false);
-  
-  console.log(`[SELECT] Selected story by ID: ${storyId}, index: ${index}`);
-}
 
 /**
  * Save deleted story IDs to sessionStorage
@@ -2071,19 +2042,18 @@ function selectStory(index, emitToServer = true) {
   
   // Notify server about selection if requested
   if (emitToServer && socket) {
-  const selectedStoryId = storyCard ? storyCard.id : null;
-  console.log('[EMIT] Broadcasting story selection:', index, 'with ID:', selectedStoryId);
-  socket.emit('storySelected', { storyIndex: index, storyId: selectedStoryId });
-  
-  // Request votes for this story
-  if (storyId) {
-    if (typeof requestStoryVotes === 'function') {
-      requestStoryVotes(storyId);
-    } else if (socket) {
-      socket.emit('requestStoryVotes', { storyId });
+    console.log('[EMIT] Broadcasting story selection:', index);
+    socket.emit('storySelected', { storyIndex: index });
+    
+    // Request votes for this story
+    if (storyId) {
+      if (typeof requestStoryVotes === 'function') {
+        requestStoryVotes(storyId);
+      } else if (socket) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
     }
   }
-}
 }
 
 /**
@@ -3018,33 +2988,21 @@ case 'votesRevealed':
         }
       }
       break;
-case 'storySelected':
-  if (message.storyId) {
-    // If we have the story ID, use it directly (more reliable)
-    console.log('[SOCKET] Story selected from server by ID:', message.storyId);
-    selectStoryById(message.storyId);
-    
-    // Request votes for it
-    if (socket && socket.connected && !deletedStoryIds.has(message.storyId)) {
-      setTimeout(() => {
-        socket.emit('requestStoryVotes', { storyId: message.storyId });
-      }, 100);
-    }
-  }
-  else if (typeof message.storyIndex === 'number') {
-    // Fallback to index-based selection
-    console.log('[SOCKET] Story selected from server by index:', message.storyIndex);
-    selectStory(message.storyIndex, false); // false to avoid re-emitting
-    
-    // After story selection, request votes for it
-    const currentStoryId = getCurrentStoryId();
-    if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
-      setTimeout(() => {
-        socket.emit('requestStoryVotes', { storyId: currentStoryId });
-      }, 100);
-    }
-  }
-  break;
+
+    case 'storySelected':
+      if (typeof message.storyIndex === 'number') {
+        console.log('[SOCKET] Story selected from server:', message.storyIndex);
+        selectStory(message.storyIndex, false); // false to avoid re-emitting
+        
+        // After story selection, request votes for it
+        const currentStoryId = getCurrentStoryId();
+        if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
+          setTimeout(() => {
+            socket.emit('requestStoryVotes', { storyId: currentStoryId });
+          }, 100);
+        }
+      }
+      break;
       
     case 'storyVotes':
       // Skip processing for deleted story
