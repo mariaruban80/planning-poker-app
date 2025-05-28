@@ -470,7 +470,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
   
   // Enhanced state sync handling
-    socket.on('resyncState', (state) => {
+  socket.on('resyncState', (state) => {
     console.log('[SOCKET] Received full state resync from server');
     
     // Initialize the state objects if they don't exist
@@ -525,6 +525,13 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       restoreVotesFromStorage(roomIdentifier);
     }, 300);
   });
+
+  // Try to load saved state from session storage
+  loadStateFromSessionStorage(roomIdentifier);
+
+  // Return socket for external operations if needed
+  return socket;
+}
 
 /**
  * Load previously saved state from session storage
