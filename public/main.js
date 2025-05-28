@@ -2342,9 +2342,13 @@ function handleSocketMessage(message) {
       break;
 
  case 'resyncState':
-  // Update local deletedStoryIds set
+  // Update local deletedStoryIds with array from server
   if (Array.isArray(message.deletedStoryIds)) {
-    message.deletedStoryIds.forEach(id => deletedStoryIds.add(id));
+    message.deletedStoryIds.forEach(id => {
+      if (!deletedStoryIds.has(id)) {
+        deletedStoryIds.add(id);
+      }
+    });
   }
   
   // Process tickets (filtered by deletedStoryIds)
@@ -2352,17 +2356,24 @@ function handleSocketMessage(message) {
   
   // Update vote state
   for (const [storyId, votes] of Object.entries(message.votesPerStory || {})) {
-    votesPerStory[storyId] = { ...(votesPerStory[storyId] || {}), ...votes };
+    if (!votesPerStory[storyId]) {
+      votesPerStory[storyId] = {};
+    }
+    
+    // Merge in the votes from server
+    Object.assign(votesPerStory[storyId], votes);
+    
     if (message.votesRevealed?.[storyId]) {
       votesRevealed[storyId] = true;
-      if (getCurrentStoryId() === storyId) {
+      const currentId = getCurrentStoryId();
+      if (currentId === storyId) {
         applyVotesToUI(votes, false);
       }
     }
   }
   break;
 
-      case 'restoreUserVote':
+case 'restoreUserVote':
   if (message.storyId && message.vote) {
     // Get the current user's ID
     const currentUserId = socket.id;
