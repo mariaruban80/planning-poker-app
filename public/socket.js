@@ -9,6 +9,8 @@ let userName = null;
 let reconnectionEnabled = true;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 10;
+let reconnectTimer = null;
+let lastKnownRoomState = null;
 
 /**
  * Initialize WebSocket connection to server
@@ -40,6 +42,10 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     query: { roomId: roomIdentifier, userName: userNameValue }
   });
 
+  // ------------------------------
+  // Socket Event Handlers
+  // ------------------------------
+
   socket.on('addTicket', ({ ticketData }) => {
     console.log('[SOCKET] Received new ticket from another user:', ticketData);
     handleMessage({ type: 'addTicket', ticketData });
@@ -47,13 +53,19 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
   socket.on('allTickets', ({ tickets }) => {
     console.log('[SOCKET] Received all tickets:', tickets.length);
+    
+    // Store tickets in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    lastKnownRoomState.tickets = tickets;
+    
     handleMessage({ type: 'allTickets', tickets });
   });
 
-  // Socket event handlers
+  // Connection established
   socket.on('connect', () => {
     console.log('[SOCKET] Connected to server with ID:', socket.id);
     reconnectAttempts = 0;
+    clearTimeout(reconnectTimer);
     
     // When connecting, explicitly join the room
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
@@ -71,11 +83,21 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     handleMessage({ type: 'reconnect_attempt', attempt });
   });
 
+  // Successful reconnection
   socket.on('reconnect', () => {
     console.log('[SOCKET] Reconnected to server after disconnect');
+    clearTimeout(reconnectTimer);
     
     // Re-join room and request current state
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+    
+    // Explicitly request a full state resync after a short delay
+    setTimeout(() => {
+      if (socket && socket.connected) {
+        console.log('[SOCKET] Requesting full state resync after reconnection');
+        socket.emit('requestFullStateResync');
+      }
+    }, 500);
     
     // Notify UI of successful reconnection
     handleMessage({ type: 'reconnect' });
@@ -90,9 +112,17 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Notify UI of reconnection error
     handleMessage({ type: 'error', error });
     
-    // Try again if below the max attempts
+    // Try again if below the max attempts with a manual reconnect if needed
     if (reconnectAttempts < maxReconnectAttempts && reconnectionEnabled) {
       console.log(`[SOCKET] Will attempt reconnection again (${reconnectAttempts}/${maxReconnectAttempts})`);
+      // Set a backup timer to try reconnect if the built-in mechanism fails
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (socket && !socket.connected && reconnectionEnabled) {
+          console.log('[SOCKET] Attempting manual reconnection...');
+          socket.connect();
+        }
+      }, 5000);
     } else {
       console.error('[SOCKET] Maximum reconnection attempts reached');
       // Notify UI that no further reconnection attempts will be made
@@ -108,6 +138,15 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // The server intentionally disconnected us
       console.log('[SOCKET] Server disconnected us, attempting reconnect');
       socket.connect();
+    } else if (reconnectionEnabled) {
+      // Set a backup timer for reconnection
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (!socket.connected) {
+          console.log('[SOCKET] Attempting reconnect after disconnect...');
+          socket.connect();
+        }
+      }, 3000);
     }
     
     // Notify UI of disconnect
@@ -121,48 +160,107 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   // Handle voting system updates from server
   socket.on('votingSystemUpdate', data => {
     console.log('[SOCKET DEBUG] votingSystemUpdate received:', data);
+    
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    lastKnownRoomState.votingSystem = data.votingSystem;
+    
     // Forward this to the handler
     handleMessage({ type: 'votingSystemUpdate', ...data });
   });
 
   socket.on('syncCSVData', (csvData) => {
     console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
+    
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    lastKnownRoomState.csvData = csvData;
+    
     handleMessage({ type: 'syncCSVData', csvData });
     
     // Notify server that CSV data is loaded
     setTimeout(() => {
       console.log('[SOCKET] Notifying server that CSV data is loaded');
-      socket.emit('csvDataLoaded');
+      if (socket && socket.connected) {
+        socket.emit('csvDataLoaded');
+      }
     }, 100);
   });
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
     selectedStoryIndex = storyIndex;
+    
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    lastKnownRoomState.selectedIndex = storyIndex;
+    
     handleMessage({ type: 'storySelected', storyIndex });
   });
 
- socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  handleMessage({ type: 'voteUpdate', userId, vote, storyId });
-});
+  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesPerStory[storyId][userId] = vote;
+    
+    handleMessage({ type: 'voteUpdate', userId, vote, storyId });
+  });
 
+  socket.on('storyVotes', ({ storyId, votes }) => {
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    lastKnownRoomState.votesPerStory[storyId] = { ...(lastKnownRoomState.votesPerStory[storyId] || {}), ...votes };
+    
+    handleMessage({ type: 'storyVotes', storyId, votes });
+  });
 
-socket.on('storyVotes', ({ storyId, votes }) => {
-  handleMessage({ type: 'storyVotes', storyId, votes });
-});
+  // New handler for restoring user votes
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+    console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
+    
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
+    
+    handleMessage({ type: 'restoreUserVote', storyId, vote });
+  });
 
-socket.on('votesRevealed', ({ storyId }) => {
-  handleMessage({ type: 'votesRevealed', storyId });
-});
+  socket.on('votesRevealed', ({ storyId }) => {
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
+    lastKnownRoomState.votesRevealed[storyId] = true;
+    
+    handleMessage({ type: 'votesRevealed', storyId });
+  });
 
   socket.on('deleteStory', ({ storyId }) => {
     console.log('[SOCKET] Story deletion event received:', storyId);
+    
+    // Store in last known state
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    if (!lastKnownRoomState.deletedStoryIds) lastKnownRoomState.deletedStoryIds = new Set();
+    lastKnownRoomState.deletedStoryIds.add(storyId);
+    
     handleMessage({ type: 'deleteStory', storyId });
   });
 
- socket.on('votesReset', ({ storyId }) => {
-  handleMessage({ type: 'votesReset', storyId });
-});
+  socket.on('votesReset', ({ storyId }) => {
+    // Clear from last known state
+    if (lastKnownRoomState?.votesPerStory?.[storyId]) {
+      lastKnownRoomState.votesPerStory[storyId] = {};
+    }
+    if (lastKnownRoomState?.votesRevealed) {
+      lastKnownRoomState.votesRevealed[storyId] = false;
+    }
+    
+    handleMessage({ type: 'votesReset', storyId });
+  });
 
   socket.on('revealVotes', (votes) => {
     console.log('[SOCKET] Reveal votes event received (legacy)');
@@ -170,6 +268,9 @@ socket.on('votesRevealed', ({ storyId }) => {
   });
 
   socket.on('storyChange', ({ story }) => {
+    if (!lastKnownRoomState) lastKnownRoomState = {};
+    lastKnownRoomState.story = story;
+    
     handleMessage({ type: 'storyChange', story });
   });
 
@@ -187,6 +288,36 @@ socket.on('votesRevealed', ({ storyId }) => {
   socket.on('connect_error', (error) => {
     console.error('[SOCKET] Connection error:', error);
     handleMessage({ type: 'error', error });
+    
+    // Try to reconnect after a delay if enabled
+    if (reconnectionEnabled && reconnectAttempts < maxReconnectAttempts) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (!socket.connected) {
+          console.log('[SOCKET] Attempting reconnect after connection error...');
+          socket.connect();
+        }
+      }, 3000);
+    }
+  });
+  
+  // Enhanced state sync handling
+  socket.on('resyncState', (state) => {
+    console.log('[SOCKET] Received full state resync from server');
+    
+    // Store complete state locally
+    lastKnownRoomState = { ...lastKnownRoomState, ...state };
+    
+    // Add deleted story IDs to our Set
+    if (Array.isArray(state.deletedStoryIds)) {
+      if (!lastKnownRoomState.deletedStoryIds) {
+        lastKnownRoomState.deletedStoryIds = new Set();
+      }
+      state.deletedStoryIds.forEach(id => lastKnownRoomState.deletedStoryIds.add(id));
+    }
+    
+    // Forward to message handler
+    handleMessage({ type: 'resyncState', ...state });
   });
 
   // Return socket for external operations if needed
@@ -201,6 +332,14 @@ export function emitDeleteStory(storyId) {
   if (socket) {
     console.log('[SOCKET] Deleting story:', storyId);
     socket.emit('deleteStory', { storyId });
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      if (!lastKnownRoomState.deletedStoryIds) {
+        lastKnownRoomState.deletedStoryIds = new Set();
+      }
+      lastKnownRoomState.deletedStoryIds.add(storyId);
+    }
   }
 }
 
@@ -224,6 +363,11 @@ export function emitStorySelected(index) {
     console.log('[SOCKET] Emitting storySelected:', index);
     socket.emit('storySelected', { storyIndex: index });
     selectedStoryIndex = index;
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      lastKnownRoomState.selectedIndex = index;
+    }
   }
 }
 
@@ -231,16 +375,28 @@ export function emitStorySelected(index) {
  * Cast a vote for a story
  * @param {string} vote - The vote value
  * @param {string} targetUserId - The user ID receiving the vote
+ * @param {string} storyId - ID of the story being voted on
  */
 export function emitVote(vote, targetUserId, storyId) {
   if (socket) {
     socket.emit('castVote', { vote, targetUserId, storyId });
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      if (!lastKnownRoomState.votesPerStory) {
+        lastKnownRoomState.votesPerStory = {};
+      }
+      if (!lastKnownRoomState.votesPerStory[storyId]) {
+        lastKnownRoomState.votesPerStory[storyId] = {};
+      }
+      lastKnownRoomState.votesPerStory[storyId][targetUserId] = vote;
+    }
   }
 }
 
 /**
  * Request votes for a specific story
- * @param {number} storyIndex - Index of the story
+ * @param {string} storyId - ID of the story
  */
 export function requestStoryVotes(storyId) {
   if (socket) {
@@ -251,20 +407,40 @@ export function requestStoryVotes(storyId) {
 /**
  * Reveal votes for the current story
  * Triggers server to broadcast vote values to all clients
+ * @param {string} storyId - ID of the story
  */
 export function revealVotes(storyId) {
   if (socket) {
     socket.emit('revealVotes', { storyId });
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      if (!lastKnownRoomState.votesRevealed) {
+        lastKnownRoomState.votesRevealed = {};
+      }
+      lastKnownRoomState.votesRevealed[storyId] = true;
+    }
   }
 }
 
 /**
  * Reset votes for the current story
  * Clears all votes and resets the reveal state
+ * @param {string} storyId - ID of the story
  */
 export function resetVotes(storyId) {
   if (socket) {
     socket.emit('resetVotes', { storyId });
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      if (lastKnownRoomState.votesPerStory?.[storyId]) {
+        lastKnownRoomState.votesPerStory[storyId] = {};
+      }
+      if (lastKnownRoomState.votesRevealed) {
+        lastKnownRoomState.votesRevealed[storyId] = false;
+      }
+    }
   }
 }
 
@@ -302,6 +478,18 @@ export function emitAddTicket(ticketData) {
   if (socket) {
     console.log('[SOCKET] Adding new ticket:', ticketData);
     socket.emit('addTicket', ticketData);
+    
+    // Update local state tracking
+    if (lastKnownRoomState) {
+      if (!lastKnownRoomState.tickets) {
+        lastKnownRoomState.tickets = [];
+      }
+      // Avoid duplicates
+      const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
+      if (existingIndex === -1) {
+        lastKnownRoomState.tickets.push(ticketData);
+      }
+    }
   }
 }
 
@@ -317,6 +505,15 @@ export function reconnect() {
   if (!socket.connected && roomId && userName) {
     console.log('[SOCKET] Attempting to reconnect...');
     socket.connect();
+    
+    // Set a timer to request full state sync after connection
+    setTimeout(() => {
+      if (socket && socket.connected) {
+        console.log('[SOCKET] Requesting full state resync after manual reconnection');
+        socket.emit('requestFullStateResync');
+      }
+    }, 1000);
+    
     return true;
   }
   
@@ -330,6 +527,11 @@ export function reconnect() {
 export function setReconnectionEnabled(enable) {
   reconnectionEnabled = enable;
   console.log(`[SOCKET] Reconnection ${enable ? 'enabled' : 'disabled'}`);
+  
+  if (!enable) {
+    // Clear any pending reconnection timers
+    clearTimeout(reconnectTimer);
+  }
 }
 
 /**
@@ -340,6 +542,17 @@ export function requestAllTickets() {
   if (socket) {
     console.log('[SOCKET] Requesting all tickets');
     socket.emit('requestAllTickets');
+  }
+}
+
+/**
+ * Explicitly request full state resync from server
+ * Useful after reconnection or when state seems inconsistent
+ */
+export function requestFullStateResync() {
+  if (socket && socket.connected) {
+    console.log('[SOCKET] Manually requesting full state resync');
+    socket.emit('requestFullStateResync');
   }
 }
 
@@ -365,4 +578,32 @@ export function getReconnectionStatus() {
     maxAttempts: maxReconnectAttempts,
     connected: socket ? socket.connected : false
   };
+}
+
+/**
+ * Get last known room state
+ * This can be used for UI recovery if socket disconnects
+ * @returns {Object|null} - Last known room state
+ */
+export function getLastKnownRoomState() {
+  return lastKnownRoomState;
+}
+
+/**
+ * Clean up socket connection
+ * Call this when the user manually logs out
+ */
+export function cleanup() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+  
+  clearTimeout(reconnectTimer);
+  lastKnownRoomState = null;
+  reconnectAttempts = 0;
+  roomId = null;
+  userName = null;
+  selectedStoryIndex = null;
+  console.log('[SOCKET] Socket connection cleaned up');
 }
