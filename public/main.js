@@ -2341,12 +2341,42 @@ function handleSocketMessage(message) {
       setupPlanningCards(); // Regenerate cards
       break;
 
-    case 'resyncState':
+ case 'resyncState':
+  // Update local deletedStoryIds set
+  if (Array.isArray(message.deletedStoryIds)) {
+    message.deletedStoryIds.forEach(id => deletedStoryIds.add(id));
+  }
+  
+  // Process tickets (filtered by deletedStoryIds)
   processAllTickets(message.tickets);
+  
+  // Update vote state
   for (const [storyId, votes] of Object.entries(message.votesPerStory || {})) {
-    votesPerStory[storyId] = votes;
+    votesPerStory[storyId] = { ...(votesPerStory[storyId] || {}), ...votes };
     if (message.votesRevealed?.[storyId]) {
       votesRevealed[storyId] = true;
+      if (getCurrentStoryId() === storyId) {
+        applyVotesToUI(votes, false);
+      }
+    }
+  }
+  break;
+
+      case 'restoreUserVote':
+  if (message.storyId && message.vote) {
+    // Get the current user's ID
+    const currentUserId = socket.id;
+    
+    // Update local state
+    if (!votesPerStory[message.storyId]) {
+      votesPerStory[message.storyId] = {};
+    }
+    votesPerStory[message.storyId][currentUserId] = message.vote;
+    
+    // Update UI if this is the current story
+    const currentId = getCurrentStoryId();
+    if (message.storyId === currentId) {
+      updateVoteVisuals(currentUserId, votesRevealed[message.storyId] ? message.vote : '👍', true);
     }
   }
   break;
