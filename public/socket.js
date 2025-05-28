@@ -539,7 +539,7 @@ socket.on('resyncState', (state) => {
     setTimeout(() => {
         restoreVotesFromStorage(roomIdentifier);
     }, 600);
-}
+});
 
   // Try to load saved state from session storage
   loadStateFromSessionStorage(roomIdentifier);
