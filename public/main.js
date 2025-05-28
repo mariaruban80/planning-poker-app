@@ -423,6 +423,12 @@ socket.on('storyVotes', ({ storyId, votes }) => {
     applyVotesToUI(votes, false);
   }
 });
+  socket.on('connect', () => {
+  console.log('[SOCKET] Connected to server with ID:', socket.id);
+  lastKnownRoomState.mySocketId = socket.id;
+  handleMessage({ type: 'connect' });
+});
+
 socket.on('restoreUserVote', ({ storyId, vote }) => {
   console.log(`[SOCKET] Restoring vote for story ${storyId}: ${vote}`);
 
