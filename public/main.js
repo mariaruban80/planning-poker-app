@@ -32,10 +32,10 @@ window.notifyStoriesUpdated = function() {
   });
   
   // Update our manually added tickets tracker
-  preservedManualTickets = allTickets.filter(ticket => 
-    ticket.id && !ticket.id.includes('story_csv_')
-  );
-  
+ preservedManualTickets = allTickets.filter(ticket => 
+  ticket.id && !ticket.id.includes('story_csv_') && !deletedStoryIds.has(ticket.id)
+);
+
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
 
@@ -421,13 +421,31 @@ socket.on('storyVotes', ({ storyId, votes }) => {
     applyVotesToUI(votes, false);
   }
 });
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+  console.log(`[SOCKET] Restoring vote for story ${storyId}: ${vote}`);
+
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  // Use your own socket ID if available, fallback to userName
+  const userId = socket.id || userName;
+  votesPerStory[storyId][userId] = vote;
+
+  // Reflect vote on UI
+  applyVotesToUI(votesPerStory[storyId], false);
+});
+
   
 // Updated resyncState handler to restore votes
-socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed }) => {
+socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed, deletedStoryIds = [] }) => {
   console.log('[SOCKET] Received resyncState from server');
-  handleSocketMessage({ type: 'resyncState', tickets, votesPerStory: serverVotes, votesRevealed });
 
-  // Update local vote state
+  // Track deleted stories
+  deletedStoryIds.forEach(id => deletedStoryIds.add(id));
+
+  // Filter out deleted stories from tickets
+  const filteredTickets = tickets.filter(t => !deletedStoryIds.includes(t.id));
+  handleSocketMessage({ type: 'resyncState', tickets: filteredTickets, votesPerStory: serverVotes, votesRevealed });
+
+  // Restore votes
   for (const [storyId, votes] of Object.entries(serverVotes || {})) {
     votesPerStory[storyId] = { ...(votesPerStory[storyId] || {}), ...votes };
     if (votesRevealed?.[storyId]) {
@@ -435,6 +453,7 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed }
     }
   }
 });
+
 // Updated deleteStory event handler to track deletions locally
 socket.on('deleteStory', ({ storyId }) => {
   console.log('[SOCKET] Story deletion event received:', storyId);
