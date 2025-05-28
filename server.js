@@ -630,22 +630,21 @@ io.on('connection', (socket) => {
   }
 
   // Handle story selection
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId]) {
-    console.log(`[SERVER] storySelected received from ${socket.id} in room ${roomId}, storyIndex: ${storyIndex}, storyId: ${storyId}`);
-    
-    // Update room activity timestamp
-    rooms[roomId].lastActivity = Date.now();
-    
-    // Store both the index and ID in room state
-    rooms[roomId].selectedIndex = storyIndex;
-    if (storyId) rooms[roomId].selectedStoryId = storyId;
-    
-    // Broadcast to ALL clients in the room (including sender for confirmation)
-    io.to(roomId).emit('storySelected', { storyIndex, storyId });
-  }
-});
+  socket.on('storySelected', ({ storyIndex }) => {
+    const roomId = socket.data.roomId;
+    if (roomId && rooms[roomId]) {
+      console.log(`[SERVER] storySelected received from ${socket.id} in room ${roomId}, storyIndex: ${storyIndex}`);
+      
+      // Update room activity timestamp
+      rooms[roomId].lastActivity = Date.now();
+      
+      // Store the selected index in room state
+      rooms[roomId].selectedIndex = storyIndex;
+      
+      // Broadcast to ALL clients in the room (including sender for confirmation)
+      io.to(roomId).emit('storySelected', { storyIndex });
+    }
+  });
 
   // Handle user votes with improved story tracking and persistence
   socket.on('castVote', ({ vote, targetUserId, storyId }) => {
