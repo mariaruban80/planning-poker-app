@@ -46,6 +46,9 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     userVotes: {}      // Track user's own votes by storyId
   };
   
+  // Try to load any saved state from session storage
+  loadStateFromSessionStorage(roomIdentifier);
+  
   // Initialize socket connection with improved reconnection settings
   socket = io({
     transports: ['websocket'],
@@ -103,6 +106,9 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     
     // Notify UI of successful connection
     handleMessage({ type: 'connect' });
+    
+    // Apply any saved votes from session storage
+    restoreVotesFromStorage(roomIdentifier);
   });
 
   // Add reconnect event handlers
@@ -127,6 +133,11 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       if (socket && socket.connected) {
         console.log('[SOCKET] Requesting full state resync after reconnection');
         socket.emit('requestFullStateResync');
+        
+        // Apply any saved votes from session storage (with a delay to ensure proper timing)
+        setTimeout(() => {
+          restoreVotesFromStorage(roomIdentifier);
+        }, 500);
       }
     }, 500);
     
@@ -224,6 +235,18 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     lastKnownRoomState.selectedIndex = storyIndex;
     
     handleMessage({ type: 'storySelected', storyIndex });
+    
+    // When a story is selected, request votes for it to ensure we have the latest
+    setTimeout(() => {
+      const selectedCard = document.querySelector('.story-card.selected');
+      if (selectedCard && socket && socket.connected) {
+        const storyId = selectedCard.id; 
+        if (storyId && !lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+          console.log(`[SOCKET] Requesting votes for newly selected story: ${storyId}`);
+          socket.emit('requestStoryVotes', { storyId });
+        }
+      }
+    }, 100);
   });
 
   socket.on('voteUpdate', ({ userId, vote, storyId }) => {
@@ -232,6 +255,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       console.log(`[SOCKET] Ignoring vote for deleted story: ${storyId}`);
       return;
     }
+    
+    console.log(`[SOCKET] Vote update received: ${userId} voted ${vote} for story ${storyId}`);
     
     // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
@@ -262,6 +287,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       console.log(`[SOCKET] Ignoring votes for deleted story: ${storyId}`);
       return;
     }
+    
+    console.log(`[SOCKET] Received votes for story ${storyId}:`, Object.keys(votes).length);
     
     // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
@@ -297,6 +324,13 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       console.log(`[SOCKET] Saved restored vote to session storage: ${storyId} = ${vote}`);
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
+    }
+    
+    // IMPORTANT: Also broadcast this vote to everyone else to ensure visibility
+    // This ensures other clients see the vote without host interaction
+    if (socket && socket.connected) {
+      console.log(`[SOCKET] Broadcasting restored vote to all users: ${storyId} = ${vote}`);
+      socket.emit('castVote', { vote, targetUserId: socket.id, storyId });
     }
     
     handleMessage({ type: 'restoreUserVote', storyId, vote });
@@ -346,6 +380,29 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     
     // Also remove the ticket from our local state
     lastKnownRoomState.tickets = lastKnownRoomState.tickets.filter(t => t.id !== storyId);
+    
+    // Remove any votes for this story from userVotes to avoid restoration
+    if (lastKnownRoomState.userVotes && lastKnownRoomState.userVotes[storyId]) {
+      delete lastKnownRoomState.userVotes[storyId];
+      
+      // Update session storage
+      try {
+        const votesData = JSON.stringify(lastKnownRoomState.userVotes);
+        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+      } catch (err) {
+        console.warn('[SOCKET] Could not update userVotes in session storage:', err);
+      }
+    }
+    
+    // Remove votes for this story from votesPerStory
+    if (lastKnownRoomState.votesPerStory && lastKnownRoomState.votesPerStory[storyId]) {
+      delete lastKnownRoomState.votesPerStory[storyId];
+    }
+    
+    // Remove reveal status for this story
+    if (lastKnownRoomState.votesRevealed && lastKnownRoomState.votesRevealed[storyId]) {
+      delete lastKnownRoomState.votesRevealed[storyId];
+    }
     
     handleMessage({ type: 'deleteStory', storyId });
   });
@@ -453,39 +510,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       votesRevealed: state.votesRevealed || {}
     };
     
-    // Also recover any additional user votes from session storage
-    try {
-      const savedVotes = sessionStorage.getItem(`votes_${roomIdentifier}`);
-      if (savedVotes) {
-        const parsedVotes = JSON.parse(savedVotes);
-        // Filter out deleted stories
-        for (const storyId in parsedVotes) {
-          if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-            delete parsedVotes[storyId];
-          } else {
-            // Apply saved vote
-            lastKnownRoomState.userVotes[storyId] = parsedVotes[storyId];
-          }
-        }
-        
-        // Send vote restoration requests to server for each valid saved vote
-        if (socket.connected) {
-          for (const [storyId, vote] of Object.entries(lastKnownRoomState.userVotes)) {
-            if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-              console.log(`[SOCKET] Submitting saved vote from session: ${storyId} = ${vote}`);
-              socket.emit('castVote', { 
-                vote, 
-                targetUserId: socket.id, 
-                storyId 
-              });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[SOCKET] Error restoring votes from session storage:', err);
-    }
-    
     // Forward to message handler
     handleMessage({ 
       type: 'resyncState', 
@@ -494,6 +518,12 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       votesRevealed: state.votesRevealed || {},
       deletedStoryIds: lastKnownRoomState.deletedStoryIds // Use our complete list
     });
+    
+    // Also restore any additional user votes after a short delay
+    // to ensure the UI is ready
+    setTimeout(() => {
+      restoreVotesFromStorage(roomIdentifier);
+    }, 300);
   });
 
   // Try to load saved state from session storage
@@ -539,6 +569,51 @@ function loadStateFromSessionStorage(roomIdentifier) {
 }
 
 /**
+ * Restore votes from session storage to server and other clients
+ */
+function restoreVotesFromStorage(roomIdentifier) {
+  if (!socket || !socket.connected) return;
+  
+  try {
+    // Get saved votes
+    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+    if (votesData) {
+      const savedVotes = JSON.parse(votesData);
+      
+      // Process each vote
+      for (const [storyId, vote] of Object.entries(savedVotes)) {
+        // Skip votes for deleted stories
+        if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+          continue;
+        }
+        
+        console.log(`[SOCKET] Restoring vote from storage: ${storyId} = ${vote}`);
+        
+        // Use restoreUserVote first to tell the server about this vote
+        socket.emit('restoreUserVote', { storyId, vote });
+        
+        // Then also broadcast it directly to ensure all clients see it
+        socket.emit('castVote', {
+          vote, 
+          targetUserId: socket.id,
+          storyId
+        });
+        
+        // Update our local state
+        if (!lastKnownRoomState.votesPerStory[storyId]) {
+          lastKnownRoomState.votesPerStory[storyId] = {};
+        }
+        lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
+      }
+      
+      console.log(`[SOCKET] Restored ${Object.keys(savedVotes).length} votes from session storage`);
+    }
+  } catch (err) {
+    console.warn('[SOCKET] Error restoring votes from storage:', err);
+  }
+}
+
+/**
  * Delete a story and sync with other users
  * @param {string} storyId - ID of the story to delete
  */
@@ -563,6 +638,27 @@ export function emitDeleteStory(storyId) {
       } catch (err) {
         console.warn('[SOCKET] Could not save deleted story ID to sessionStorage:', err);
       }
+    }
+    
+    // Also remove this story from userVotes to prevent restoration
+    if (lastKnownRoomState.userVotes && lastKnownRoomState.userVotes[storyId]) {
+      delete lastKnownRoomState.userVotes[storyId];
+      
+      try {
+        const votesData = JSON.stringify(lastKnownRoomState.userVotes);
+        sessionStorage.setItem(`votes_${roomId}`, votesData);
+      } catch (err) {
+        console.warn('[SOCKET] Could not update userVotes in session storage:', err);
+      }
+    }
+    
+    // Remove from votesPerStory and votesRevealed
+    if (lastKnownRoomState.votesPerStory && lastKnownRoomState.votesPerStory[storyId]) {
+      delete lastKnownRoomState.votesPerStory[storyId];
+    }
+    
+    if (lastKnownRoomState.votesRevealed && lastKnownRoomState.votesRevealed[storyId]) {
+      delete lastKnownRoomState.votesRevealed[storyId];
     }
   }
 }
@@ -590,6 +686,18 @@ export function emitStorySelected(index) {
     
     // Update local state tracking
     lastKnownRoomState.selectedIndex = index;
+    
+    // Request votes for the selected story after a short delay
+    setTimeout(() => {
+      const selectedCard = document.querySelector('.story-card.selected');
+      if (selectedCard && socket && socket.connected) {
+        const storyId = selectedCard.id;
+        if (storyId && !lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+          console.log(`[SOCKET] Requesting votes for selected story: ${storyId}`);
+          socket.emit('requestStoryVotes', { storyId });
+        }
+      }
+    }, 100);
   }
 }
 
@@ -633,7 +741,8 @@ export function emitVote(vote, targetUserId, storyId) {
  * @param {string} storyId - ID of the story
  */
 export function requestStoryVotes(storyId) {
-  if (socket) {
+  if (socket && !lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+    console.log(`[SOCKET] Requesting votes for story: ${storyId}`);
     socket.emit('requestStoryVotes', { storyId });
   }
 }
@@ -644,7 +753,7 @@ export function requestStoryVotes(storyId) {
  * @param {string} storyId - ID of the story
  */
 export function revealVotes(storyId) {
-  if (socket) {
+  if (socket && !lastKnownRoomState.deletedStoryIds.includes(storyId)) {
     socket.emit('revealVotes', { storyId });
     
     // Update local state tracking - ensure initialization
@@ -764,6 +873,11 @@ export function reconnect() {
       if (socket && socket.connected) {
         console.log('[SOCKET] Requesting full state resync after manual reconnection');
         socket.emit('requestFullStateResync');
+        
+        // Restore votes
+        setTimeout(() => {
+          restoreVotesFromStorage(roomId);
+        }, 500);
       }
     }, 1000);
     
@@ -806,6 +920,11 @@ export function requestFullStateResync() {
   if (socket && socket.connected) {
     console.log('[SOCKET] Manually requesting full state resync');
     socket.emit('requestFullStateResync');
+    
+    // Also restore votes after a delay
+    setTimeout(() => {
+      restoreVotesFromStorage(roomId);
+    }, 500);
   }
 }
 
