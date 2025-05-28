@@ -10,7 +10,12 @@ let reconnectionEnabled = true;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 10;
 let reconnectTimer = null;
-let lastKnownRoomState = null;
+let lastKnownRoomState = {
+  votesPerStory: {},  // Initialize sub-objects
+  votesRevealed: {},
+  deletedStoryIds: [], // Using an array instead of a Set
+  tickets: []
+};
 
 /**
  * Initialize WebSocket connection to server
@@ -30,6 +35,14 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   roomId = roomIdentifier;
   userName = userNameValue;
   reconnectAttempts = 0;
+  
+  // Reset lastKnownRoomState to avoid carrying over state from previous sessions
+  lastKnownRoomState = {
+    votesPerStory: {},
+    votesRevealed: {},
+    deletedStoryIds: [], // Using an array instead of a Set
+    tickets: []
+  };
   
   // Initialize socket connection with improved reconnection settings
   socket = io({
@@ -55,8 +68,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     console.log('[SOCKET] Received all tickets:', tickets.length);
     
     // Store tickets in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
-    lastKnownRoomState.tickets = tickets;
+    lastKnownRoomState.tickets = tickets || [];
     
     handleMessage({ type: 'allTickets', tickets });
   });
@@ -162,7 +174,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     console.log('[SOCKET DEBUG] votingSystemUpdate received:', data);
     
     // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
     lastKnownRoomState.votingSystem = data.votingSystem;
     
     // Forward this to the handler
@@ -173,7 +184,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
     
     // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
     lastKnownRoomState.csvData = csvData;
     
     handleMessage({ type: 'syncCSVData', csvData });
@@ -192,15 +202,13 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     selectedStoryIndex = storyIndex;
     
     // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
     lastKnownRoomState.selectedIndex = storyIndex;
     
     handleMessage({ type: 'storySelected', storyIndex });
   });
 
   socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-    // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
+    // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
     lastKnownRoomState.votesPerStory[storyId][userId] = vote;
@@ -209,9 +217,9 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('storyVotes', ({ storyId, votes }) => {
-    // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
+    // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
     lastKnownRoomState.votesPerStory[storyId] = { ...(lastKnownRoomState.votesPerStory[storyId] || {}), ...votes };
     
     handleMessage({ type: 'storyVotes', storyId, votes });
@@ -221,8 +229,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   socket.on('restoreUserVote', ({ storyId, vote }) => {
     console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
     
-    // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
+    // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
     lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
@@ -231,8 +238,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('votesRevealed', ({ storyId }) => {
-    // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
+    // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
     lastKnownRoomState.votesRevealed[storyId] = true;
     
@@ -242,22 +248,24 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   socket.on('deleteStory', ({ storyId }) => {
     console.log('[SOCKET] Story deletion event received:', storyId);
     
-    // Store in last known state
-    if (!lastKnownRoomState) lastKnownRoomState = {};
-    if (!lastKnownRoomState.deletedStoryIds) lastKnownRoomState.deletedStoryIds = new Set();
-    lastKnownRoomState.deletedStoryIds.add(storyId);
+    // Store in last known state - using array.push instead of Set.add
+    if (!lastKnownRoomState.deletedStoryIds) lastKnownRoomState.deletedStoryIds = [];
+    
+    // Only push if not already included
+    if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+      lastKnownRoomState.deletedStoryIds.push(storyId);
+    }
     
     handleMessage({ type: 'deleteStory', storyId });
   });
 
   socket.on('votesReset', ({ storyId }) => {
-    // Clear from last known state
-    if (lastKnownRoomState?.votesPerStory?.[storyId]) {
-      lastKnownRoomState.votesPerStory[storyId] = {};
-    }
-    if (lastKnownRoomState?.votesRevealed) {
-      lastKnownRoomState.votesRevealed[storyId] = false;
-    }
+    // Clear from last known state - ensure initialization
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
+    
+    lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesRevealed[storyId] = false;
     
     handleMessage({ type: 'votesReset', storyId });
   });
@@ -268,7 +276,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('storyChange', ({ story }) => {
-    if (!lastKnownRoomState) lastKnownRoomState = {};
     lastKnownRoomState.story = story;
     
     handleMessage({ type: 'storyChange', story });
@@ -305,15 +312,27 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   socket.on('resyncState', (state) => {
     console.log('[SOCKET] Received full state resync from server');
     
-    // Store complete state locally
-    lastKnownRoomState = { ...lastKnownRoomState, ...state };
+    // Initialize the state objects if they don't exist
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
+    if (!lastKnownRoomState.deletedStoryIds) lastKnownRoomState.deletedStoryIds = [];
     
-    // Add deleted story IDs to our Set
+    // Store complete state locally - use spread for deep copy safety
+    lastKnownRoomState = { 
+      ...lastKnownRoomState,
+      tickets: state.tickets || [],
+      votesPerStory: state.votesPerStory || {},
+      votesRevealed: state.votesRevealed || {}
+    };
+    
+    // Add deleted story IDs to our array
     if (Array.isArray(state.deletedStoryIds)) {
-      if (!lastKnownRoomState.deletedStoryIds) {
-        lastKnownRoomState.deletedStoryIds = new Set();
-      }
-      state.deletedStoryIds.forEach(id => lastKnownRoomState.deletedStoryIds.add(id));
+      // Use filter to add only ids not already in the array
+      state.deletedStoryIds.forEach(id => {
+        if (!lastKnownRoomState.deletedStoryIds.includes(id)) {
+          lastKnownRoomState.deletedStoryIds.push(id);
+        }
+      });
     }
     
     // Forward to message handler
@@ -333,12 +352,14 @@ export function emitDeleteStory(storyId) {
     console.log('[SOCKET] Deleting story:', storyId);
     socket.emit('deleteStory', { storyId });
     
-    // Update local state tracking
-    if (lastKnownRoomState) {
-      if (!lastKnownRoomState.deletedStoryIds) {
-        lastKnownRoomState.deletedStoryIds = new Set();
-      }
-      lastKnownRoomState.deletedStoryIds.add(storyId);
+    // Update local state tracking - using array.push instead of Set.add
+    if (!lastKnownRoomState.deletedStoryIds) {
+      lastKnownRoomState.deletedStoryIds = [];
+    }
+    
+    // Only add if not already included
+    if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+      lastKnownRoomState.deletedStoryIds.push(storyId);
     }
   }
 }
@@ -365,9 +386,7 @@ export function emitStorySelected(index) {
     selectedStoryIndex = index;
     
     // Update local state tracking
-    if (lastKnownRoomState) {
-      lastKnownRoomState.selectedIndex = index;
-    }
+    lastKnownRoomState.selectedIndex = index;
   }
 }
 
@@ -381,16 +400,10 @@ export function emitVote(vote, targetUserId, storyId) {
   if (socket) {
     socket.emit('castVote', { vote, targetUserId, storyId });
     
-    // Update local state tracking
-    if (lastKnownRoomState) {
-      if (!lastKnownRoomState.votesPerStory) {
-        lastKnownRoomState.votesPerStory = {};
-      }
-      if (!lastKnownRoomState.votesPerStory[storyId]) {
-        lastKnownRoomState.votesPerStory[storyId] = {};
-      }
-      lastKnownRoomState.votesPerStory[storyId][targetUserId] = vote;
-    }
+    // Update local state tracking - ensure initialization
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesPerStory[storyId][targetUserId] = vote;
   }
 }
 
@@ -413,13 +426,9 @@ export function revealVotes(storyId) {
   if (socket) {
     socket.emit('revealVotes', { storyId });
     
-    // Update local state tracking
-    if (lastKnownRoomState) {
-      if (!lastKnownRoomState.votesRevealed) {
-        lastKnownRoomState.votesRevealed = {};
-      }
-      lastKnownRoomState.votesRevealed[storyId] = true;
-    }
+    // Update local state tracking - ensure initialization
+    if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
+    lastKnownRoomState.votesRevealed[storyId] = true;
   }
 }
 
@@ -432,15 +441,12 @@ export function resetVotes(storyId) {
   if (socket) {
     socket.emit('resetVotes', { storyId });
     
-    // Update local state tracking
-    if (lastKnownRoomState) {
-      if (lastKnownRoomState.votesPerStory?.[storyId]) {
-        lastKnownRoomState.votesPerStory[storyId] = {};
-      }
-      if (lastKnownRoomState.votesRevealed) {
-        lastKnownRoomState.votesRevealed[storyId] = false;
-      }
-    }
+    // Update local state tracking - ensure initialization
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
+    
+    lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesRevealed[storyId] = false;
   }
 }
 
@@ -479,16 +485,13 @@ export function emitAddTicket(ticketData) {
     console.log('[SOCKET] Adding new ticket:', ticketData);
     socket.emit('addTicket', ticketData);
     
-    // Update local state tracking
-    if (lastKnownRoomState) {
-      if (!lastKnownRoomState.tickets) {
-        lastKnownRoomState.tickets = [];
-      }
-      // Avoid duplicates
-      const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
-      if (existingIndex === -1) {
-        lastKnownRoomState.tickets.push(ticketData);
-      }
+    // Update local state tracking - ensure initialization
+    if (!lastKnownRoomState.tickets) lastKnownRoomState.tickets = [];
+    
+    // Avoid duplicates
+    const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
+    if (existingIndex === -1) {
+      lastKnownRoomState.tickets.push(ticketData);
     }
   }
 }
@@ -600,7 +603,12 @@ export function cleanup() {
   }
   
   clearTimeout(reconnectTimer);
-  lastKnownRoomState = null;
+  lastKnownRoomState = {
+    votesPerStory: {},
+    votesRevealed: {},
+    deletedStoryIds: [],
+    tickets: []
+  };
   reconnectAttempts = 0;
   roomId = null;
   userName = null;
