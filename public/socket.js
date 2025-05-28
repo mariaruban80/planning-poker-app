@@ -615,3 +615,7 @@ export function cleanup() {
   selectedStoryIndex = null;
   console.log('[SOCKET] Socket connection cleaned up');
 }
+export function getMySocketId() {
+  return socket?.id || lastKnownRoomState?.mySocketId || '';
+}
+
