@@ -1392,71 +1392,53 @@ function addVoteStatisticsStyles() {
  */
 function handleVotesRevealed(storyId, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyId);
-  
-  // Check if this story is deleted
+
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Not revealing votes for deleted story: ${storyId}`);
     return;
   }
-  
-  // Check if we've already processed this reveal
-  const statsContainer = document.querySelector('.vote-statistics-container');
+
+  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
-  
-  // If stats are already visible and cards are hidden, this is a duplicate call
+
   if (statsAlreadyVisible && planningCardsHidden) {
     console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
     return;
   }
-  
-  // Mark this story as having revealed votes
+
   votesRevealed[storyId] = true;
-  
-  // Store votes in local state for reconnection recovery
+
   if (!votesPerStory[storyId]) {
     votesPerStory[storyId] = {};
   }
-  
-  // Merge in any new votes
+
   Object.assign(votesPerStory[storyId], votes);
-  
-  // Make sure the fixed styles are added
+
   addFixedVoteStatisticsStyles();
-  
-  // Create vote statistics display
+
   const voteStats = createFixedVoteDisplay(votes);
-  
-  // Hide planning cards and show statistics
+
   if (planningCardsSection) {
-    // Create container for statistics if it doesn't exist
     if (!statsContainer) {
-      statsContainer = document.createElement('div');
+      statsContainer = document.createElement('div'); // ✅ Safe now
       statsContainer.className = 'vote-statistics-container';
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
-    
-    // Clear any previous stats and add new one
+
     statsContainer.innerHTML = '';
     statsContainer.appendChild(voteStats);
-    
-    // Hide planning cards
+
     planningCardsSection.style.display = 'none';
-    
-    // Show statistics
     statsContainer.style.display = 'block';
   }
-  
-  // Apply the vote visuals - false means SHOW the actual values
+
   applyVotesToUI(votes, false);
-  
-  // Add a delay to ensure the DOM is updated before fixing font sizes
   setTimeout(fixRevealedVoteFontSizes, 100);
-  
-  // Run it again after a bit longer to be sure (sometimes the DOM updates can be delayed)
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
+
 
 
 /**
