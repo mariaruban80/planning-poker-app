@@ -1498,7 +1498,7 @@ function getVoteEmoji(vote) {
  * @param {Object} ticketData - Ticket data { id, text }
  * @param {boolean} selectAfterAdd - Whether to select the ticket after adding
  */
-function addTicketToUI(ticketData, selectAfterAdd = false) {
+/** function addTicketToUI(ticketData, selectAfterAdd = false) {
   if (!ticketData || !ticketData.id || !ticketData.text) return;
   
   // Check if this ticket is in our deleted set
@@ -1576,7 +1576,26 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     card.setAttribute('draggable', 'true');
   });
   normalizeStoryIndexes();
+} */
+
+function addTicketToUI(ticket, isManual = false, index = null) {
+  const card = document.createElement('div');
+  card.classList.add('story-card');
+  card.id = ticket.id;
+  card.textContent = ticket.text;
+
+  // ✅ Add this to support selectStory()
+  if (index !== null) {
+    card.setAttribute('data-index', index);
+  }
+
+  // Append to the story list
+  const storyList = document.getElementById('storyList');
+  if (storyList) {
+    storyList.appendChild(card);
+  }
 }
+
 
 /**
  * Set up a mutation observer to catch any newly added story cards
@@ -1755,7 +1774,8 @@ function setupCSVUploader() {
         
         // Make sure this ticket isn't already in the list to avoid duplicates
         if (!document.getElementById(ticket.id)) {
-          addTicketToUI(ticket, false);
+        // addTicketToUI(ticket, false);
+          addTicketToUI(ticket, false, index); 
         }
       });
       
