@@ -2,7 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket ,getMySocketId } from './socket.js'; 
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -16,12 +16,11 @@ let deleteConfirmationInProgress = false;
 window.notifyStoriesUpdated = function() {
   const storyList = document.getElementById('storyList');
   if (!storyList) return;
-  
-  // Collect current stories from DOM
+
   const allTickets = [];
   const storyCards = storyList.querySelectorAll('.story-card');
-  
-  storyCards.forEach((card, index) => {
+
+  storyCards.forEach((card) => {
     const titleElement = card.querySelector('.story-title');
     if (titleElement) {
       allTickets.push({
@@ -30,14 +29,17 @@ window.notifyStoriesUpdated = function() {
       });
     }
   });
-  
-  // Update our manually added tickets tracker
- preservedManualTickets = allTickets.filter(ticket => 
-  ticket.id && !ticket.id.includes('story_csv_') && !deletedStoryIds.has(ticket.id)
-);
+
+  preservedManualTickets = allTickets.filter(ticket =>
+    ticket.id &&
+    !ticket.id.includes('story_csv_') &&
+    !deletedStoryIds.has(ticket.id)
+  );
 
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
+
+
 
 /**
  * Handle adding a ticket from the modal
@@ -421,25 +423,19 @@ socket.on('storyVotes', ({ storyId, votes }) => {
     applyVotesToUI(votes, false);
   }
 });
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
+socket.on('restoreUserVote', ({ storyId, vote }) => {
   console.log(`[SOCKET] Restoring vote for story ${storyId}: ${vote}`);
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  // Use your own socket ID if available, fallback to userName
-  const userId = socket.id || userName;
+  const userId = getMySocketId();
   votesPerStory[storyId][userId] = vote;
-
-  // Reflect vote on UI
   applyVotesToUI(votesPerStory[storyId], false);
 });
-  socket.on('storySelected', ({ storyIndex }) => {
-  console.log('[SOCKET] Story selected:', storyIndex);
+socket.on('storySelected', ({ storyIndex }) => {
+  console.log('[SOCKET] Story selected from server:', storyIndex);
   currentStoryIndex = storyIndex;
-
-  // Ensure the correct story card is selected visually
   highlightSelectedStory(storyIndex);
 
-  // Optionally re-request votes if not present
   const currentTicket = document.querySelectorAll('.story-card')[storyIndex];
   if (currentTicket && !votesPerStory[currentTicket.id]) {
     socket.emit('requestStoryVotes', { storyId: currentTicket.id });
@@ -449,24 +445,22 @@ socket.on('storyVotes', ({ storyId, votes }) => {
 
   
 // Updated resyncState handler to restore votes
-socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed, deletedStoryIds = [] }) => {
+
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed, deletedStoryIds: deletedIdsFromServer = [] }) => {
   console.log('[SOCKET] Received resyncState from server');
 
-  // Track deleted stories
-  deletedStoryIds.forEach(id => deletedStoryIds.add(id));
+  deletedIdsFromServer.forEach(id => deletedStoryIds.add(id));
+  const filteredTickets = tickets.filter(t => !deletedStoryIds.has(t.id));
 
-  // Filter out deleted stories from tickets
-  const filteredTickets = tickets.filter(t => !deletedStoryIds.includes(t.id));
   handleSocketMessage({ type: 'resyncState', tickets: filteredTickets, votesPerStory: serverVotes, votesRevealed });
 
-  // Restore votes
   for (const [storyId, votes] of Object.entries(serverVotes || {})) {
     votesPerStory[storyId] = { ...(votesPerStory[storyId] || {}), ...votes };
     if (votesRevealed?.[storyId]) {
       applyVotesToUI(votes, false);
     }
   }
-  // 🔍 DEBUG: Verify state
+
   setTimeout(() => {
     console.log('[VERIFY] votesPerStory after reconnect:', JSON.stringify(votesPerStory));
   }, 1500);
@@ -922,13 +916,20 @@ function highlightSelectedStory(index) {
       card.classList.add('selected-story');
       const storyId = card.id;
       const votes = votesPerStory[storyId] || {};
-      applyVotesToUI(votes, false); // false = show actual votes
+      applyVotesToUI(votes, false);
     } else {
       card.classList.remove('selected-story');
     }
   });
 }
-
+function updateOwnVoteSlot(vote) {
+  const voteSpace = document.querySelector('.own-vote-space .vote-badge');
+  if (voteSpace) {
+    voteSpace.textContent = vote;
+    voteSpace.style.opacity = '1';
+    voteSpace.style.visibility = 'visible';
+  }
+}
 
 /**
  * Update connection status UI
@@ -1846,12 +1847,17 @@ function resetOrRestoreVotes(index) {
  * @param {boolean} hideValues - Whether to hide actual vote values and show thumbs up
  */
 function applyVotesToUI(votes, hideValues) {
-  console.log('[DEBUG] applyVotesToUI called with:', 
-    { votes: JSON.stringify(votes), hideValues });
-  
+  console.log('[DEBUG] applyVotesToUI called with:', { votes: JSON.stringify(votes), hideValues });
+
+  const myId = getMySocketId();
+
   Object.entries(votes).forEach(([userId, vote]) => {
-    console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
-    updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
+    console.log('[DEBUG] Updating vote for', userId + ':', vote);
+    updateVoteVisuals(userId, vote, hideValues);
+
+    if (userId === myId) {
+      updateOwnVoteSlot(vote);
+    }
   });
 }
 
