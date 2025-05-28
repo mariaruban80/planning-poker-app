@@ -470,7 +470,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
   
   // Enhanced state sync handling
-  socket.on('resyncState', (state) => {
+socket.on('resyncState', (state) => {
     console.log('[SOCKET] Received full state resync from server');
     
     // Initialize the state objects if they don't exist
@@ -481,50 +481,65 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     
     // Update deleted story IDs first (so we can filter correctly)
     if (Array.isArray(state.deletedStoryIds)) {
-      // Use filter to add only ids not already in the array
-      state.deletedStoryIds.forEach(id => {
-        if (!lastKnownRoomState.deletedStoryIds.includes(id)) {
-          lastKnownRoomState.deletedStoryIds.push(id);
+        state.deletedStoryIds.forEach(id => {
+            if (!lastKnownRoomState.deletedStoryIds.includes(id)) {
+                lastKnownRoomState.deletedStoryIds.push(id);
+            }
+        });
+        
+        // Save to session storage for persistence
+        try {
+            const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
+            sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
+        } catch (err) {
+            console.warn('[SOCKET] Could not save deleted story IDs to sessionStorage:', err);
         }
-      });
-      
-      // Save to session storage for persistence
-      try {
-        const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-        sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
-      } catch (err) {
-        console.warn('[SOCKET] Could not save deleted story IDs to sessionStorage:', err);
-      }
     }
     
     // Filter out any deleted tickets
     const filteredTickets = (state.tickets || []).filter(
-      ticket => !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+        ticket => !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
     );
+    
+    // Store selected index for later use after tickets are processed
+    const selectedIndex = state.selectedIndex;
     
     // Now store the filtered state
     lastKnownRoomState = { 
-      ...lastKnownRoomState,
-      tickets: filteredTickets,
-      votesPerStory: state.votesPerStory || {},
-      votesRevealed: state.votesRevealed || {}
+        ...lastKnownRoomState,
+        tickets: filteredTickets,
+        votesPerStory: state.votesPerStory || {},
+        votesRevealed: state.votesRevealed || {},
+        selectedIndex: selectedIndex
     };
     
     // Forward to message handler
     handleMessage({ 
-      type: 'resyncState', 
-      tickets: filteredTickets,  // Use filtered tickets
-      votesPerStory: state.votesPerStory || {},
-      votesRevealed: state.votesRevealed || {},
-      deletedStoryIds: lastKnownRoomState.deletedStoryIds // Use our complete list
+        type: 'resyncState', 
+        tickets: filteredTickets,  // Use filtered tickets
+        votesPerStory: state.votesPerStory || {},
+        votesRevealed: state.votesRevealed || {},
+        deletedStoryIds: lastKnownRoomState.deletedStoryIds, // Use our complete list
+        selectedIndex: selectedIndex
     });
+    
+    // Apply story selection after a delay to ensure DOM is ready
+    setTimeout(() => {
+        if (typeof selectedIndex === 'number') {
+            handleMessage({
+                type: 'storySelected',
+                storyIndex: selectedIndex,
+                forceSelection: true
+            });
+        }
+    }, 500);
     
     // Also restore any additional user votes after a short delay
     // to ensure the UI is ready
     setTimeout(() => {
-      restoreVotesFromStorage(roomIdentifier);
-    }, 300);
-  });
+        restoreVotesFromStorage(roomIdentifier);
+    }, 600);
+}
 
   // Try to load saved state from session storage
   loadStateFromSessionStorage(roomIdentifier);
