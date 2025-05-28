@@ -770,7 +770,7 @@ io.on('connection', (socket) => {
             socket.emit('exportData', exportData);
         }
     });
-
+});
 
 
 const PORT = process.env.PORT || 3000;
