@@ -761,7 +761,7 @@ function initializeApp(roomId) {
   addNewLayoutStyles();
   
   // Refresh votes periodically to ensure everyone sees the latest votes
-  setInterval(refreshCurrentStoryVotes, 10000); // Check every 10 seconds
+  setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
 }
 
 /**
@@ -775,9 +775,12 @@ function refreshCurrentStoryVotes() {
   // Skip for deleted stories or when no story is selected
   if (!storyId || deletedStoryIds.has(storyId)) return;
   
-  // Request the latest votes from the server
-  console.log(`[AUTO] Refreshing votes for current story: ${storyId}`);
-  socket.emit('requestStoryVotes', { storyId });
+  // Only request votes if we haven't already revealed them
+  // This prevents unnecessary traffic and potential re-animation
+  if (!votesRevealed[storyId]) {
+    console.log(`[AUTO] Refreshing votes for current story: ${storyId}`);
+    socket.emit('requestStoryVotes', { storyId });
+  }
 }
 
 function updateHeaderStyle() {
@@ -1389,11 +1392,22 @@ function addVoteStatisticsStyles() {
  */
 function handleVotesRevealed(storyId, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyId);
-  console.log('[DEBUG] Current votes state:', JSON.stringify(votes));
   
   // Check if this story is deleted
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Not revealing votes for deleted story: ${storyId}`);
+    return;
+  }
+  
+  // Check if we've already processed this reveal
+  const statsContainer = document.querySelector('.vote-statistics-container');
+  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
+  
+  // If stats are already visible and cards are hidden, this is a duplicate call
+  if (statsAlreadyVisible && planningCardsHidden) {
+    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
     return;
   }
   
@@ -1408,16 +1422,15 @@ function handleVotesRevealed(storyId, votes) {
   // Merge in any new votes
   Object.assign(votesPerStory[storyId], votes);
   
-  // Get the planning cards container
-  const planningCardsSection = document.querySelector('.planning-cards-section');
   // Make sure the fixed styles are added
   addFixedVoteStatisticsStyles();
+  
   // Create vote statistics display
   const voteStats = createFixedVoteDisplay(votes);
+  
   // Hide planning cards and show statistics
   if (planningCardsSection) {
     // Create container for statistics if it doesn't exist
-    let statsContainer = document.querySelector('.vote-statistics-container');
     if (!statsContainer) {
       statsContainer = document.createElement('div');
       statsContainer.className = 'vote-statistics-container';
@@ -1444,6 +1457,7 @@ function handleVotesRevealed(storyId, votes) {
   // Run it again after a bit longer to be sure (sometimes the DOM updates can be delayed)
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
+
 
 /**
  * Setup Add Ticket button
@@ -2921,36 +2935,44 @@ function handleSocketMessage(message) {
       }
       break;
       
-    case 'votesRevealed':
-      console.log('[DEBUG] Received votesRevealed event', message);
-      
-      // Skip processing for deleted story
-      if (message.storyId && deletedStoryIds.has(message.storyId)) {
-        console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
-        return;
-      }
-      
-      const storyId = message.storyId;
-      
-      if (storyId) {
-        // Store the revealed state
-        votesRevealed[storyId] = true;
-        console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
-        
-        // Get the votes for this story
-        const votes = votesPerStory[storyId] || {};
-        console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
-        
-        // This is where we display the actual vote values
-        applyVotesToUI(votes, false);
-        
-        // Show statistics  
-        handleVotesRevealed(storyId, votes);
-        
-        // Trigger emoji burst for fun effect
-        triggerGlobalEmojiBurst();
-      }
-      break;
+ 
+
+case 'votesRevealed':
+  console.log('[DEBUG] Received votesRevealed event', message);
+  
+  // Skip processing for deleted story
+  if (message.storyId && deletedStoryIds.has(message.storyId)) {
+    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
+    return;
+  }
+  
+  const storyId = message.storyId;
+  
+  if (storyId) {
+    // Check if we've already revealed this story - IMPORTANT NEW CHECK
+    if (votesRevealed[storyId] === true) {
+      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
+      return; // Skip the rest to avoid duplicate animations
+    }
+    
+    // Store the revealed state
+    votesRevealed[storyId] = true;
+    console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
+    
+    // Get the votes for this story
+    const votes = votesPerStory[storyId] || {};
+    console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
+    
+    // This is where we display the actual vote values
+    applyVotesToUI(votes, false);
+    
+    // Show statistics  
+    handleVotesRevealed(storyId, votes);
+    
+    // Trigger emoji burst for fun effect - ONLY ONCE
+    triggerGlobalEmojiBurst();
+  }
+  break;
       
     case 'votesReset':
       // Skip processing for deleted story
