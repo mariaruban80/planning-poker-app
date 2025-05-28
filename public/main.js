@@ -1992,69 +1992,115 @@ function displayCSVData(data) {
  * Select a story by index
  * @param {number} index - Story index to select
  * @param {boolean} emitToServer - Whether to emit to server (default: true)
+ * @param {boolean} forceSelection - Whether to force selection even after retries
  */
-function selectStory(index, emitToServer = true) {
-  console.log('[UI] Story selected by user:', index);
-  
-  // Update UI first for responsiveness
-  document.querySelectorAll('.story-card').forEach(card => {
-    card.classList.remove('selected', 'active');
-  });
-  
-  const storyCard = document.querySelector(`.story-card[data-index="${index}"]`);
-  if (storyCard) {
-    storyCard.classList.add('selected', 'active');
-  }
-  
-  // Update local state
-  currentStoryIndex = index;
-  
-  // Get the story ID from the selected card
-  const storyId = getCurrentStoryId();
-  
-  // Skip for deleted stories
-  if (storyId && deletedStoryIds.has(storyId)) {
-    console.log(`[UI] Selected story ${storyId} is marked as deleted, skipping further processing`);
-    return;
-  }
-  
-  // ✅ Ensure vote reveal state is initialized for this story
-  if (storyId && typeof votesRevealed[storyId] === 'undefined') {
-    votesRevealed[storyId] = false;
-  }
-  
-  // Show planning cards again and hide statistics when changing stories
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const statsContainer = document.querySelector('.vote-statistics-container');
-  
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'block';
-  }
-  
-  if (statsContainer) {
-    statsContainer.style.display = 'none';
-  }
-  
-  renderCurrentStory();
-  
-  // Reset or restore vote badges for the current story
-  resetOrRestoreVotes(storyId);
-  
-  // Notify server about selection if requested
-  if (emitToServer && socket) {
-    console.log('[EMIT] Broadcasting story selection:', index);
-    socket.emit('storySelected', { storyIndex: index });
+function selectStory(index, emitToServer = true, forceSelection = false) {
+    console.log('[UI] Story selected by user:', index, forceSelection ? '(forced)' : '');
     
-    // Request votes for this story
-    if (storyId) {
-      if (typeof requestStoryVotes === 'function') {
-        requestStoryVotes(storyId);
-      } else if (socket) {
-        socket.emit('requestStoryVotes', { storyId });
-      }
+    // Update UI first for responsiveness
+    document.querySelectorAll('.story-card').forEach(card => {
+        card.classList.remove('selected', 'active');
+    });
+    
+    const storyCard = document.querySelector(`.story-card[data-index="${index}"]`);
+    if (storyCard) {
+        storyCard.classList.add('selected', 'active');
+        
+        // Update local state
+        currentStoryIndex = index;
+        
+        // Get the story ID from the selected card
+        const storyId = getCurrentStoryId();
+        
+        // Skip for deleted stories
+        if (storyId && deletedStoryIds.has(storyId)) {
+            console.log(`[UI] Selected story ${storyId} is marked as deleted, skipping further processing`);
+            return;
+        }
+        
+        // Ensure vote reveal state is initialized for this story
+        if (storyId && typeof votesRevealed[storyId] === 'undefined') {
+            votesRevealed[storyId] = false;
+        }
+        
+        // Show planning cards again and hide statistics when changing stories
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        const statsContainer = document.querySelector('.vote-statistics-container');
+        
+        if (planningCardsSection) {
+            planningCardsSection.style.display = 'block';
+        }
+        
+        if (statsContainer) {
+            statsContainer.style.display = 'none';
+        }
+        
+        renderCurrentStory();
+        
+        // Reset or restore vote badges for the current story
+        resetOrRestoreVotes(storyId);
+        
+        // Notify server about selection if requested
+        if (emitToServer && socket) {
+            console.log('[EMIT] Broadcasting story selection:', index);
+            socket.emit('storySelected', { storyIndex: index });
+            
+            // Request votes for this story
+            if (storyId) {
+                if (typeof requestStoryVotes === 'function') {
+                    requestStoryVotes(storyId);
+                } else if (socket) {
+                    socket.emit('requestStoryVotes', { storyId });
+                }
+            }
+        }
+    } else if (forceSelection) {
+        console.log(`[UI] Story card with index ${index} not found yet, retrying selection soon...`);
+        // Retry selection after a short delay in case DOM is still loading
+        setTimeout(() => {
+            // Check again if the card exists now
+            const retryCard = document.querySelector(`.story-card[data-index="${index}"]`);
+            if (retryCard) {
+                // Call selectStory again, but without forcing to prevent infinite loop
+                selectStory(index, emitToServer, false);
+            } else {
+                // Second attempt failed, try with data-index on all cards
+                const allCards = document.querySelectorAll('.story-card');
+                let found = false;
+                
+                allCards.forEach(card => {
+                    if (parseInt(card.dataset.index) === parseInt(index)) {
+                        // We found a card with matching index
+                        card.classList.add('selected', 'active');
+                        currentStoryIndex = index;
+                        found = true;
+                        
+                        // Continue with rest of the selection process
+                        const storyId = card.id;
+                        if (storyId && !deletedStoryIds.has(storyId)) {
+                            if (typeof votesRevealed[storyId] === 'undefined') {
+                                votesRevealed[storyId] = false;
+                            }
+                            resetOrRestoreVotes(storyId);
+                        }
+                    }
+                });
+                
+                if (!found) {
+                    console.log(`[UI] Could not find story with index ${index} after retries`);
+                    // If we still can't find it, just set currentStoryIndex
+                    // so next time stories load, it will be selected
+                    currentStoryIndex = index;
+                }
+            }
+        }, 300);
+    } else {
+        console.log(`[UI] Story card with index ${index} not found`);
     }
-  }
 }
+
+
+
 
 /**
  * Reset or restore votes for a story
@@ -2988,21 +3034,25 @@ case 'votesRevealed':
         }
       }
       break;
+case 'storySelected':
+  if (typeof message.storyIndex === 'number') {
+    console.log('[SOCKET] Story selected from server:', message.storyIndex);
+    
+    // Pass the forceSelection parameter if it exists
+    const forceSelection = message.forceSelection === true;
+    selectStory(message.storyIndex, false, forceSelection); // false to avoid re-emitting
+    
+    // After story selection, request votes for it
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
+      setTimeout(() => {
+        socket.emit('requestStoryVotes', { storyId: currentStoryId });
+      }, 100);
+    }
+  }
+  break;
 
-    case 'storySelected':
-      if (typeof message.storyIndex === 'number') {
-        console.log('[SOCKET] Story selected from server:', message.storyIndex);
-        selectStory(message.storyIndex, false); // false to avoid re-emitting
-        
-        // After story selection, request votes for it
-        const currentStoryId = getCurrentStoryId();
-        if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
-          setTimeout(() => {
-            socket.emit('requestStoryVotes', { storyId: currentStoryId });
-          }, 100);
-        }
-      }
-      break;
+
       
     case 'storyVotes':
       // Skip processing for deleted story
