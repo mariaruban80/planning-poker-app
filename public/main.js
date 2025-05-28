@@ -462,7 +462,15 @@ function initializeApp(roomId) {
       votesPerStory[storyId] = {};
     }
     
+    // Store the vote
     votesPerStory[storyId][userId] = vote;
+    
+    // Update UI immediately if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId) {
+      // If votes are revealed, show actual vote, otherwise show thumbs up
+      updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+    }
   });
   
   socket.on('storyVotes', ({ storyId, votes }) => {
@@ -476,10 +484,47 @@ function initializeApp(roomId) {
       votesPerStory[storyId] = {};
     }
     
+    // Store the votes
     Object.assign(votesPerStory[storyId], votes);
     
-    if (votesRevealed[storyId]) {
-      applyVotesToUI(votes, false);
+    // Update UI immediately if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId) {
+      if (votesRevealed[storyId]) {
+        // Show actual votes if revealed
+        applyVotesToUI(votes, false);
+      } else {
+        // Show thumbs up if not revealed
+        applyVotesToUI(votes, true);
+      }
+    }
+  });
+  
+  // Updated handler for restored user votes
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+    console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
+    
+    // Skip for deleted stories
+    if (deletedStoryIds.has(storyId)) {
+      console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
+      return;
+    }
+    
+    // Initialize if needed
+    if (!votesPerStory[storyId]) {
+      votesPerStory[storyId] = {};
+    }
+    
+    // Store in local state
+    if (socket && socket.id) {
+      votesPerStory[storyId][socket.id] = vote;
+      
+      // Update UI if this is the current story
+      const currentId = getCurrentStoryId();
+      if (storyId === currentId) {
+        // Show thumbs up if votes aren't revealed, otherwise show actual vote
+        updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+      }
     }
   });
   
@@ -550,6 +595,15 @@ function initializeApp(roomId) {
           const currentId = getCurrentStoryId();
           if (currentId === storyId) {
             updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+          }
+          
+          // Also broadcast this vote to ensure all clients see it
+          if (socket.connected) {
+            socket.emit('castVote', {
+              vote,
+              targetUserId: socket.id,
+              storyId
+            });
           }
         }
       }
@@ -627,34 +681,6 @@ function initializeApp(roomId) {
     resetAllVoteVisuals();
   });
   
-  // New handler for restoring user votes
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
-    console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
-    
-    // Skip processing for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
-      return;
-    }
-    
-    // Store in local state
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Make sure we have a socket ID before storing
-    if (socket && socket.id) {
-      votesPerStory[storyId][socket.id] = vote;
-      
-      // Update UI if this is the current story
-      const currentId = getCurrentStoryId();
-      if (storyId === currentId) {
-        // Show thumbs up if votes aren't revealed, otherwise show actual vote
-        updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-      }
-    }
-  });
-  
   // Add reconnection handlers for socket
   if (socket) {
     // New handler for reconnect attempts
@@ -671,14 +697,32 @@ function initializeApp(roomId) {
       // Request current state
       socket.emit('requestAllTickets');
       
+      // Get current story ID
+      const currentStoryId = getCurrentStoryId();
+      
+      // After a short delay, send our votes for the current story
       setTimeout(() => {
-        // Request votes for active stories
-        Object.keys(votesPerStory).forEach(storyId => {
-          // Skip deleted stories
-          if (!deletedStoryIds.has(storyId)) {
-            socket.emit('requestStoryVotes', { storyId });
+        // First request votes for the current story to get other users' votes
+        if (currentStoryId && !deletedStoryIds.has(currentStoryId)) {
+          socket.emit('requestStoryVotes', { storyId: currentStoryId });
+        }
+        
+        // Then, for all stories we have votes for, broadcast our votes
+        if (typeof getUserVotes === 'function') {
+          const userVotes = getUserVotes();
+          for (const [storyId, vote] of Object.entries(userVotes)) {
+            if (deletedStoryIds.has(storyId)) continue; // Skip deleted stories
+            
+            console.log(`[RECONNECT] Broadcasting saved vote for story ${storyId}: ${vote}`);
+            
+            // Emit our vote to ensure everyone sees it
+            socket.emit('castVote', {
+              vote,
+              targetUserId: socket.id,
+              storyId
+            });
           }
-        });
+        }
       }, 500);
     });
   }
@@ -715,6 +759,25 @@ function initializeApp(roomId) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
+  
+  // Refresh votes periodically to ensure everyone sees the latest votes
+  setInterval(refreshCurrentStoryVotes, 10000); // Check every 10 seconds
+}
+
+/**
+ * Periodically refresh votes for the current story
+ */
+function refreshCurrentStoryVotes() {
+  if (!socket || !socket.connected) return;
+  
+  const storyId = getCurrentStoryId();
+  
+  // Skip for deleted stories or when no story is selected
+  if (!storyId || deletedStoryIds.has(storyId)) return;
+  
+  // Request the latest votes from the server
+  console.log(`[AUTO] Refreshing votes for current story: ${storyId}`);
+  socket.emit('requestStoryVotes', { storyId });
 }
 
 function updateHeaderStyle() {
@@ -1706,7 +1769,7 @@ function setupCSVUploader() {
       // Emit the CSV data to server AFTER ensuring all UI is updated
       emitCSVData(parsedData);
       
-      // Reset current story index only if no stories were selected before
+        // Reset current story index only if no stories were selected before
       if (!document.querySelector('.story-card.selected')) {
         currentStoryIndex = 0;
         renderCurrentStory();
@@ -1775,7 +1838,6 @@ function displayCSVData(data) {
     });
     
     console.log(`[CSV] Saved ${existingStories.length} existing manual stories`);
-    
     
     // Clear ONLY the CSV-based stories, not manual ones
     const csvStories = storyListContainer.querySelectorAll('.story-card[id^="story_csv_"]');
@@ -2008,8 +2070,20 @@ function resetOrRestoreVotes(storyId) {
   
   resetAllVoteVisuals();
   
+  // Make sure we have votes for this story
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+    
+    // Request votes from the server (this ensures we get everyone's votes)
+    if (socket && socket.connected) {
+      console.log(`[VOTE] Requesting votes for story: ${storyId}`);
+      socket.emit('requestStoryVotes', { storyId });
+    }
+    return; // We'll update the UI when the votes come back
+  }
+  
   // If we have stored votes for this story and they've been revealed
-  if (votesPerStory[storyId] && votesRevealed[storyId]) {
+  if (votesRevealed[storyId]) {
     // Show the actual vote values
     applyVotesToUI(votesPerStory[storyId], false);
     
@@ -2237,6 +2311,12 @@ function updateUserList(users) {
       }, 200);
     }
   }
+  
+  // Request the latest votes for current story to ensure we're in sync
+  if (storyId && socket && socket.connected) {
+    console.log('[USERLIST] Requesting votes for current story to ensure UI is up to date');
+    socket.emit('requestStoryVotes', { storyId });
+  }
 }
 
 /**
@@ -2344,7 +2424,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
   // Get the story ID and check its reveal state
   const storyId = getCurrentStoryId();
   
-  // Skip for deleted stories
+  // Skip for deleted stories or when no story is selected
   if (!storyId || deletedStoryIds.has(storyId)) {
     console.log('[VOTE] Not updating vote visuals for deleted story');
     return;
@@ -2704,6 +2784,14 @@ function handleSocketMessage(message) {
           }
         }
       }
+      
+      // Also refresh the current story votes after a short delay
+      const currentStoryId = getCurrentStoryId();
+      if (currentStoryId && socket && socket.connected) {
+        setTimeout(() => {
+          socket.emit('requestStoryVotes', { storyId: currentStoryId });
+        }, 300);
+      }
       break;
 
     case 'restoreUserVote':
@@ -2727,6 +2815,15 @@ function handleSocketMessage(message) {
         const currentId = getCurrentStoryId();
         if (message.storyId === currentId) {
           updateVoteVisuals(currentUserId, votesRevealed[message.storyId] ? message.vote : '👍', true);
+        }
+        
+        // Also explicitly broadcast this vote to ensure other users see it too
+        if (socket && socket.connected) {
+          socket.emit('castVote', {
+            vote: message.vote,
+            targetUserId: currentUserId,
+            storyId: message.storyId
+          });
         }
       }
       break;
@@ -2764,7 +2861,13 @@ function handleSocketMessage(message) {
           votesPerStory[message.storyId] = {};
         }
         votesPerStory[message.storyId][message.userId] = message.vote;
-        updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
+        
+        // Update UI if this is the current story
+        const currentStoryId = getCurrentStoryId();
+        if (message.storyId === currentStoryId) {
+          // Display either actual vote or thumbs up depending on reveal status
+          updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
+        }
       }
       break;
       
@@ -2885,6 +2988,14 @@ function handleSocketMessage(message) {
       if (typeof message.storyIndex === 'number') {
         console.log('[SOCKET] Story selected from server:', message.storyIndex);
         selectStory(message.storyIndex, false); // false to avoid re-emitting
+        
+        // After story selection, request votes for it
+        const currentStoryId = getCurrentStoryId();
+        if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
+          setTimeout(() => {
+            socket.emit('requestStoryVotes', { storyId: currentStoryId });
+          }, 100);
+        }
       }
       break;
       
@@ -3009,6 +3120,9 @@ function handleSocketMessage(message) {
             socket.emit('requestAllTickets');
             hasRequestedTickets = true;
           }
+          
+          // Request a full state resync to ensure we have the latest state
+          socket.emit('requestFullStateResync');
         }
       }, 500);
       break;
