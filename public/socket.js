@@ -307,6 +307,12 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       return;
     }
 
+      // Check if this is a duplicate vote - if we already have this exact vote, ignore it
+  if (lastKnownRoomState.votesPerStory?.[storyId]?.[userId] === vote) {
+    console.log(`[SOCKET] Ignoring duplicate vote update: ${userId} → ${vote}`);
+    return;
+  }
+
     // Get username for this socket ID for better tracking
     const voterName = socketToUserMap[userId] || userId;
     console.log(`[SOCKET] Vote update received from ${voterName} (${userId}): ${vote} for story ${storyId}`);
