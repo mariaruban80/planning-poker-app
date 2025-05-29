@@ -945,32 +945,38 @@ socket.on('requestFullStateResync', () => {
   });
 
   // Handle disconnections
-  socket.on('disconnect', () => {
-    const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId]) {
-      console.log(`[SERVER] Client disconnected: ${socket.id} from room ${roomId}`);
-      
-      // Update room activity timestamp on disconnect
-      rooms[roomId].lastActivity = Date.now();
-      
-      // Remove user from room
-      rooms[roomId].users = rooms[roomId].users.filter(user => user.id !== socket.id);
-      
-      // Notify remaining users
-      io.to(roomId).emit('userList', rooms[roomId].users);
-      
-      // Clean up empty rooms after a delay to allow for reconnection
-      if (rooms[roomId].users.length === 0) {
-        setTimeout(() => {
-          if (rooms[roomId] && rooms[roomId].users.length === 0) {
-            console.log(`[SERVER] Removing empty room after timeout: ${roomId}`);
-            delete rooms[roomId];
-            delete roomVotingSystems[roomId];
-          }
-        }, 300000); // 5 minutes delay before cleaning up empty rooms
-      }
+socket.on('disconnect', () => {
+  const roomId = socket.data.roomId;
+  const userName = socket.data.userName;
+
+  if (!roomId || !rooms[roomId]) return;
+
+  // Remove this socket from room's user list
+  rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
+
+  // Remove socket ID from userNameToIdMap for this user
+  if (userName && userNameToIdMap[userName]) {
+    userNameToIdMap[userName].socketIds = userNameToIdMap[userName].socketIds.filter(id => id !== socket.id);
+
+    // If no more sockets for this user, optionally remove the user entry
+    if (userNameToIdMap[userName].socketIds.length === 0) {
+      delete userNameToIdMap[userName];
     }
-  });
+  }
+
+  // Remove all votes from this disconnected socket ID across all stories in the room
+  for (const storyId in rooms[roomId].votesPerStory) {
+    if (rooms[roomId].votesPerStory[storyId][socket.id]) {
+      delete rooms[roomId].votesPerStory[storyId][socket.id];
+    }
+  }
+
+  // Broadcast updated user list and votes to everyone in the room
+  io.to(roomId).emit('userList', rooms[roomId].users);
+  io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+
+  console.log(`[SERVER] Socket ${socket.id} disconnected and cleaned up from room ${roomId}`);
+});  
 });
 
 const PORT = process.env.PORT || 3000;
