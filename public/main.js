@@ -121,6 +121,43 @@ function loadDeletedStoriesFromStorage(roomId) {
   }
 }
 
+
+
+function refreshVoteDisplay() {
+  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
+  clearAllVoteVisuals();
+
+  // Loop over all stories and their votes
+  for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
+    for (const [userId, vote] of Object.entries(votes)) {
+      // Update UI for each user vote on each story
+      updateVoteVisuals(userId, vote, storyId);
+          
+    }
+    updateVoteBadges(storyId, votes);
+  }
+}
+
+
+function updateVoteBadges(storyId, votes) {
+  // Count how many unique users have voted for this story
+  const voteCount = Object.keys(votes).length;
+
+  console.log(`Story ${storyId} has ${voteCount} votes`);
+
+  // Find the vote badge element for the story (adjust selector as per your HTML)
+  const voteBadge = document.querySelector(`#vote-badge-${storyId}`);
+
+  if (voteBadge) {
+    // Update the badge text to show number of votes
+    voteBadge.textContent = voteCount;
+
+    // Optionally update a tooltip or aria-label for accessibility
+    voteBadge.setAttribute('title', `${voteCount} vote${voteCount !== 1 ? 's' : ''}`);
+  }
+}
+
+
 /**
  * Save deleted story IDs to sessionStorage
  */
