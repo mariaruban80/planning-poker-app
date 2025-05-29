@@ -95,6 +95,22 @@ function findExistingVotesForUser(roomId, userName) {
 }
 
 io.on('connection', (socket) => {
+  socket.on('requestCurrentStory', () => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    const selectedIndex = rooms[roomId].selectedIndex;
+    if (typeof selectedIndex === 'number') {
+      const storyId = getCurrentStoryId(roomId, selectedIndex);
+      if (storyId) {
+        socket.emit('currentStory', {
+          storyIndex: selectedIndex,
+          storyId
+        });
+      }
+    }
+  });
+
   console.log(`[SERVER] New client connected: ${socket.id}`);
   
   // Handle room joining with enhanced state management
@@ -206,16 +222,9 @@ io.on('connection', (socket) => {
     }
 
     // Send selected story index if available
- if (typeof rooms[roomId].selectedIndex === 'number') {
-  const selectedIndex = rooms[roomId].selectedIndex;
-  const selectedStory = rooms[roomId].tickets[selectedIndex];
-  if (selectedStory && !rooms[roomId].deletedStoryIds.has(selectedStory.id)) {
-    socket.emit('storySelected', {
-      storyIndex: selectedIndex,
-      storyId: selectedStory.id
-    });
-  }
-}
+    if (typeof rooms[roomId].selectedIndex === 'number') {
+      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
+    }
 
     // Emit each vote explicitly for story-specific visibility
     for (const storyId in rooms[roomId].votesPerStory) {
