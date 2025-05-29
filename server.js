@@ -1,4 +1,3 @@
-// === server.js ===
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -16,12 +15,10 @@ const io = new Server(httpServer, {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, 'public', 'main.html'));
-});
+app.get('/', (req, res) => res.sendFile(join(__dirname, 'public', 'main.html')));
 app.use(express.static(join(__dirname, 'public')));
 
+// State
 const rooms = {};
 const roomVotingSystems = {};
 const userNameToIdMap = {};
@@ -30,8 +27,10 @@ function cleanupRoomData() {
   const now = Date.now();
   for (const roomId in rooms) {
     const room = rooms[roomId];
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
     if (room.deletedStoriesTimestamp) {
-      const oneDayAgo = now - 24 * 60 * 60 * 1000;
       for (const [storyId, timestamp] of Object.entries(room.deletedStoriesTimestamp)) {
         if (timestamp < oneDayAgo) {
           delete room.votesPerStory[storyId];
@@ -39,7 +38,7 @@ function cleanupRoomData() {
         }
       }
     }
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
     if (room.lastActivity < sevenDaysAgo && room.users.length === 0) {
       delete rooms[roomId];
       delete roomVotingSystems[roomId];
@@ -51,12 +50,12 @@ setInterval(cleanupRoomData, 60 * 60 * 1000);
 function findExistingVotesForUser(roomId, userName) {
   if (!rooms[roomId] || !userName) return {};
   const result = {};
-  const userMapping = userNameToIdMap[userName] || { socketIds: [] };
+  const ids = userNameToIdMap[userName]?.socketIds || [];
   for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory || {})) {
     if (rooms[roomId].deletedStoryIds?.has(storyId)) continue;
-    for (const pastSocketId of userMapping.socketIds) {
-      if (votes[pastSocketId]) {
-        result[storyId] = votes[pastSocketId];
+    for (const sid of ids) {
+      if (votes[sid]) {
+        result[storyId] = votes[sid];
         break;
       }
     }
@@ -66,42 +65,30 @@ function findExistingVotesForUser(roomId, userName) {
 
 function restoreUserVotesToCurrentSocket(roomId, socket) {
   const userName = socket.data.userName;
-  if (!roomId || !rooms[roomId] || !userName) return;
-
-  const currentSocketId = socket.id;
-  const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+  const currentId = socket.id;
+  const ids = userNameToIdMap[userName]?.socketIds || [];
   const userVotes = findExistingVotesForUser(roomId, userName);
 
   for (const [storyId, vote] of Object.entries(userVotes)) {
     if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
-
     if (!rooms[roomId].votesPerStory[storyId]) {
       rooms[roomId].votesPerStory[storyId] = {};
     }
 
+    // Remove old votes from same user
     for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId])) {
-      if (userSocketIds.includes(sid)) {
-        delete rooms[roomId].votesPerStory[storyId][sid];
-      }
+      if (ids.includes(sid)) delete rooms[roomId].votesPerStory[storyId][sid];
     }
 
-    rooms[roomId].votesPerStory[storyId][currentSocketId] = vote;
-
+    rooms[roomId].votesPerStory[storyId][currentId] = vote;
     socket.emit('restoreUserVote', { storyId, vote });
-
-    socket.broadcast.to(roomId).emit('voteUpdate', {
-      userId: currentSocketId,
-      vote,
-      storyId
-    });
+    socket.broadcast.to(roomId).emit('voteUpdate', { userId: currentId, vote, storyId });
   }
 }
 
 io.on('connection', (socket) => {
-  console.log(`[SERVER] New client connected: ${socket.id}`);
-
   socket.on('joinRoom', ({ roomId, userName }) => {
-    if (!userName) return socket.emit('error', { message: 'Username is required' });
+    if (!userName) return;
 
     socket.data.roomId = roomId;
     socket.data.userName = userName;
@@ -109,54 +96,45 @@ io.on('connection', (socket) => {
     if (!rooms[roomId]) {
       rooms[roomId] = {
         users: [],
-        votes: {},
-        story: [],
-        revealed: false,
         csvData: [],
-        selectedIndex: 0,
-        votesPerStory: {},
-        votesRevealed: {},
         tickets: [],
         deletedStoryIds: new Set(),
         deletedStoriesTimestamp: {},
+        votesPerStory: {},
+        votesRevealed: {},
+        selectedIndex: 0,
         lastActivity: Date.now()
       };
     }
 
-    rooms[roomId].lastActivity = Date.now();
-
     if (!userNameToIdMap[userName]) {
       userNameToIdMap[userName] = { socketIds: [] };
     }
-
     if (!userNameToIdMap[userName].socketIds.includes(socket.id)) {
       userNameToIdMap[userName].socketIds.push(socket.id);
-      if (userNameToIdMap[userName].socketIds.length > 5) {
-        userNameToIdMap[userName].socketIds = userNameToIdMap[userName].socketIds.slice(-5);
-      }
+      userNameToIdMap[userName].socketIds = userNameToIdMap[userName].socketIds.slice(-5);
     }
 
     rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
     rooms[roomId].users.push({ id: socket.id, name: userName });
     socket.join(roomId);
 
+    // Sync full state
     const activeTickets = rooms[roomId].tickets.filter(t => !rooms[roomId].deletedStoryIds.has(t.id));
     const activeVotes = {};
-    const revealedVotes = {};
+    const revealed = {};
 
     for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory)) {
       if (!rooms[roomId].deletedStoryIds.has(storyId)) {
         activeVotes[storyId] = votes;
-        if (rooms[roomId].votesRevealed?.[storyId]) {
-          revealedVotes[storyId] = true;
-        }
+        if (rooms[roomId].votesRevealed?.[storyId]) revealed[storyId] = true;
       }
     }
 
     socket.emit('resyncState', {
       tickets: activeTickets,
       votesPerStory: activeVotes,
-      votesRevealed: revealedVotes,
+      votesRevealed: revealed,
       deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds)
     });
 
@@ -165,7 +143,7 @@ io.on('connection', (socket) => {
     socket.emit('votingSystemUpdate', { votingSystem: roomVotingSystems[roomId] || 'fibonacci' });
     io.to(roomId).emit('userList', rooms[roomId].users);
 
-    if (rooms[roomId].csvData.length > 0) {
+    if (rooms[roomId].csvData?.length > 0) {
       socket.emit('syncCSVData', rooms[roomId].csvData);
     }
 
@@ -175,46 +153,15 @@ io.on('connection', (socket) => {
 
     for (const storyId in rooms[roomId].votesPerStory) {
       if (!rooms[roomId].deletedStoryIds.has(storyId)) {
-        const votes = rooms[roomId].votesPerStory[storyId];
-        socket.emit('storyVotes', { storyId, votes });
+        socket.emit('storyVotes', {
+          storyId,
+          votes: rooms[roomId].votesPerStory[storyId]
+        });
         if (rooms[roomId].votesRevealed?.[storyId]) {
           socket.emit('votesRevealed', { storyId });
         }
       }
     }
-  });
-
-  socket.on('requestFullStateResync', () => {
-    const roomId = socket.data.roomId;
-    if (!roomId || !rooms[roomId]) return;
-
-    rooms[roomId].lastActivity = Date.now();
-    const filteredTickets = rooms[roomId].tickets.filter(t => !rooms[roomId].deletedStoryIds.has(t.id));
-
-    const activeVotes = {};
-    const activeRevealed = {};
-
-    for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory)) {
-      if (!rooms[roomId].deletedStoryIds.has(storyId)) {
-        activeVotes[storyId] = votes;
-        if (rooms[roomId].votesRevealed?.[storyId]) {
-          activeRevealed[storyId] = true;
-        }
-      }
-    }
-
-    socket.emit('resyncState', {
-      tickets: filteredTickets,
-      votesPerStory: activeVotes,
-      votesRevealed: activeRevealed,
-      deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds)
-    });
-
-    if (typeof rooms[roomId].selectedIndex === 'number') {
-      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
-    }
-
-    restoreUserVotesToCurrentSocket(roomId, socket);
   });
 
   socket.on('addTicket', (ticketData) => {
@@ -241,6 +188,27 @@ io.on('connection', (socket) => {
     socket.emit('allTickets', { tickets: filtered });
   });
 
+  socket.on('storySelected', ({ storyIndex }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    rooms[roomId].selectedIndex = storyIndex;
+    socket.broadcast.to(roomId).emit('storySelected', { storyIndex });
+  });
+
+  socket.on('deleteStory', ({ storyId }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    rooms[roomId].deletedStoryIds.add(storyId);
+    rooms[roomId].deletedStoriesTimestamp[storyId] = Date.now();
+
+    delete rooms[roomId].votesPerStory[storyId];
+    delete rooms[roomId].votesRevealed[storyId];
+
+    io.to(roomId).emit('deleteStory', { storyId });
+  });
+
   socket.on('restoreUserVote', ({ storyId, vote }) => {
     const roomId = socket.data.roomId;
     const userName = socket.data.userName;
@@ -250,22 +218,15 @@ io.on('connection', (socket) => {
       rooms[roomId].votesPerStory[storyId] = {};
     }
 
-    const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+    const ids = userNameToIdMap[userName]?.socketIds || [];
     for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId])) {
-      if (userSocketIds.includes(sid)) {
-        delete rooms[roomId].votesPerStory[storyId][sid];
-      }
+      if (ids.includes(sid)) delete rooms[roomId].votesPerStory[storyId][sid];
     }
 
     rooms[roomId].votesPerStory[storyId][socket.id] = vote;
 
     socket.emit('restoreUserVote', { storyId, vote });
-
-    socket.broadcast.to(roomId).emit('voteUpdate', {
-      userId: socket.id,
-      vote,
-      storyId
-    });
+    socket.broadcast.to(roomId).emit('voteUpdate', { userId: socket.id, vote, storyId });
   });
 
   socket.on('disconnect', () => {
@@ -280,8 +241,6 @@ io.on('connection', (socket) => {
       rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
       io.to(roomId).emit('userList', rooms[roomId].users);
     }
-
-    console.log(`[SERVER] Disconnected: ${socket.id}`);
   });
 });
 
