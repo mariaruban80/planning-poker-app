@@ -206,9 +206,16 @@ io.on('connection', (socket) => {
     }
 
     // Send selected story index if available
-    if (typeof rooms[roomId].selectedIndex === 'number') {
-      socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
-    }
+ if (typeof rooms[roomId].selectedIndex === 'number') {
+  const selectedIndex = rooms[roomId].selectedIndex;
+  const selectedStory = rooms[roomId].tickets[selectedIndex];
+  if (selectedStory && !rooms[roomId].deletedStoryIds.has(selectedStory.id)) {
+    socket.emit('storySelected', {
+      storyIndex: selectedIndex,
+      storyId: selectedStory.id
+    });
+  }
+}
 
     // Emit each vote explicitly for story-specific visibility
     for (const storyId in rooms[roomId].votesPerStory) {
