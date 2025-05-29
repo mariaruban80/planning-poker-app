@@ -188,36 +188,36 @@ io.on('connection', (socket) => {
     const existingUserVotes = findExistingVotesForUser(roomId, userName);
     
     // Send user-specific votes that were found and broadcast them to all users
-    for (const [storyId, vote] of Object.entries(existingUserVotes)) {
-      // Skip deleted stories
-      if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
-      
-      // Restore the vote in the server's state with the new socket ID
-      if (!rooms[roomId].votesPerStory[storyId]) {
-        rooms[roomId].votesPerStory[storyId] = {};
-      }
-// Remove all previous socket votes for this user on this story
-for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId] || {})) {
-  if (userNameToIdMap[userName]?.socketIds.includes(sid)) {
-    delete rooms[roomId].votesPerStory[storyId][sid];
+
+for (const [storyId, vote] of Object.entries(existingUserVotes)) {
+  if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
+
+  if (!rooms[roomId].votesPerStory[storyId]) {
+    rooms[roomId].votesPerStory[storyId] = {};
   }
+
+  // Remove old votes from previous socket connections of the same user on this story
+  for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId] || {})) {
+    if (userNameToIdMap[userName]?.socketIds.includes(sid)) {
+      delete rooms[roomId].votesPerStory[storyId][sid];
+    }
+  }
+
+  // Add vote from current socket
+  rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+
+  // Inform the reconnecting client
+  socket.emit('restoreUserVote', { storyId, vote });
+
+  // Broadcast vote update so all others see it immediately
+  socket.broadcast.to(roomId).emit('voteUpdate', {
+    userId: socket.id,
+    vote,
+    storyId
+  });
 }
 
-// Add current vote using this socket ID
-rooms[roomId].votesPerStory[storyId][socket.id] = vote;
-
-      
-      // Send the restored vote to the user
-      socket.emit('restoreUserVote', { storyId, vote });
-      
-      // IMPORTANT: Also broadcast this vote to all other users in the room
-      // so they can see this user's vote immediately
-      socket.broadcast.to(roomId).emit('voteUpdate', {
-        userId: socket.id,
-        vote,
-        storyId
-      });
-    }
+    
 
     // Send voting system to client
     socket.emit('votingSystemUpdate', { votingSystem: roomVotingSystems[roomId] || 'fibonacci' });
