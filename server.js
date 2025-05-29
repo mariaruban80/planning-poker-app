@@ -196,7 +196,9 @@ io.on('connection', (socket) => {
       if (!rooms[roomId].votesPerStory[storyId]) {
         rooms[roomId].votesPerStory[storyId] = {};
       }
-      const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+//      const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+      const userSocketIds = userNameToIdMap[socket.data.userName]?.socketIds || [];
+
       userSocketIds.forEach(id => {
         if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
           delete rooms[roomId].votesPerStory[storyId][id];
@@ -257,7 +259,9 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
     rooms[roomId].votesPerStory[storyId] = {};
   }
 
-  const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+//  const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+  const userSocketIds = userNameToIdMap[socket.data.userName]?.socketIds || [];
+
 
   userSocketIds.forEach(id => {
     if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
@@ -332,7 +336,11 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
           rooms[roomId].votesPerStory[storyId] = {};
         }
 
-        const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+
+
+//        const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+        const userSocketIds = userNameToIdMap[socket.data.userName]?.socketIds || [];
+
 userSocketIds.forEach(id => {
   if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
     delete rooms[roomId].votesPerStory[storyId][id];
