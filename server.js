@@ -196,6 +196,12 @@ io.on('connection', (socket) => {
       if (!rooms[roomId].votesPerStory[storyId]) {
         rooms[roomId].votesPerStory[storyId] = {};
       }
+      const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+      userSocketIds.forEach(id => {
+        if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
+          delete rooms[roomId].votesPerStory[storyId][id];
+        }
+      });
       rooms[roomId].votesPerStory[storyId][socket.id] = vote;
       
       // Send the restored vote to the user
@@ -255,6 +261,12 @@ io.on('connection', (socket) => {
     if (!rooms[roomId].votesPerStory[storyId]) {
       rooms[roomId].votesPerStory[storyId] = {};
     }
+    const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+userSocketIds.forEach(id => {
+  if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
+    delete rooms[roomId].votesPerStory[storyId][id];
+  }
+});
     rooms[roomId].votesPerStory[storyId][socket.id] = vote;
     
     // Tell the user their vote was restored
@@ -318,6 +330,13 @@ io.on('connection', (socket) => {
         if (!rooms[roomId].votesPerStory[storyId]) {
           rooms[roomId].votesPerStory[storyId] = {};
         }
+
+        const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+userSocketIds.forEach(id => {
+  if (id !== socket.id && rooms[roomId].votesPerStory[storyId]?.[id]) {
+    delete rooms[roomId].votesPerStory[storyId][id];
+  }
+});
         rooms[roomId].votesPerStory[storyId][socket.id] = vote;
         
         // Send the restored vote to the user
