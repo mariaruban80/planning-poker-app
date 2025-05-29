@@ -111,20 +111,27 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
         socket.emit('requestStoryVotes', { storyId });
       }
     });
-    socket.on('connect', () => {
-    console.log('[SOCKET] Connected to server with ID:', socket.id);
-    reconnectAttempts = 0;
-    clearTimeout(reconnectTimer);
-    
-    // When connecting, explicitly join the room
-    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
-    
-    // Notify UI of successful connection
-    handleMessage({ type: 'connect' });
-    
-    // Apply any saved votes from session storage
-    restoreVotesFromStorage(roomIdentifier);
+  socket.on('connect', () => {
+  console.log('[SOCKET] Connected to server with ID:', socket.id);
+  reconnectAttempts = 0;
+  clearTimeout(reconnectTimer);
+
+  // When connecting, explicitly join the room
+  socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+
+  // Listen for votes updates from server
+  socket.on('votesUpdate', (votesData) => {
+    console.log('[SOCKET] votesUpdate received:', votesData);
+    refreshVoteDisplay(votesData);  // Your function to update UI with new votes
   });
+
+  // Notify UI of successful connection
+  handleMessage({ type: 'connect' });
+
+  // Apply any saved votes from session storage
+  restoreVotesFromStorage(roomIdentifier);
+});
+
 
   // Add reconnect event handlers
   socket.on('reconnect_attempt', (attempt) => {
