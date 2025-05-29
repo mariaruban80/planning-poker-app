@@ -640,13 +640,13 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
           }
           
           // Also broadcast this vote to ensure all clients see it
-          if (socket.connected) {
+      /**    if (socket.connected) {
             socket.emit('castVote', {
               vote,
               targetUserId: socket.id,
               storyId
             });
-          }
+          } */
         }
       }
     } catch (err) {
