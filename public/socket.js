@@ -18,9 +18,6 @@ let lastKnownRoomState = {
   userVotes: {}      // Track user's own votes by storyId
 };
 
-// Mapping of socketIds to usernames to handle vote deduplication
-let socketToUserMap = {}; // socketId → userName
-
 /**
  * Initialize WebSocket connection to server
  * @param {string} roomIdentifier - ID of the room to join
@@ -63,11 +60,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     query: { roomId: roomIdentifier, userName: userNameValue }
   });
 
-  // Store the socket ID to user mapping for vote deduplication
-  if (socket) {
-    socketToUserMap[socket.id] = userNameValue;
-  }
-
   // ------------------------------
   // Socket Event Handlers
   // ------------------------------
@@ -104,55 +96,42 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   // Connection established
-  socket.on('connect', () => {
-    console.log('[SOCKET] Connected to server with ID:', socket.id);
-    reconnectAttempts = 0;
-    clearTimeout(reconnectTimer);
-
-    // Update the socketToUserMap with the new socket ID
-    socketToUserMap[socket.id] = userName;
-
-    // When connecting, explicitly join the room
-    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
-
-    // Listen for votes updates from server
-    socket.on('votesUpdate', (votesData) => {
-      console.log('[SOCKET] votesUpdate received:', votesData);
-      
-      // Before updating the UI, deduplicate votes by username
-      const deduplicatedVotes = deduplicateVotesByUsername(votesData);
-      
-      // Store deduplicated votes in lastKnownRoomState
-      lastKnownRoomState.votesPerStory = deduplicatedVotes;
-      
-      // Forward to UI with deduplicated votes
-      handleMessage({ 
-        type: 'votesUpdate', 
-        votesPerStory: deduplicatedVotes
-      });
-    });
-
+  
     // Request current selected story from server after join
     socket.emit('requestCurrentStory');
 
-    // Notify UI of successful connection
-    handleMessage({ type: 'connect' });
+    socket.on('currentStory', ({ storyIndex, storyId }) => {
+      console.log('[SOCKET] Received currentStory:', storyIndex, storyId);
+      selectedStoryIndex = storyIndex;
+      lastKnownRoomState.selectedIndex = storyIndex;
 
-    // Apply any saved votes from session storage
-    restoreVotesFromStorage(roomIdentifier);
+      handleMessage({ type: 'storySelected', storyIndex });
+
+      if (storyId) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
+    });
+  socket.on('connect', () => {
+  console.log('[SOCKET] Connected to server with ID:', socket.id);
+  reconnectAttempts = 0;
+  clearTimeout(reconnectTimer);
+
+  // When connecting, explicitly join the room
+  socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+
+  // Listen for votes updates from server
+  socket.on('votesUpdate', (votesData) => {
+    console.log('[SOCKET] votesUpdate received:', votesData);
+    refreshVoteDisplay(votesData);  // Your function to update UI with new votes
   });
 
-  socket.on('currentStory', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] Received currentStory:', storyIndex, storyId);
-    selectedStoryIndex = storyIndex;
-    lastKnownRoomState.selectedIndex = storyIndex;
+  // Notify UI of successful connection
+  handleMessage({ type: 'connect' });
 
-    handleMessage({ type: 'storySelected', storyIndex });
+  // Apply any saved votes from session storage
+  restoreVotesFromStorage(roomIdentifier);
+});
 
-    if (storyId) {
-      socket.emit('requestStoryVotes', { storyId });
-    }
-  });
 
   // Add reconnect event handlers
   socket.on('reconnect_attempt', (attempt) => {
@@ -167,9 +146,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   socket.on('reconnect', () => {
     console.log('[SOCKET] Reconnected to server after disconnect');
     clearTimeout(reconnectTimer);
-    
-    // Update the socketToUserMap with the new socket ID
-    socketToUserMap[socket.id] = userName;
     
     // Re-join room and request current state
     socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
@@ -242,11 +218,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('userList', (users) => {
-    // Update socketToUserMap based on the current user list
-    users.forEach(user => {
-      socketToUserMap[user.id] = user.name;
-    });
-
     handleMessage({ type: 'userList', users });
   });
   
@@ -306,25 +277,12 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       console.log(`[SOCKET] Ignoring vote for deleted story: ${storyId}`);
       return;
     }
-
-      // Check if this is a duplicate vote - if we already have this exact vote, ignore it
-  if (lastKnownRoomState.votesPerStory?.[storyId]?.[userId] === vote) {
-    console.log(`[SOCKET] Ignoring duplicate vote update: ${userId} → ${vote}`);
-    return;
-  }
-
-    // Get username for this socket ID for better tracking
-    const voterName = socketToUserMap[userId] || userId;
-    console.log(`[SOCKET] Vote update received from ${voterName} (${userId}): ${vote} for story ${storyId}`);
+    
+    console.log(`[SOCKET] Vote update received: ${userId} voted ${vote} for story ${storyId}`);
     
     // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
-    
-    // Clean up any existing votes from same username to prevent duplicates
-    cleanupDuplicateVotesForUser(storyId, voterName, userId);
-    
-    // Store the vote
     lastKnownRoomState.votesPerStory[storyId][userId] = vote;
     
     // If this is the current user's vote, store it separately for easier recovery
@@ -354,21 +312,12 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     
     console.log(`[SOCKET] Received votes for story ${storyId}:`, Object.keys(votes).length);
     
-    // Deduplicate votes by username to prevent multiple counts
-    const deduplicatedVotes = deduplicateVotesByUsername(votes);
-    
     // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesPerStory[storyId] = { ...(lastKnownRoomState.votesPerStory[storyId] || {}), ...votes };
     
-    // Use deduplicated votes
-    lastKnownRoomState.votesPerStory[storyId] = { 
-      ...(lastKnownRoomState.votesPerStory[storyId] || {}), 
-      ...deduplicatedVotes 
-    };
-    
-    // Pass deduplicated votes to the handler
-    handleMessage({ type: 'storyVotes', storyId, votes: deduplicatedVotes });
+    handleMessage({ type: 'storyVotes', storyId, votes });
   });
 
   // New handler for restoring user votes
@@ -384,15 +333,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Store in last known state - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
-    
-    // Clean up any existing votes from the same user
-    if (socket && socket.id) {
-      const currentUserName = userName;
-      cleanupDuplicateVotesForUser(storyId, currentUserName, socket.id);
-      
-      // Store the vote with current socket ID
-      lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
-    }
+    lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
     
     // Also track in user's personal votes
     if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
@@ -434,12 +375,6 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       sessionStorage.setItem(`revealed_${roomIdentifier}`, revealedData);
     } catch (err) {
       console.warn('[SOCKET] Could not save revealed state to sessionStorage:', err);
-    }
-    
-    // Before revealing, deduplicate votes to ensure unique users
-    if (lastKnownRoomState.votesPerStory && lastKnownRoomState.votesPerStory[storyId]) {
-      const deduplicatedVotes = deduplicateVotesByUsername(lastKnownRoomState.votesPerStory[storyId]);
-      lastKnownRoomState.votesPerStory[storyId] = deduplicatedVotes;
     }
     
     handleMessage({ type: 'votesRevealed', storyId });
@@ -557,7 +492,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
   
   // Enhanced state sync handling
-  socket.on('resyncState', (state) => {
+socket.on('resyncState', (state) => {
     console.log('[SOCKET] Received full state resync from server');
     
     // Initialize the state objects if they don't exist
@@ -568,135 +503,71 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     
     // Update deleted story IDs first (so we can filter correctly)
     if (Array.isArray(state.deletedStoryIds)) {
-      state.deletedStoryIds.forEach(id => {
-        if (!lastKnownRoomState.deletedStoryIds.includes(id)) {
-          lastKnownRoomState.deletedStoryIds.push(id);
+        state.deletedStoryIds.forEach(id => {
+            if (!lastKnownRoomState.deletedStoryIds.includes(id)) {
+                lastKnownRoomState.deletedStoryIds.push(id);
+            }
+        });
+        
+        // Save to session storage for persistence
+        try {
+            const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
+            sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
+        } catch (err) {
+            console.warn('[SOCKET] Could not save deleted story IDs to sessionStorage:', err);
         }
-      });
-      
-      // Save to session storage for persistence
-      try {
-        const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-        sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
-      } catch (err) {
-        console.warn('[SOCKET] Could not save deleted story IDs to sessionStorage:', err);
-      }
     }
     
     // Filter out any deleted tickets
     const filteredTickets = (state.tickets || []).filter(
-      ticket => !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+        ticket => !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
     );
     
     // Store selected index for later use after tickets are processed
     const selectedIndex = state.selectedIndex;
     
-    // Deduplicate votes by username to prevent multiple counts
-    const deduplicatedVotesPerStory = {};
-    
-    for (const [storyId, votes] of Object.entries(state.votesPerStory || {})) {
-      // Skip deleted stories
-      if (lastKnownRoomState.deletedStoryIds.includes(storyId)) continue;
-      
-      // Deduplicate votes for this story
-      deduplicatedVotesPerStory[storyId] = deduplicateVotesByUsername(votes);
-    }
-    
-    // Now store the filtered and deduplicated state
+    // Now store the filtered state
     lastKnownRoomState = { 
-      ...lastKnownRoomState,
-      tickets: filteredTickets,
-      votesPerStory: deduplicatedVotesPerStory,
-      votesRevealed: state.votesRevealed || {},
-      selectedIndex: selectedIndex
+        ...lastKnownRoomState,
+        tickets: filteredTickets,
+        votesPerStory: state.votesPerStory || {},
+        votesRevealed: state.votesRevealed || {},
+        selectedIndex: selectedIndex
     };
     
     // Forward to message handler
     handleMessage({ 
-      type: 'resyncState', 
-      tickets: filteredTickets,  // Use filtered tickets
-      votesPerStory: deduplicatedVotesPerStory, // Use deduplicated votes
-      votesRevealed: state.votesRevealed || {},
-      deletedStoryIds: lastKnownRoomState.deletedStoryIds, // Use our complete list
-      selectedIndex: selectedIndex
+        type: 'resyncState', 
+        tickets: filteredTickets,  // Use filtered tickets
+        votesPerStory: state.votesPerStory || {},
+        votesRevealed: state.votesRevealed || {},
+        deletedStoryIds: lastKnownRoomState.deletedStoryIds, // Use our complete list
+        selectedIndex: selectedIndex
     });
     
     // Apply story selection after a delay to ensure DOM is ready
     setTimeout(() => {
-      if (typeof selectedIndex === 'number') {
-        handleMessage({
-          type: 'storySelected',
-          storyIndex: selectedIndex,
-          forceSelection: true
-        });
-      }
+        if (typeof selectedIndex === 'number') {
+            handleMessage({
+                type: 'storySelected',
+                storyIndex: selectedIndex,
+                forceSelection: true
+            });
+        }
     }, 500);
     
     // Also restore any additional user votes after a short delay
     // to ensure the UI is ready
     setTimeout(() => {
-      restoreVotesFromStorage(roomIdentifier);
+        restoreVotesFromStorage(roomIdentifier);
     }, 600);
-  });
+});
 
   // Try to load saved state from session storage
   loadStateFromSessionStorage(roomIdentifier);
 
   // Return socket for external operations if needed
   return socket;
-}
-
-/**
- * Deduplicate votes by username to prevent multiple socket IDs from same user being counted multiple times
- * @param {Object} votes - Map of socketId -> vote
- * @returns {Object} - Deduplicated votes keeping one vote per username
- */
-function deduplicateVotesByUsername(votes) {
-  if (!votes) return {};
-  
-  const deduped = {};
-  const usersSeen = {}; // username -> socketId
-  
-  // First pass: find latest socket ID for each username
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userName = socketToUserMap[socketId] || socketId;
-    // Always keep the vote for the current socket ID
-    if (socket && socketId === socket.id) {
-      usersSeen[userName] = socketId;
-    } 
-    // Otherwise keep the most recent socket ID we've seen
-    else if (!usersSeen[userName]) {
-      usersSeen[userName] = socketId;
-    }
-  }
-  
-  // Second pass: use only the latest socket ID for each user
-  for (const [userName, socketId] of Object.entries(usersSeen)) {
-    deduped[socketId] = votes[socketId];
-  }
-  
-  return deduped;
-}
-
-/**
- * Clean up duplicate votes from the same user for a specific story
- * @param {string} storyId - ID of the story
- * @param {string} userName - Username to check for duplicates
- * @param {string} currentSocketId - Current socket ID to preserve
- */
-function cleanupDuplicateVotesForUser(storyId, userName, currentSocketId) {
-  // Skip if we don't have votes for this story
-  if (!lastKnownRoomState.votesPerStory || !lastKnownRoomState.votesPerStory[storyId]) {
-    return;
-  }
-  
-  // Look for other socket IDs from the same user and remove their votes
-  for (const socketId in lastKnownRoomState.votesPerStory[storyId]) {
-    if (socketId !== currentSocketId && socketToUserMap[socketId] === userName) {
-      console.log(`[SOCKET] Cleaning up duplicate vote from ${socketId} for user ${userName}`);
-      delete lastKnownRoomState.votesPerStory[storyId][socketId];
-    }
-  }
 }
 
 /**
@@ -769,11 +640,6 @@ function restoreVotesFromStorage(roomIdentifier) {
         if (!lastKnownRoomState.votesPerStory[storyId]) {
           lastKnownRoomState.votesPerStory[storyId] = {};
         }
-        
-        // Clean up any duplicate votes first
-        cleanupDuplicateVotesForUser(storyId, userName, socket.id);
-        
-        // Add the vote with current socket ID
         lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
       }
       
@@ -891,11 +757,6 @@ export function emitVote(vote, targetUserId, storyId) {
     // Update local state tracking - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
-    
-    // Clean up any duplicate votes first
-    cleanupDuplicateVotesForUser(storyId, userName, targetUserId);
-    
-    // Store the new vote
     lastKnownRoomState.votesPerStory[storyId][targetUserId] = vote;
     
     // Also store in user's personal votes
@@ -1146,25 +1007,11 @@ export function getUserVotes() {
 }
 
 /**
- * Get username for a given socket ID
- * @param {string} socketId - Socket ID to look up
- * @returns {string|null} - Username or null if not found
- */
-export function getUsernameBySocketId(socketId) {
-  return socketToUserMap[socketId] || null;
-}
-
-/**
  * Clean up socket connection
  * Call this when the user manually logs out
  */
 export function cleanup() {
   if (socket) {
-    // Remove from socketToUserMap
-    if (socket.id && socketToUserMap[socket.id]) {
-      delete socketToUserMap[socket.id];
-    }
-    
     socket.disconnect();
     socket = null;
   }
