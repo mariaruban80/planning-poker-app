@@ -158,12 +158,21 @@ function refreshVoteDisplay() {
 }
 
 /**
- * Update vote badges showing the count of votes
- * @param {string} storyId - ID of the story
- * @param {Object} votes - Votes object for the story
- * @param {number} deduplicatedCount - Number of unique users who voted (optional)
+ * Debounce utility function to prevent multiple rapid calls
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Milliseconds to wait
+ * @returns {Function} - Debounced function
  */
-function updateVoteBadges(storyId, votes, deduplicatedCount) {
+
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+function updateVoteBadgeLogic(storyId, votes, deduplicatedCount) {
   // If a deduplicated count was provided, use it
   // Otherwise, calculate the deduplicated vote count from the votes object
   const voteCount = deduplicatedCount !== undefined ? deduplicatedCount : getUniqueVoterCount(votes);
@@ -183,23 +192,44 @@ function updateVoteBadges(storyId, votes, deduplicatedCount) {
 }
 
 /**
+ * Debounced version of badge update logic
+ */
+const debouncedUpdateBadge = debounce(updateVoteBadgeLogic, 300); // 300ms debounce
+
+/**
+ * Update vote badges showing the count of votes
+ * @param {string} storyId - ID of the story
+ * @param {Object} votes - Votes object for the story
+ * @param {number} deduplicatedCount - Number of unique users who voted (optional)
+ */
+function updateVoteBadges(storyId, votes, deduplicatedCount) {
+  // Use the debounced version to prevent rapid updates
+  debouncedUpdateBadge(storyId, votes, deduplicatedCount);
+}
+
+/**
  * Get unique number of voters by deduplicating by username
  * @param {Object} votes - Votes object (userId -> vote)
  * @returns {number} - Count of unique users who voted
  */
+
 function getUniqueVoterCount(votes) {
   if (!votes) return 0;
   
-  // Use Set to track unique usernames
-  const uniqueUsers = new Set();
+  // Use a Map to deduplicate by username
+  const uniqueUserVotes = new Map();
   
-  for (const userId in votes) {
-    // Get username if possible, otherwise use userId
+  for (const [userId, vote] of Object.entries(votes)) {
+    // Get username or use userId as fallback
     const userName = getUsernameBySocketId ? getUsernameBySocketId(userId) : userId;
-    uniqueUsers.add(userName);
+    
+    // Track one vote per username, preferring the user's current socket ID if available
+    if (!uniqueUserVotes.has(userName) || userId === socket.id) {
+      uniqueUserVotes.set(userName, vote);
+    }
   }
   
-  return uniqueUsers.size;
+  return uniqueUserVotes.size;
 }
 
 /**
@@ -371,39 +401,32 @@ function addFixedVoteStatisticsStyles() {
   document.head.appendChild(style);
 }
 
-/**
- * Enhanced vote statistics display with username-based deduplication
- * @param {Object} votes - Votes object (userId -> vote)
- * @returns {HTMLElement} - The vote statistics display container
- */
 function createFixedVoteDisplay(votes) {
   // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
   
-  // Deduplicate votes by username to prevent counting the same user multiple times
-  const userVotes = {}; // username -> vote
-  const usersSeen = new Set();
+  // Use a Map for deduplication to ensure one vote per username
+  const uniqueUserVotes = new Map();
   
   for (const [userId, vote] of Object.entries(votes)) {
     const userName = getUsernameBySocketId ? getUsernameBySocketId(userId) : userId;
     
-    // Only keep one vote per unique username
-    if (!usersSeen.has(userName)) {
-      userVotes[userName] = vote;
-      usersSeen.add(userName);
+    // Only keep one vote per unique username, preferring current user's vote
+    if (!uniqueUserVotes.has(userName) || userId === socket.id) {
+      uniqueUserVotes.set(userName, vote);
     }
   }
   
   // Convert to array of votes after deduplication
-  const voteValues = Object.values(userVotes);
+  const voteValues = Array.from(uniqueUserVotes.values());
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
   
   // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length; // Deduplicated count
+  let voteCount = uniqueUserVotes.size; // Deduplicated count
   let averageValue = 0;
   
   // Calculate statistics if we have numeric values
@@ -425,7 +448,7 @@ function createFixedVoteDisplay(votes) {
     averageValue = Math.round(averageValue * 10) / 10; // Round to 1 decimal place
   }
   
-  // Create HTML that exactly matches the image
+  // Create HTML
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -447,6 +470,9 @@ function createFixedVoteDisplay(votes) {
   
   return container;
 }
+
+
+
 
 /**
  * Determines if current user is a guest
@@ -3161,37 +3187,43 @@ function handleSocketMessage(message) {
       
     case 'voteReceived':
     case 'voteUpdate':
-      // Skip processing for deleted story
-      if (message.storyId && deletedStoryIds.has(message.storyId)) {
-        console.log(`[VOTE] Ignoring vote for deleted story: ${message.storyId}`);
-        return;
-      }
+    // Skip processing for deleted story
+  if (message.storyId && deletedStoryIds.has(message.storyId)) {
+    console.log(`[VOTE] Ignoring vote for deleted story: ${message.storyId}`);
+    return;
+  }
+  
+  // Handle vote received
+  if (message.userId && message.vote) {
+    // Initialize if needed
+    if (!window.currentVotesPerStory) {
+      window.currentVotesPerStory = {};
+    }
+    
+    if (!window.currentVotesPerStory[message.storyId]) {
+      window.currentVotesPerStory[message.storyId] = {};
+    }
+    
+    // Check if this is a duplicate vote - don't update if the vote hasn't changed
+    const existingVote = window.currentVotesPerStory[message.storyId][message.userId];
+    if (existingVote === message.vote) {
+      console.log(`[VOTE] Skipping duplicate vote from ${message.userId}: ${message.vote}`);
+      return;
+    }
+    
+    // Track this vote
+    window.currentVotesPerStory[message.storyId][message.userId] = message.vote;
+    
+    // Update UI if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (message.storyId === currentStoryId) {
+      // Display either actual vote or thumbs up depending on reveal status
+      updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
       
-      // Handle vote received
-      if (message.userId && message.vote) {
-        // Initialize if needed
-        if (!window.currentVotesPerStory) {
-          window.currentVotesPerStory = {};
-        }
-        
-        if (!window.currentVotesPerStory[message.storyId]) {
-          window.currentVotesPerStory[message.storyId] = {};
-        }
-        
-        // Track this vote
-        window.currentVotesPerStory[message.storyId][message.userId] = message.vote;
-        
-        // Update UI if this is the current story
-        const currentStoryId = getCurrentStoryId();
-        if (message.storyId === currentStoryId) {
-          // Display either actual vote or thumbs up depending on reveal status
-          updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
-          
-          // Update vote count badge with deduplicated count
-          updateVoteBadges(message.storyId, window.currentVotesPerStory[message.storyId]);
-        }
-      }
-      break;
+      // Update vote count badge with deduplicated count - use debounced version
+      debouncedUpdateVoteBadges(message.storyId, window.currentVotesPerStory[message.storyId]);
+    }
+  }
       
     case 'deleteStory':
       // Handle story deletion from another user
