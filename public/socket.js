@@ -96,7 +96,22 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   // Connection established
-  socket.on('connect', () => {
+  
+    // Request current selected story from server after join
+    socket.emit('requestCurrentStory');
+
+    socket.on('currentStory', ({ storyIndex, storyId }) => {
+      console.log('[SOCKET] Received currentStory:', storyIndex, storyId);
+      selectedStoryIndex = storyIndex;
+      lastKnownRoomState.selectedIndex = storyIndex;
+
+      handleMessage({ type: 'storySelected', storyIndex });
+
+      if (storyId) {
+        socket.emit('requestStoryVotes', { storyId });
+      }
+    });
+    socket.on('connect', () => {
     console.log('[SOCKET] Connected to server with ID:', socket.id);
     reconnectAttempts = 0;
     clearTimeout(reconnectTimer);
