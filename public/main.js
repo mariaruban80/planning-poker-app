@@ -1667,12 +1667,11 @@ function applyGuestRestrictions() {
  * Process multiple tickets at once (used when receiving all tickets from server)
  * @param {Array} tickets - Array of ticket data objects
  */
+
 function processAllTickets(tickets) {
-  // Filter tickets to exclude any that are in our deleted set
   const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
-  
   console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
-  
+
   const storyList = document.getElementById('storyList');
   if (storyList) {
     const manualCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
@@ -1686,19 +1685,21 @@ function processAllTickets(tickets) {
   });
 
   if (filtered.length > 0) {
-  if (currentStoryIndex === null || currentStoryIndex === undefined) {
-    currentStoryIndex = 0;
-    selectStory(0, false);
-  } else {
-    console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
+    if (currentStoryIndex === null || currentStoryIndex === undefined || currentStoryIndex < 0 || currentStoryIndex >= filtered.length) {
+      currentStoryIndex = 0;
+      selectStory(0, false);
+    } else {
+      console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
+      // 🛠️ Add this line to re-highlight the story in UI
+      selectStory(currentStoryIndex, false);
+    }
   }
-}
-  
-  // Re-apply guest restrictions if needed
+
   if (isGuestUser()) {
     applyGuestRestrictions();
   }
 }
+
 
 // Get storyId from selected card
 function getCurrentStoryId() {
