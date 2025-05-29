@@ -680,6 +680,27 @@ function initializeApp(roomId) {
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
   });
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+
+  // Remove any existing selection
+  document.querySelectorAll('.story-card.selected').forEach(card => {
+    card.classList.remove('selected');
+  });
+
+  // Select the correct story card by ID
+  const selectedCard = document.getElementById(storyId);
+  if (selectedCard) {
+    selectedCard.classList.add('selected');
+    selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    console.warn(`[storySelected] Could not find card with ID: ${storyId}`);
+  }
+
+  // Store the selected index (optional)
+  currentStoryIndex = storyIndex;
+});
+
   
   // Add reconnection handlers for socket
   if (socket) {
