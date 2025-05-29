@@ -11,6 +11,9 @@ let deletedStoryIds = new Set();
 let preservedManualTickets = [];
 // Flag to prevent duplicate delete confirmation dialogs
 let deleteConfirmationInProgress = false;
+let hasReceivedStorySelection = false;
+window.currentVotesPerStory = {}; // Ensure global reference for UI
+
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -538,32 +541,32 @@ function initializeApp(roomId) {
   });
   
   // Updated handler for restored user votes
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
-    console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
-    
-    // Skip for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
-      return;
-    }
-    
-    // Initialize if needed
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Store in local state
-    if (socket && socket.id) {
-      votesPerStory[storyId][socket.id] = vote;
-      
-      // Update UI if this is the current story
-      const currentId = getCurrentStoryId();
-      if (storyId === currentId) {
-        // Show thumbs up if votes aren't revealed, otherwise show actual vote
-        updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-      }
-    }
-  });
+ socket.on('restoreUserVote', ({ storyId, vote }) => {
+  if (deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
+    return;
+  }
+
+  if (!hasReceivedStorySelection) {
+    console.log(`[DELAY] Waiting for story selection before applying restored vote for ${storyId}`);
+    return setTimeout(() => socket.emit('requestFullStateResync'), 250); // Retry
+  }
+
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+  }
+
+  votesPerStory[storyId][socket.id] = vote;
+  window.currentVotesPerStory = votesPerStory;
+
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId) {
+    updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+  }
+
+  refreshVoteDisplay(); // Ensure badge and UI update
+});
+
   
   // Updated resyncState handler to restore votes
   socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
@@ -647,6 +650,8 @@ function initializeApp(roomId) {
     } catch (err) {
       console.warn('[SOCKET] Error restoring user votes:', err);
     }
+    window.currentVotesPerStory = votesPerStory;
+refreshVoteDisplay(); // Always refresh UI after full state sync
   });
   
   // Updated deleteStory event handler to track deletions locally
@@ -719,6 +724,7 @@ function initializeApp(roomId) {
   });
 socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  hasReceivedStorySelection = true;
 
   // Fallback: get storyId from index if missing
   if (!storyId && typeof storyIndex === 'number') {
@@ -735,19 +741,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     return;
   }
 
- /**  document.querySelectorAll('.story-card.selected').forEach(card => card.classList.remove('selected'));
-
-  const selectedCard = document.getElementById(storyId);
-  if (selectedCard) {
-    selectedCard.classList.add('selected');
-    selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } else {
-    console.warn(`[storySelected] Could not find card with ID: ${storyId}`);
-  }
-
-  currentStoryIndex = storyIndex; */
-    selectStory(storyIndex, false);
+  selectStory(storyIndex, false);
 });
+
 
   
   // Add reconnection handlers for socket
@@ -760,40 +756,36 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     
     // Handle successful reconnection
     socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
-      
-      // Request current state
-      socket.emit('requestAllTickets');
-      
-      // Get current story ID
-      const currentStoryId = getCurrentStoryId();
-      
-      // After a short delay, send our votes for the current story
-      setTimeout(() => {
-        // First request votes for the current story to get other users' votes
-        if (currentStoryId && !deletedStoryIds.has(currentStoryId)) {
-          socket.emit('requestStoryVotes', { storyId: currentStoryId });
+  console.log('[SOCKET] Reconnected to server');
+  reconnectingInProgress = false;
+
+  // Request current state and story
+  socket.emit('requestAllTickets');
+  socket.emit('requestCurrentStory');
+  setTimeout(() => {
+    socket.emit('requestFullStateResync');
+
+    // Re-apply stored votes
+    if (typeof getUserVotes === 'function') {
+      const userVotes = getUserVotes();
+      for (const [storyId, vote] of Object.entries(userVotes)) {
+        if (deletedStoryIds.has(storyId)) continue;
+
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        votesPerStory[storyId][socket.id] = vote;
+        window.currentVotesPerStory = votesPerStory;
+
+        const currentId = getCurrentStoryId();
+        if (storyId === currentId) {
+          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
         }
-        
-        // Then, for all stories we have votes for, broadcast our votes
-        if (typeof getUserVotes === 'function') {
-          const userVotes = getUserVotes();
-          for (const [storyId, vote] of Object.entries(userVotes)) {
-            if (deletedStoryIds.has(storyId)) continue; // Skip deleted stories
-            
-            console.log(`[RECONNECT] Broadcasting saved vote for story ${storyId}: ${vote}`);
-            
-            // Emit our vote to ensure everyone sees it
-         /**   socket.emit('castVote', {
-              vote,
-              targetUserId: socket.id,
-              storyId
-            }); */
-          }
-        }
-      }, 500);
-    });
+      }
+
+      refreshVoteDisplay();
+    }
+  }, 500);
+});
+
   }
   
   // Guest: Listen for host's voting system
