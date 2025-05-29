@@ -698,7 +698,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     return;
   }
 
-  document.querySelectorAll('.story-card.selected').forEach(card => card.classList.remove('selected'));
+ /**  document.querySelectorAll('.story-card.selected').forEach(card => card.classList.remove('selected'));
 
   const selectedCard = document.getElementById(storyId);
   if (selectedCard) {
@@ -708,7 +708,8 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     console.warn(`[storySelected] Could not find card with ID: ${storyId}`);
   }
 
-  currentStoryIndex = storyIndex;
+  currentStoryIndex = storyIndex; */
+    selectStory(storyIndex, false);
 });
 
   
