@@ -48,11 +48,6 @@ function cleanupRoomData() {
 }
 setInterval(cleanupRoomData, 60 * 60 * 1000);
 
-function getCurrentStoryId(roomId, index) {
-  const story = rooms[roomId]?.tickets?.[index];
-  return story?.id || null;
-}
-
 function findExistingVotesForUser(roomId, userName) {
   if (!rooms[roomId] || !userName) return {};
   const result = {};
@@ -220,6 +215,30 @@ io.on('connection', (socket) => {
     }
 
     restoreUserVotesToCurrentSocket(roomId, socket);
+  });
+
+  socket.on('addTicket', (ticketData) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    const exists = rooms[roomId].tickets.find(t => t.id === ticketData.id);
+    if (!exists) {
+      rooms[roomId].tickets.push(ticketData);
+    }
+
+    if (rooms[roomId].deletedStoryIds.has(ticketData.id)) {
+      rooms[roomId].deletedStoryIds.delete(ticketData.id);
+    }
+
+    socket.broadcast.to(roomId).emit('addTicket', { ticketData });
+  });
+
+  socket.on('requestAllTickets', () => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    const filtered = rooms[roomId].tickets.filter(t => !rooms[roomId].deletedStoryIds.has(t.id));
+    socket.emit('allTickets', { tickets: filtered });
   });
 
   socket.on('restoreUserVote', ({ storyId, vote }) => {
