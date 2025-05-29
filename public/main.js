@@ -2116,7 +2116,7 @@ const storyId = storyCard ? storyCard.id : null;
                         found = true;
                         
                         // Continue with rest of the selection process
-                  //      const storyId = card.id;
+                        storyId = card.id;
                         if (storyId && !deletedStoryIds.has(storyId)) {
                             if (typeof votesRevealed[storyId] === 'undefined') {
                                 votesRevealed[storyId] = false;
