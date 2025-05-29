@@ -491,27 +491,29 @@ function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
-  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-    // Don't process votes for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote for deleted story: ${storyId}`);
-      return;
-    }
-    
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Store the vote
-    votesPerStory[storyId][userId] = vote;
-    
-    // Update UI immediately if this is the current story
-    const currentStoryId = getCurrentStoryId();
-    if (currentStoryId === storyId) {
-      // If votes are revealed, show actual vote, otherwise show thumbs up
-      updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
-    }
-  });
+socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+  // ✅ Skip if vote already exists and is identical
+  if (
+    votesPerStory[storyId] &&
+    votesPerStory[storyId][userId] === vote
+  ) {
+    console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
+    return;
+  }
+
+  // Proceed to merge the vote
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  votesPerStory[storyId][userId] = vote;
+  window.currentVotesPerStory = votesPerStory;
+
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId) {
+    updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+  }
+
+  refreshVoteDisplay();
+});
+
   
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Don't process votes for deleted stories
