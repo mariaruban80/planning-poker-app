@@ -2074,7 +2074,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         // Notify server about selection if requested
 const storyCards = document.querySelectorAll('.story-card');
 const storyCard = storyCards[index];
-let storyId = storyCard ? storyCard.id : null;
+storyId = storyCard ? storyCard.id : null;
       
       if (emitToServer && socket) {
     console.log('[EMIT] Broadcasting story selection:', index);
