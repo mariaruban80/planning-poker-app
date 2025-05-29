@@ -785,11 +785,11 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
             console.log(`[RECONNECT] Broadcasting saved vote for story ${storyId}: ${vote}`);
             
             // Emit our vote to ensure everyone sees it
-            socket.emit('castVote', {
+         /**   socket.emit('castVote', {
               vote,
               targetUserId: socket.id,
               storyId
-            });
+            }); */
           }
         }
       }, 500);
