@@ -1686,9 +1686,13 @@ function processAllTickets(tickets) {
   });
 
   if (filtered.length > 0) {
+  if (currentStoryIndex === null || currentStoryIndex === undefined) {
     currentStoryIndex = 0;
     selectStory(0, false);
+  } else {
+    console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
   }
+}
   
   // Re-apply guest restrictions if needed
   if (isGuestUser()) {
