@@ -680,15 +680,26 @@ function initializeApp(roomId) {
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
   });
-  socket.on('storySelected', ({ storyIndex, storyId }) => {
+socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
 
-  // Remove any existing selection
-  document.querySelectorAll('.story-card.selected').forEach(card => {
-    card.classList.remove('selected');
-  });
+  // Fallback: get storyId from index if missing
+  if (!storyId && typeof storyIndex === 'number') {
+    const storyCards = document.querySelectorAll('.story-card');
+    const target = storyCards[storyIndex];
+    if (target) {
+      storyId = target.id;
+      console.log('[SOCKET] Fallback resolved storyId from index:', storyId);
+    }
+  }
 
-  // Select the correct story card by ID
+  if (!storyId) {
+    console.warn(`[storySelected] Could not resolve storyId`);
+    return;
+  }
+
+  document.querySelectorAll('.story-card.selected').forEach(card => card.classList.remove('selected'));
+
   const selectedCard = document.getElementById(storyId);
   if (selectedCard) {
     selectedCard.classList.add('selected');
@@ -697,7 +708,6 @@ function initializeApp(roomId) {
     console.warn(`[storySelected] Could not find card with ID: ${storyId}`);
   }
 
-  // Store the selected index (optional)
   currentStoryIndex = storyIndex;
 });
 
@@ -2062,19 +2072,28 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         resetOrRestoreVotes(storyId);
         
         // Notify server about selection if requested
-        if (emitToServer && socket) {
-            console.log('[EMIT] Broadcasting story selection:', index);
-            socket.emit('storySelected', { storyIndex: index });
-            
-            // Request votes for this story
-            if (storyId) {
-                if (typeof requestStoryVotes === 'function') {
-                    requestStoryVotes(storyId);
-                } else if (socket) {
-                    socket.emit('requestStoryVotes', { storyId });
-                }
-            }
+const storyCards = document.querySelectorAll('.story-card');
+const storyCard = storyCards[index];
+const storyId = storyCard ? storyCard.id : null;
+      
+      if (emitToServer && socket) {
+    console.log('[EMIT] Broadcasting story selection:', index);
+    
+    // Emit both storyIndex and storyId
+    socket.emit('storySelected', { 
+        storyIndex: index, 
+        storyId: storyId 
+    });
+
+    // Request votes for this story
+    if (storyId) {
+        if (typeof requestStoryVotes === 'function') {
+            requestStoryVotes(storyId);
+        } else if (socket) {
+            socket.emit('requestStoryVotes', { storyId });
         }
+    }
+}
     } else if (forceSelection) {
         console.log(`[UI] Story card with index ${index} not found yet, retrying selection soon...`);
         // Retry selection after a short delay in case DOM is still loading
