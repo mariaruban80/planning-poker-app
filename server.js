@@ -945,38 +945,41 @@ socket.on('requestFullStateResync', () => {
   });
 
   // Handle disconnections
+
 socket.on('disconnect', () => {
   const roomId = socket.data.roomId;
   const userName = socket.data.userName;
 
   if (!roomId || !rooms[roomId]) return;
 
-  // Remove this socket from room's user list
+  // Remove this socket from users list
   rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
 
-  // Remove socket ID from userNameToIdMap for this user
+  // Remove socket id from userNameToIdMap
   if (userName && userNameToIdMap[userName]) {
     userNameToIdMap[userName].socketIds = userNameToIdMap[userName].socketIds.filter(id => id !== socket.id);
-
-    // If no more sockets for this user, optionally remove the user entry
     if (userNameToIdMap[userName].socketIds.length === 0) {
       delete userNameToIdMap[userName];
     }
   }
 
-  // Remove all votes from this disconnected socket ID across all stories in the room
+  // Remove votes for disconnected socket
   for (const storyId in rooms[roomId].votesPerStory) {
     if (rooms[roomId].votesPerStory[storyId][socket.id]) {
       delete rooms[roomId].votesPerStory[storyId][socket.id];
     }
   }
 
-  // Broadcast updated user list and votes to everyone in the room
+  // Broadcast updated user list
   io.to(roomId).emit('userList', rooms[roomId].users);
+
+  // **Broadcast full updated votesPerStory object** (not just incremental)
   io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
 
   console.log(`[SERVER] Socket ${socket.id} disconnected and cleaned up from room ${roomId}`);
-});  
+});
+
+  
 });
 
 const PORT = process.env.PORT || 3000;
