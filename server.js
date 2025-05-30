@@ -216,7 +216,6 @@ io.on('connection', (socket) => {
     const existingUserVotes = findExistingVotesForUser(roomId, userName);
     
     // Send user-specific votes that were found and broadcast them to all users
-
 for (const [storyId, vote] of Object.entries(existingUserVotes)) {
   if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
 
@@ -224,25 +223,32 @@ for (const [storyId, vote] of Object.entries(existingUserVotes)) {
     rooms[roomId].votesPerStory[storyId] = {};
   }
 
-  // Remove old votes from previous socket connections of the same user on this story
-  for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId] || {})) {
+  // Remove votes from previous socket IDs for this user
+  for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId])) {
     if (userNameToIdMap[userName]?.socketIds.includes(sid)) {
       delete rooms[roomId].votesPerStory[storyId][sid];
     }
   }
 
- const existingVote = rooms[roomId].votesPerStory[storyId]?.[socket.id];
-if (existingVote !== vote) {
-  rooms[roomId].votesPerStory[storyId][socket.id] = vote;
-  socket.broadcast.to(roomId).emit('voteUpdate', {
-    userId: socket.id,
-    vote,
-    storyId
-  });
-}
-socket.emit('restoreUserVote', { storyId, vote });
+  // ✅ Re-assign vote to current socket
+  const currentId = socket.id;
+  const existingVote = rooms[roomId].votesPerStory[storyId]?.[currentId];
+  if (existingVote !== vote) {
+    rooms[roomId].votesPerStory[storyId][currentId] = vote;
 
+    // ✅ Broadcast the vote to other users
+    socket.broadcast.to(roomId).emit('voteUpdate', {
+      userId: currentId,
+      vote,
+      storyId
+    });
+  }
+
+  // ✅ Send it to the current user
+  socket.emit('restoreUserVote', { storyId, vote });
 }
+
+
     
 
     // Send voting system to client
