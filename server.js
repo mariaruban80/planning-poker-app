@@ -338,13 +338,26 @@ socket.on('requestFullStateResync', () => {
   const activeRevealed = {};
 
   for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory)) {
-    if (!rooms[roomId].deletedStoryIds.has(storyId)) {
-      activeVotes[storyId] = votes;
-      if (rooms[roomId].votesRevealed?.[storyId]) {
-        activeRevealed[storyId] = true;
+  if (!rooms[roomId].deletedStoryIds.has(storyId)) {
+    const cleanedVotes = {};
+
+    for (const [socketId, vote] of Object.entries(votes)) {
+      const belongsToSameUser = userNameToIdMap[userName]?.socketIds.includes(socketId);
+      const isCurrentSocket = socketId === socket.id;
+
+      // Keep vote if it's from this user’s current connection or from other users
+      if (!belongsToSameUser || isCurrentSocket) {
+        cleanedVotes[socketId] = vote;
       }
     }
+
+    activeVotes[storyId] = cleanedVotes;
+
+    if (rooms[roomId].votesRevealed?.[storyId]) {
+      activeRevealed[storyId] = true;
+    }
   }
+}
 
   // Send comprehensive state to client
   socket.emit('resyncState', {
