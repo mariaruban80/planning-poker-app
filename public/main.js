@@ -554,31 +554,37 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   });
   
   // Updated handler for restored user votes
- socket.on('restoreUserVote', ({ storyId, vote }) => {
+socket.on('restoreUserVote', ({ storyId, vote }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
   }
 
-  if (!hasReceivedStorySelection) {
-    console.log(`[DELAY] Waiting for story selection before applying restored vote for ${storyId}`);
-    return setTimeout(() => socket.emit('requestFullStateResync'), 250); // Retry
-  }
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
-  if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
-  }
-
+  // ✅ Ensure the vote is stored under this user's socket.id
   votesPerStory[storyId][socket.id] = vote;
   window.currentVotesPerStory = votesPerStory;
 
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+  const currentStoryId = getCurrentStoryId();
+  const isRevealed = votesRevealed[storyId];
+
+  // ✅ Apply vote visuals
+  if (storyId === currentStoryId) {
+    updateVoteVisuals(socket.id, isRevealed ? vote : '👍', true);
+
+    if (isRevealed) {
+      // Also regenerate statistics if this is the current story
+      handleVotesRevealed(storyId, votesPerStory[storyId]);
+    }
   }
 
-  refreshVoteDisplay(); // Ensure badge and UI update
+  refreshVoteDisplay(); // Refresh UI and badges
 });
+
+
+
+  
 
   
   // Updated resyncState handler to restore votes
@@ -623,8 +629,9 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
           const currentId = getCurrentStoryId();
           if (currentId === storyId) {
             applyVotesToUI(votes, false);
-            handleVotesRevealed(storyId, votesPerStory[storyId]);
+           
           }
+           handleVotesRevealed(storyId, votesPerStory[storyId]);
         }
       }
     }
