@@ -588,92 +588,67 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
   
   // Updated resyncState handler to restore votes
-  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
-    console.log('[SOCKET] Received resyncState from server');
-    
-    // Update local deleted stories tracking first
-    if (Array.isArray(serverDeletedIds)) {
-      serverDeletedIds.forEach(id => deletedStoryIds.add(id));
-      
-      // Save to session storage
-      saveDeletedStoriesToStorage(roomId);
-    }
-    
-    // Filter out any deleted tickets
-    const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
-    
-    // Process non-deleted tickets
-    if (Array.isArray(filteredTickets)) {
-      processAllTickets(filteredTickets);
-    }
-    
-    // Update local vote state for non-deleted stories
-    if (serverVotes) {
-      for (const [storyId, votes] of Object.entries(serverVotes)) {
-        // Skip deleted stories
-        if (deletedStoryIds.has(storyId)) continue;
-        
-        if (!votesPerStory[storyId]) {
-          votesPerStory[storyId] = {};
+ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+  console.log('[SOCKET] Received resyncState from server');
+
+  // Update local deleted stories tracking
+  if (Array.isArray(serverDeletedIds)) {
+    serverDeletedIds.forEach(id => deletedStoryIds.add(id));
+    saveDeletedStoriesToStorage(roomId);
+  }
+
+  // Filter and process non-deleted tickets
+  const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
+  if (Array.isArray(filteredTickets)) {
+    processAllTickets(filteredTickets);
+  }
+
+  // Update local vote state for non-deleted stories
+  if (serverVotes) {
+    for (const [storyId, votes] of Object.entries(serverVotes)) {
+      if (deletedStoryIds.has(storyId)) continue;
+
+      if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+      votesPerStory[storyId] = { ...votes };
+      window.currentVotesPerStory = votesPerStory;
+
+      if (serverRevealed && serverRevealed[storyId]) {
+        votesRevealed[storyId] = true;
+
+        const currentId = getCurrentStoryId();
+        if (currentId === storyId) {
+          applyVotesToUI(votes, false); // Show actual vote values
         }
-        
-        // Merge received votes
-        votesPerStory[storyId] = { ...votes };
-        window.currentVotesPerStory = votesPerStory;
-        
-        // Update revealed status
-        if (serverRevealed && serverRevealed[storyId]) {
-          votesRevealed[storyId] = true;
-          
-          // If this is the current story, update UI
-          const currentId = getCurrentStoryId();
-          if (currentId === storyId) {
-            applyVotesToUI(votes, false);
-           
-          }
-           handleVotesRevealed(storyId, votesPerStory[storyId]);
-        }
+
+        // ✅ Always show stats, even if not the selected story yet
+        handleVotesRevealed(storyId, votesPerStory[storyId]);
       }
     }
-    
-    // Also restore any saved user votes
-    try {
-      const savedUserVotes = getUserVotes ? getUserVotes() : {};
-      
-      for (const [storyId, vote] of Object.entries(savedUserVotes)) {
-        // Skip deleted stories
-        if (deletedStoryIds.has(storyId)) continue;
-        
-        if (!votesPerStory[storyId]) {
-          votesPerStory[storyId] = {};
-        }
-        
-        // Apply the vote if socket is connected
-        if (socket && socket.id) {
-          votesPerStory[storyId][socket.id] = vote;
-          
-          // Update UI if this is the current story
-          const currentId = getCurrentStoryId();
-          if (currentId === storyId) {
-            updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-          }
-          
-          // Also broadcast this vote to ensure all clients see it
-      /**    if (socket.connected) {
-            socket.emit('castVote', {
-              vote,
-              targetUserId: socket.id,
-              storyId
-            });
-          } */
-        }
+  }
+
+  // Restore saved personal votes from session storage
+  try {
+    const savedUserVotes = getUserVotes ? getUserVotes() : {};
+
+    for (const [storyId, vote] of Object.entries(savedUserVotes)) {
+      if (deletedStoryIds.has(storyId)) continue;
+
+      if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+      votesPerStory[storyId][socket.id] = vote;
+
+      const currentId = getCurrentStoryId();
+      if (storyId === currentId) {
+        updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
       }
-    } catch (err) {
-      console.warn('[SOCKET] Error restoring user votes:', err);
     }
-    window.currentVotesPerStory = votesPerStory;
-refreshVoteDisplay(); // Always refresh UI after full state sync
-  });
+  } catch (err) {
+    console.warn('[SOCKET] Error restoring user votes:', err);
+  }
+
+  window.currentVotesPerStory = votesPerStory;
+  refreshVoteDisplay();
+});
+
   
   // Updated deleteStory event handler to track deletions locally
   socket.on('deleteStory', ({ storyId }) => {
