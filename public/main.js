@@ -612,17 +612,29 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
       votesPerStory[storyId] = { ...votes };
       window.currentVotesPerStory = votesPerStory;
 
-      if (serverRevealed && serverRevealed[storyId]) {
-        votesRevealed[storyId] = true;
+ if (serverRevealed && serverRevealed[storyId]) {
+  votesRevealed[storyId] = true;
 
-        const currentId = getCurrentStoryId();
-        if (currentId === storyId) {
-          applyVotesToUI(votes, false); // Show actual vote values
-        }
+  // Merge in local vote from session storage if available
+  const allVotes = { ...(votes || {}) };
 
-        // ✅ Always show stats, even if not the selected story yet
-        handleVotesRevealed(storyId, votesPerStory[storyId]);
-      }
+  if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
+    allVotes[socket.id] = votesPerStory[storyId][socket.id];
+  }
+
+  // Save the merged result
+  votesPerStory[storyId] = allVotes;
+  window.currentVotesPerStory = votesPerStory;
+
+  // Apply to UI if current story
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId) {
+    applyVotesToUI(allVotes, false);
+  }
+
+  // Always regenerate vote stats with full vote list
+  handleVotesRevealed(storyId, allVotes);
+}
     }
   }
 
