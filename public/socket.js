@@ -111,7 +111,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
         socket.emit('requestStoryVotes', { storyId });
       }
     });
-  socket.on('connect', () => {
+
+socket.on('connect', () => {
   console.log('[SOCKET] Connected to server with ID:', socket.id);
   reconnectAttempts = 0;
   clearTimeout(reconnectTimer);
@@ -122,7 +123,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   // Listen for votes updates from server
   socket.on('votesUpdate', (votesData) => {
     console.log('[SOCKET] votesUpdate received:', votesData);
-    refreshVoteDisplay(votesData);  // Your function to update UI with new votes
+    refreshVoteDisplay(votesData);
   });
 
   // Notify UI of successful connection
@@ -130,8 +131,38 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
   // Apply any saved votes from session storage
   restoreVotesFromStorage(roomIdentifier);
+
+  // ✅ Fallback: Restore votes manually if server didn't send restoreUserVote
+  try {
+    const userVotes = JSON.parse(sessionStorage.getItem(`votes_${roomIdentifier}`) || '{}');
+
+    for (const [storyId, vote] of Object.entries(userVotes)) {
+      if (!lastKnownRoomState.votesPerStory[storyId]) {
+        lastKnownRoomState.votesPerStory[storyId] = {};
+      }
+
+      lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
+
+      const selectedCard = document.querySelector('.story-card.selected');
+      const currentId = selectedCard?.id;
+      const isRevealed = lastKnownRoomState.votesRevealed?.[storyId];
+
+      if (storyId === currentId && typeof updateVoteVisuals === 'function') {
+        updateVoteVisuals(socket.id, isRevealed ? vote : '👍', true);
+      }
+
+      // Optional: Re-broadcast to server to ensure vote is tracked
+      socket.emit('castVote', { vote, storyId, targetUserId: socket.id });
+    }
+
+    console.log('[SOCKET] Fallback vote restore completed from sessionStorage');
+  } catch (err) {
+    console.warn('[SOCKET] Could not apply fallback vote restore:', err);
+  }
 });
 
+
+  
 
   // Add reconnect event handlers
   socket.on('reconnect_attempt', (attempt) => {
