@@ -109,10 +109,14 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
     for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId])) {
       if (ids.includes(sid)) delete rooms[roomId].votesPerStory[storyId][sid];
     }
-
-    rooms[roomId].votesPerStory[storyId][currentId] = vote;
-    socket.emit('restoreUserVote', { storyId, vote });
-    socket.broadcast.to(roomId).emit('voteUpdate', { userId: currentId, vote, storyId });
+const existingVote = rooms[roomId].votesPerStory[storyId]?.[currentId];
+if (existingVote !== vote) {
+  rooms[roomId].votesPerStory[storyId][currentId] = vote;
+  socket.broadcast.to(roomId).emit('voteUpdate', { userId: currentId, vote, storyId });
+}
+socket.emit('restoreUserVote', { storyId, vote }); 
+    
+    
   }
 }
 
@@ -227,19 +231,16 @@ for (const [storyId, vote] of Object.entries(existingUserVotes)) {
     }
   }
 
-  // Add vote from current socket
+ const existingVote = rooms[roomId].votesPerStory[storyId]?.[socket.id];
+if (existingVote !== vote) {
   rooms[roomId].votesPerStory[storyId][socket.id] = vote;
-
-  // Inform the reconnecting client
-  socket.emit('restoreUserVote', { storyId, vote });
-
-  // Broadcast vote update so all others see it immediately
   socket.broadcast.to(roomId).emit('voteUpdate', {
     userId: socket.id,
     vote,
     storyId
   });
 }
+socket.emit('restoreUserVote', { storyId, vote });
 
     
 
@@ -293,15 +294,23 @@ for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId] || {})) {
     delete rooms[roomId].votesPerStory[storyId][sid];
   }
 }
-rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+const existingVote = rooms[roomId].votesPerStory[storyId]?.[socket.id];
 
-  socket.emit('restoreUserVote', { storyId, vote });
+if (existingVote !== vote) {
+  rooms[roomId].votesPerStory[storyId][socket.id] = vote;
 
+  // Broadcast only if it's a new vote
   socket.broadcast.to(roomId).emit('voteUpdate', {
     userId: socket.id,
     vote,
     storyId
   });
+}
+
+// Always inform the user (in case their UI needs restoring)
+socket.emit('restoreUserVote', { storyId, vote });
+
+  
 });
 
   
@@ -367,19 +376,18 @@ socket.on('requestFullStateResync', () => {
           delete rooms[roomId].votesPerStory[storyId][sid];
         }
       }
+const existingVote = rooms[roomId].votesPerStory[storyId]?.[socket.id];
+if (existingVote !== vote) {
+  rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+  socket.broadcast.to(roomId).emit('voteUpdate', {
+    userId: socket.id,
+    vote,
+    storyId
+  });
+}
+socket.emit('restoreUserVote', { storyId, vote });  
 
-      // ✅ Assign new vote to current socket ID
-      rooms[roomId].votesPerStory[storyId][socket.id] = vote;
-
-      // Send the restored vote to the user
-      socket.emit('restoreUserVote', { storyId, vote });
-
-      // Broadcast vote to other users
-      socket.broadcast.to(roomId).emit('voteUpdate', {
-        userId: socket.id,
-        vote,
-        storyId
-      });
+    
     }
   }
 });
