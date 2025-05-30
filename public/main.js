@@ -330,29 +330,37 @@ function addFixedVoteStatisticsStyles() {
   document.head.appendChild(style);
 }
 
-// Create a new function to generate the exact HTML structure
+// Create a new function to generate the stats layout
 function createFixedVoteDisplay(votes) {
   // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
-  
-  // Calculate statistics
-  const voteValues = Object.values(votes);
+
+  // Deduplicate by userId (even if sent twice)
+  const userVotes = new Map();
+  for (const [userId, vote] of Object.entries(votes)) {
+    if (!userVotes.has(userId)) {
+      userVotes.set(userId, vote);
+    }
+  }
+
+  const voteValues = Array.from(userVotes.values());
+
+  // Extract numeric values only
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
-  
+
   // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
   let voteCount = voteValues.length;
   let averageValue = 0;
-  
-  // Calculate statistics if we have numeric values
+
+  // Calculate statistics
   if (numericValues.length > 0) {
-    // Find most common vote
     const voteFrequency = {};
     let maxCount = 0;
-    
+
     voteValues.forEach(vote => {
       voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
       if (voteFrequency[vote] > maxCount) {
@@ -360,13 +368,12 @@ function createFixedVoteDisplay(votes) {
         mostCommonVote = vote;
       }
     });
-    
-    // Calculate average
+
     averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
-    averageValue = Math.round(averageValue * 10) / 10; // Round to 1 decimal place
+    averageValue = Math.round(averageValue * 10) / 10;
   }
-  
-  // Create HTML that exactly matches the image
+
+  // Create HTML that shows the stats
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -385,9 +392,11 @@ function createFixedVoteDisplay(votes) {
       </div>
     </div>
   `;
-  
+
   return container;
 }
+
+
 
 /**
  * Determines if current user is a guest
