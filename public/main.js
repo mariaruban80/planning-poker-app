@@ -536,7 +536,9 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     }
     
     // Store the votes
-    Object.assign(votesPerStory[storyId], votes);
+
+      votesPerStory[storyId] = { ...votes };
+    window.currentVotesPerStory = votesPerStory;
     
     // Update UI immediately if this is the current story
     const currentStoryId = getCurrentStoryId();
@@ -610,7 +612,8 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
         }
         
         // Merge received votes
-        Object.assign(votesPerStory[storyId], votes);
+        votesPerStory[storyId] = { ...votes };
+        window.currentVotesPerStory = votesPerStory;
         
         // Update revealed status
         if (serverRevealed && serverRevealed[storyId]) {
@@ -1486,7 +1489,8 @@ function handleVotesRevealed(storyId, votes) {
     votesPerStory[storyId] = {};
   }
 
-  Object.assign(votesPerStory[storyId], votes);
+  votesPerStory[storyId] = { ...votes };
+  window.currentVotesPerStory = votesPerStory;
 
   addFixedVoteStatisticsStyles();
 
@@ -2882,7 +2886,8 @@ function handleSocketMessage(message) {
           }
           
           // Merge in the votes from server
-          Object.assign(votesPerStory[storyId], votes);
+          votesPerStory[storyId] = { ...votes };
+          window.currentVotesPerStory = votesPerStory;
         }
       }
       
