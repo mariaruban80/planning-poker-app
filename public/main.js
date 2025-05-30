@@ -554,7 +554,7 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   });
   
   // Updated handler for restored user votes
- socket.on('restoreUserVote', ({ storyId, vote }) => {
+socket.on('restoreUserVote', ({ storyId, vote, userId }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
@@ -569,16 +569,19 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     votesPerStory[storyId] = {};
   }
 
-  votesPerStory[storyId][socket.id] = vote;
+  // Use the correct user ID from the server, or fallback to socket.id
+  const uid = userId || socket.id;
+  votesPerStory[storyId][uid] = vote;
   window.currentVotesPerStory = votesPerStory;
 
   const currentId = getCurrentStoryId();
   if (storyId === currentId) {
-    updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+    updateVoteVisuals(uid, votesRevealed[storyId] ? vote : '👍', true);
   }
 
-  refreshVoteDisplay(); // Ensure badge and UI update
+  refreshVoteDisplay();
 });
+
 
   
   // Updated resyncState handler to restore votes
