@@ -27,6 +27,70 @@ export function setDebugMode(enable) {
   debugMode = enable;
   console.log(`[SOCKET] Debug mode ${enable ? 'enabled' : 'disabled'}`);
 }
+// Add this function to socket.js
+/**
+ * Get vote statistics for a specific story
+ * @param {string} storyId - ID of the story to get statistics for
+ * @returns {Object} Statistics object with counts, average, etc.
+ */
+export function getVoteStatistics(storyId) {
+  if (!storyId || !lastKnownRoomState.votesPerStory[storyId]) {
+    return {
+      totalVotes: 0,
+      votes: {},
+      mostCommon: null,
+      mostCommonCount: 0,
+      average: 0,
+      agreement: 0,
+      isRevealed: false
+    };
+  }
+  
+  const votes = lastKnownRoomState.votesPerStory[storyId];
+  const isRevealed = lastKnownRoomState.votesRevealed[storyId] || false;
+  const voteValues = Object.values(votes);
+  
+  // Count frequency of each vote
+  const voteCounts = {};
+  let totalNumeric = 0;
+  let numericSum = 0;
+  let maxCount = 0;
+  let mostCommonVote = null;
+  
+  voteValues.forEach(vote => {
+    voteCounts[vote] = (voteCounts[vote] || 0) + 1;
+    
+    if (voteCounts[vote] > maxCount) {
+      maxCount = voteCounts[vote];
+      mostCommonVote = vote;
+    }
+    
+    // Handle numeric votes for average
+    const numValue = parseFloat(vote);
+    if (!isNaN(numValue)) {
+      totalNumeric++;
+      numericSum += numValue;
+    }
+  });
+  
+  // Calculate average
+  const average = totalNumeric > 0 ? 
+    Math.round((numericSum / totalNumeric) * 10) / 10 : 0;
+  
+  // Calculate agreement percentage
+  const agreement = voteValues.length > 0 ?
+    Math.round((maxCount / voteValues.length) * 100) : 0;
+  
+  return {
+    totalVotes: voteValues.length,
+    votes: voteCounts,
+    mostCommon: mostCommonVote,
+    mostCommonCount: maxCount,
+    average: average,
+    agreement: agreement,
+    isRevealed: isRevealed
+  };
+}
 
 /**
  * Enhanced logging function with debug mode support
