@@ -94,6 +94,15 @@ function findExistingVotesForUser(roomId, userName) {
   return result;
 }
 function restoreUserVotesToCurrentSocket(roomId, socket) {
+
+  console.log(`[SERVER] Attempting to restore votes for ${socket.data.userName} (${socket.id}) in room ${roomId}`);
+
+if (!userNameToIdMap[socket.data.userName]) {
+  console.warn(`[SERVER] No userNameToIdMap entry for ${socket.data.userName}`);
+} else {
+  console.log(`[SERVER] Previous socketIds for ${socket.data.userName}:`, userNameToIdMap[socket.data.userName].socketIds);
+}
+
   const userName = socket.data.userName;
   const currentId = socket.id;
   const ids = userNameToIdMap[userName]?.socketIds || [];
@@ -107,6 +116,7 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
 
     // Remove old votes from same user
     for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId])) {
+        console.log(`[SERVER] Restoring vote: story=${storyId}, vote=${vote}`);
       if (ids.includes(sid)) delete rooms[roomId].votesPerStory[storyId][sid];
     }
 const existingVote = rooms[roomId].votesPerStory[storyId]?.[currentId];
@@ -225,6 +235,7 @@ for (const storyId in rooms[roomId].votesPerStory) {
   }
 }
 
+console.log('[SERVER] Current userNameToIdMap:', userNameToIdMap);
 
 
     
