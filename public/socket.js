@@ -293,7 +293,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Save to sessionStorage for persistence across page refreshes
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
         console.log(`[SOCKET] Saved user vote to session storage: ${storyId} = ${vote}`);
       } catch (err) {
         console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
@@ -342,7 +342,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Save to sessionStorage for persistence across page refreshes
     try {
       const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      localStorage.setItem(`votes_${roomIdentifier}`, votesData);
+      localStorage.setItem(`votes_${roomId}`, votesData);
       console.log(`[SOCKET] Saved restored vote to session storage: ${storyId} = ${vote}`);
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
@@ -410,7 +410,9 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Update session storage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
+        
+        
       } catch (err) {
         console.warn('[SOCKET] Could not update userVotes in session storage:', err);
       }
@@ -444,9 +446,11 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Update sessionStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        
+        localStorage.setItem(`votes_${roomId}`, votesData);
+        console.log(`[SOCKET] Saved user vote to localStorage: ${storyId} = ${vote}`);
       } catch (err) {
-        console.warn('[SOCKET] Could not update session storage after vote reset:', err);
+        console.warn('[SOCKET] Could not save vote to localStorage:', err);
       }
     }
     
@@ -654,51 +658,54 @@ function restoreVotesFromStorage(roomIdentifier) {
  * Delete a story and sync with other users
  * @param {string} storyId - ID of the story to delete
  */
+
 export function emitDeleteStory(storyId) {
   if (socket) {
     console.log('[SOCKET] Deleting story:', storyId);
     socket.emit('deleteStory', { storyId });
-    
+
     // Update local state tracking - using array.push instead of Set.add
     if (!lastKnownRoomState.deletedStoryIds) {
       lastKnownRoomState.deletedStoryIds = [];
     }
-    
+
     // Only add if not already included
     if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
       lastKnownRoomState.deletedStoryIds.push(storyId);
-      
-      // Save to session storage
+
+      // Save to localStorage
       try {
         const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-        sessionStorage.setItem(`deleted_${roomId}`, deletedData);
+        localStorage.setItem(`deleted_${roomId}`, deletedData);
       } catch (err) {
-        console.warn('[SOCKET] Could not save deleted story ID to sessionStorage:', err);
+        console.warn('[SOCKET] Could not save deleted story ID to localStorage:', err);
       }
     }
-    
+
     // Also remove this story from userVotes to prevent restoration
     if (lastKnownRoomState.userVotes && lastKnownRoomState.userVotes[storyId]) {
       delete lastKnownRoomState.userVotes[storyId];
-      
+
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomId}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
       } catch (err) {
-        console.warn('[SOCKET] Could not update userVotes in session storage:', err);
+        console.warn('[SOCKET] Could not update userVotes in localStorage:', err);
       }
     }
-    
+
     // Remove from votesPerStory and votesRevealed
     if (lastKnownRoomState.votesPerStory && lastKnownRoomState.votesPerStory[storyId]) {
       delete lastKnownRoomState.votesPerStory[storyId];
     }
-    
+
     if (lastKnownRoomState.votesRevealed && lastKnownRoomState.votesRevealed[storyId]) {
       delete lastKnownRoomState.votesRevealed[storyId];
     }
   }
 }
+
+
 
 /**
  * Send CSV data to server for synchronization
@@ -744,6 +751,7 @@ export function emitStorySelected(index) {
  * @param {string} targetUserId - The user ID receiving the vote
  * @param {string} storyId - ID of the story being voted on
  */
+
 export function emitVote(vote, targetUserId, storyId) {
   if (socket) {
     // Check if this story is deleted
@@ -751,27 +759,29 @@ export function emitVote(vote, targetUserId, storyId) {
       console.log(`[SOCKET] Cannot vote for deleted story: ${storyId}`);
       return;
     }
-    
+
     socket.emit('castVote', { vote, targetUserId, storyId });
-    
+
     // Update local state tracking - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
     lastKnownRoomState.votesPerStory[storyId][targetUserId] = vote;
-    
+
     // Also store in user's personal votes
     if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
     lastKnownRoomState.userVotes[storyId] = vote;
-    
-    // Save to sessionStorage for persistence
+
+    // Save to localStorage for persistence
     try {
       const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      sessionStorage.setItem(`votes_${roomId}`, votesData);
+      localStorage.setItem(`votes_${roomId}`, votesData);
     } catch (err) {
-      console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
+      console.warn('[SOCKET] Could not save vote to localStorage:', err);
     }
   }
 }
+
+
 
 /**
  * Request votes for a specific story
@@ -797,12 +807,12 @@ export function revealVotes(storyId) {
     if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
     lastKnownRoomState.votesRevealed[storyId] = true;
     
-    // Save to sessionStorage
+    // Save to localStorage for persistence across browser sessions
     try {
       const revealedData = JSON.stringify(lastKnownRoomState.votesRevealed);
-      sessionStorage.setItem(`revealed_${roomId}`, revealedData);
+      localStorage.setItem(`revealed_${roomId}`, revealedData);
     } catch (err) {
-      console.warn('[SOCKET] Could not save revealed state to sessionStorage:', err);
+      console.warn('[SOCKET] Could not save revealed state to localStorage:', err);
     }
   }
 }
@@ -815,29 +825,32 @@ export function revealVotes(storyId) {
 export function resetVotes(storyId) {
   if (socket) {
     socket.emit('resetVotes', { storyId });
-    
+
     // Update local state tracking - ensure initialization
     if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
     if (!lastKnownRoomState.votesRevealed) lastKnownRoomState.votesRevealed = {};
     if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
-    
+
     lastKnownRoomState.votesPerStory[storyId] = {};
     lastKnownRoomState.votesRevealed[storyId] = false;
-    
+
     // Remove from user votes
     if (lastKnownRoomState.userVotes[storyId]) {
       delete lastKnownRoomState.userVotes[storyId];
-      
-      // Update sessionStorage
+
+      // Update localStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomId}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
       } catch (err) {
-        console.warn('[SOCKET] Could not update session storage after vote reset:', err);
+        console.warn('[SOCKET] Could not update localStorage after vote reset:', err);
       }
     }
   }
 }
+
+
+
 
 /**
  * Request export of all votes data
