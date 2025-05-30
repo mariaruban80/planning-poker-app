@@ -3135,9 +3135,42 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
-</script>
+</script> 
 
     <script type="module" src="main.js"></script>
+
+     <script>
+  document.getElementById('joinSessionWithName').addEventListener('click', function () {
+    const nameInput = document.getElementById('userNameInput');
+    const userName = nameInput.value.trim();
+
+    if (!userName) {
+      alert('Please enter your name to join.');
+      return;
+    }
+
+    // ✅ FIX: Store userName in sessionStorage so it persists
+    sessionStorage.setItem('userName', userName);
+
+    // ✅ FIX: Load roomId from URL or generate one
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('roomId');
+    if (!roomId) {
+      roomId = 'room-' + Math.floor(Math.random() * 10000);
+      const newUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'roomId=' + roomId;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+
+    // ✅ FIX: Initialize socket with saved name
+    if (typeof window.initializeSocketWithName === 'function') {
+      window.initializeSocketWithName(roomId, userName);
+    }
+
+    // Hide the login modal
+    document.getElementById('loginModalCustom').style.display = 'none';
+  });
+</script>
+
   
      
 </body>
