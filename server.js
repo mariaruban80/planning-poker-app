@@ -242,6 +242,7 @@ if (existingVote !== vote) {
 }
 socket.emit('restoreUserVote', { storyId, vote });
 
+}
     
 
     // Send voting system to client
