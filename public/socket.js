@@ -293,7 +293,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Save to sessionStorage for persistence across page refreshes
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
         console.log(`[SOCKET] Saved user vote to session storage: ${storyId} = ${vote}`);
       } catch (err) {
         console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
@@ -342,7 +342,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Save to sessionStorage for persistence across page refreshes
     try {
       const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+      localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       console.log(`[SOCKET] Saved restored vote to session storage: ${storyId} = ${vote}`);
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
@@ -410,7 +410,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Update session storage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update userVotes in session storage:', err);
       }
@@ -444,7 +444,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Update sessionStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update session storage after vote reset:', err);
       }
