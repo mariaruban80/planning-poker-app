@@ -364,85 +364,144 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     }, 100);
   });
 
-  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-    // Check if we should ignore this because the story is deleted
-    if (isStoryDeleted(storyId)) {
-      logDebug(`Ignoring vote for deleted story: ${storyId}`);
-      return;
+ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+  // Check if we should ignore this because the story is deleted
+  if (isStoryDeleted(storyId)) {
+    logDebug(`Ignoring vote for deleted story: ${storyId}`);
+    return;
+  }
+  
+  console.log(`[SOCKET] Vote update received: ${userId} voted ${vote} for story ${storyId}`);
+  
+  // Store in last known state - ensure initialization
+  if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+  if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+  lastKnownRoomState.votesPerStory[storyId][userId] = vote;
+  
+  // If this is the current user's vote, store it separately for easier recovery
+  if (socket && userId === socket.id) {
+    if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
+    lastKnownRoomState.userVotes[storyId] = vote;
+    
+    // Save our own vote for future sessions
+    saveUserVoteToStorage(storyId, vote, userName);
+  }
+  
+  // IMPORTANT: Update window.currentVotesPerStory to ensure statistics are accurate
+  if (typeof window === 'object' && window !== null) {
+    if (!window.currentVotesPerStory) {
+      window.currentVotesPerStory = {};
     }
     
-    console.log(`[SOCKET] Vote update received: ${userId} voted ${vote} for story ${storyId}`);
-    
-    // Store in last known state - ensure initialization
-    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
-    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
-    lastKnownRoomState.votesPerStory[storyId][userId] = vote;
-    
-    // If this is the current user's vote, store it separately for easier recovery
-    if (socket && userId === socket.id) {
-      if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
-      lastKnownRoomState.userVotes[storyId] = vote;
-      
-      // Save our own vote for future sessions
-      saveUserVoteToStorage(storyId, vote, userName);
+    if (!window.currentVotesPerStory[storyId]) {
+      window.currentVotesPerStory[storyId] = {};
     }
     
-    handleMessage({ type: 'voteUpdate', userId, vote, storyId });
-  });
+    // Update the vote
+    window.currentVotesPerStory[storyId][userId] = vote;
+    
+    // Force a refresh of the vote display if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId && typeof window.refreshVoteDisplay === 'function') {
+      window.refreshVoteDisplay();
+    }
+  }
+  
+  handleMessage({ type: 'voteUpdate', userId, vote, storyId });
+});
 
-  socket.on('storyVotes', ({ storyId, votes }) => {
-    // Check if we should ignore this because the story is deleted
-    if (isStoryDeleted(storyId)) {
-      logDebug(`Ignoring votes for deleted story: ${storyId}`);
-      return;
+socket.on('storyVotes', ({ storyId, votes }) => {
+  // Check if we should ignore this because the story is deleted
+  if (isStoryDeleted(storyId)) {
+    logDebug(`Ignoring votes for deleted story: ${storyId}`);
+    return;
+  }
+  
+  console.log(`[SOCKET] Received votes for story ${storyId}:`, Object.keys(votes).length);
+  
+  // Store in last known state - ensure initialization
+  if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+  lastKnownRoomState.votesPerStory[storyId] = votes || {};
+  
+  // Also update our personal votes record if our vote is included
+  if (socket && votes[socket.id]) {
+    if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
+    lastKnownRoomState.userVotes[storyId] = votes[socket.id];
+    
+    // Save our own vote for future sessions
+    saveUserVoteToStorage(storyId, votes[socket.id], userName);
+  }
+  
+  // IMPORTANT: Update window.currentVotesPerStory for statistics
+  if (typeof window === 'object' && window !== null) {
+    if (!window.currentVotesPerStory) {
+      window.currentVotesPerStory = {};
     }
     
-    console.log(`[SOCKET] Received votes for story ${storyId}:`, Object.keys(votes).length);
+    // Set all votes for this story
+    window.currentVotesPerStory[storyId] = { ...votes };
     
-    // Store in last known state - ensure initialization
-    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
-    lastKnownRoomState.votesPerStory[storyId] = votes || {};
-    
-    // Also update our personal votes record if our vote is included
-    if (socket && votes[socket.id]) {
-      if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
-      lastKnownRoomState.userVotes[storyId] = votes[socket.id];
-      
-      // Save our own vote for future sessions
-      saveUserVoteToStorage(storyId, votes[socket.id], userName);
+    // Trigger UI update if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId && typeof window.refreshVoteDisplay === 'function') {
+      window.refreshVoteDisplay();
     }
-    
-    handleMessage({ type: 'storyVotes', storyId, votes });
-  });
+  }
+  
+  handleMessage({ type: 'storyVotes', storyId, votes });
+});
+  
 
   // Handler for restoring user votes - only applies to current user
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
-    // Check if we should ignore this because the story is deleted
-    if (isStoryDeleted(storyId)) {
-      logDebug(`Ignoring vote restoration for deleted story: ${storyId}`);
-      return;
-    }
+socket.on('restoreUserVote', ({ storyId, vote }) => {
+  // Check if we should ignore this because the story is deleted
+  if (isStoryDeleted(storyId)) {
+    logDebug(`Ignoring vote restoration for deleted story: ${storyId}`);
+    return;
+  }
+  
+  console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
+  
+  // Store in last known state - ensure initialization
+  if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+  if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+  
+  // ONLY update our own vote, never others'
+  if (socket) {
+    lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
     
-    console.log(`[SOCKET] Restoring user vote for story ${storyId}: ${vote}`);
+    // Also track in user's personal votes
+    if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
+    lastKnownRoomState.userVotes[storyId] = vote;
     
-    // Store in last known state - ensure initialization
-    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
-    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    // Save our own vote for future sessions
+    saveUserVoteToStorage(storyId, vote, userName);
     
-    // ONLY update our own vote, never others'
-    if (socket) {
-      lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
+    // IMPORTANT: Update window.currentVotesPerStory for statistics
+    if (typeof window === 'object' && window !== null) {
+      if (!window.currentVotesPerStory) {
+        window.currentVotesPerStory = {};
+      }
       
-      // Also track in user's personal votes
-      if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
-      lastKnownRoomState.userVotes[storyId] = vote;
+      if (!window.currentVotesPerStory[storyId]) {
+        window.currentVotesPerStory[storyId] = {};
+      }
       
-      // Save our own vote for future sessions
-      saveUserVoteToStorage(storyId, vote, userName);
+      // Add this vote
+      window.currentVotesPerStory[storyId][socket.id] = vote;
+      
+      // Force refresh if this is the current story
+      const currentStoryId = getCurrentStoryId();
+      if (currentStoryId === storyId && typeof window.refreshVoteDisplay === 'function') {
+        window.refreshVoteDisplay();
+      }
     }
-    
-    handleMessage({ type: 'restoreUserVote', storyId, vote });
-  });
+  }
+  
+  handleMessage({ type: 'restoreUserVote', storyId, vote });
+});
+
+  
 
   socket.on('votesRevealed', ({ storyId }) => {
     // Check if we should ignore this because the story is deleted
