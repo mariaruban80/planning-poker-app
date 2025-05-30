@@ -2,8 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
-//import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes, getVoteStatistics } from './socket.js';
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -131,28 +130,16 @@ function refreshVoteDisplay() {
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
 
-  // Get current story ID
-  const currentId = getCurrentStoryId();
-  if (!currentId) return;
-
-  // Get votes for current story
-  const votes = window.currentVotesPerStory[currentId] || {};
-
-  // Loop over all users and their votes
-  for (const [userId, vote] of Object.entries(votes)) {
-    // Update UI for each user vote on current story
-    updateVoteVisuals(userId, votesRevealed[currentId] ? vote : '👍', true);
-    
-    // Update vote badge for the story
-    updateVoteBadges(currentId, votes);
-  }
-
-  // If votes are revealed, ensure statistics are shown
-  if (votesRevealed[currentId]) {
-    handleVotesRevealed(currentId, votes);
+  // Loop over all stories and their votes
+  for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
+    for (const [userId, vote] of Object.entries(votes)) {
+      // Update UI for each user vote on each story
+      updateVoteVisuals(userId, vote, storyId);
+          
+    }
+    updateVoteBadges(storyId, votes);
   }
 }
-
 
 
 function updateVoteBadges(storyId, votes) {
@@ -345,22 +332,46 @@ function addFixedVoteStatisticsStyles() {
 
 // Create a new function to generate the stats layout
 function createFixedVoteDisplay(votes) {
-  // Get the current story ID
-  const storyId = getCurrentStoryId();
-  if (!storyId) return;
-
-  // Get comprehensive statistics 
-  const stats = getVoteStatistics(storyId);
-  
   // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Extract the data we need
-  const mostCommonVote = stats.mostCommon || '0';
-  const voteCount = stats.totalVotes;
-  const averageValue = stats.average;
-  const agreementPercent = stats.agreement;
+  // Deduplicate by userId (even if sent twice)
+  const userVotes = new Map();
+  for (const [userId, vote] of Object.entries(votes)) {
+    if (!userVotes.has(userId)) {
+      userVotes.set(userId, vote);
+    }
+  }
+
+  const voteValues = Array.from(userVotes.values());
+
+  // Extract numeric values only
+  const numericValues = voteValues
+    .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
+    .map(v => parseFloat(v));
+
+  // Default values
+  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  let voteCount = voteValues.length;
+  let averageValue = 0;
+
+  // Calculate statistics
+  if (numericValues.length > 0) {
+    const voteFrequency = {};
+    let maxCount = 0;
+
+    voteValues.forEach(vote => {
+      voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
+      if (voteFrequency[vote] > maxCount) {
+        maxCount = voteFrequency[vote];
+        mostCommonVote = vote;
+      }
+    });
+
+    averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+    averageValue = Math.round(averageValue * 10) / 10;
+  }
 
   // Create HTML that shows the stats
   container.innerHTML = `
@@ -384,8 +395,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
-
 
 
 
@@ -545,7 +554,7 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   });
   
   // Updated handler for restored user votes
-socket.on('restoreUserVote', ({ storyId, vote, userId }) => {
+ socket.on('restoreUserVote', ({ storyId, vote }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
@@ -560,19 +569,16 @@ socket.on('restoreUserVote', ({ storyId, vote, userId }) => {
     votesPerStory[storyId] = {};
   }
 
-  // Use the correct user ID from the server, or fallback to socket.id
-  const uid = userId || socket.id;
-  votesPerStory[storyId][uid] = vote;
+  votesPerStory[storyId][socket.id] = vote;
   window.currentVotesPerStory = votesPerStory;
 
   const currentId = getCurrentStoryId();
   if (storyId === currentId) {
-    updateVoteVisuals(uid, votesRevealed[storyId] ? vote : '👍', true);
+    updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
   }
 
-  refreshVoteDisplay();
+  refreshVoteDisplay(); // Ensure badge and UI update
 });
-
 
   
   // Updated resyncState handler to restore votes
@@ -1467,30 +1473,32 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  let statsContainer = document.querySelector('.vote-statistics-container');
+  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
 
   if (statsAlreadyVisible && planningCardsHidden) {
-    console.log('[VOTES] Statistics already shown, refreshing display');
-    // Don't return here - we want to update the stats with new data
+    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
+    return;
   }
 
   votesRevealed[storyId] = true;
 
-  // Update window.currentVotesPerStory safely
-  if (!window.currentVotesPerStory) window.currentVotesPerStory = {};
-  window.currentVotesPerStory[storyId] = votes;
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+  }
+
+  votesPerStory[storyId] = { ...votes };
+  window.currentVotesPerStory = votesPerStory;
 
   addFixedVoteStatisticsStyles();
 
-  // Use our enhanced statistics function
   const voteStats = createFixedVoteDisplay(votes);
 
   if (planningCardsSection) {
     if (!statsContainer) {
-      statsContainer = document.createElement('div');
+      statsContainer = document.createElement('div'); // ✅ Safe now
       statsContainer.className = 'vote-statistics-container';
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
@@ -1502,10 +1510,7 @@ function handleVotesRevealed(storyId, votes) {
     statsContainer.style.display = 'block';
   }
 
-  // Apply votes to UI
   applyVotesToUI(votes, false);
-  
-  // Fix font sizes
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
