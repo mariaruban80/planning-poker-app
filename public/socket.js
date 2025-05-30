@@ -47,7 +47,8 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   };
   
   // Try to load any saved state from session storage
-  loadStateFromSessionStorage(roomIdentifier);
+  //loadStateFromSessionStorage(roomIdentifier);
+  loadStateFromLocalStorage(roomIdentifier);
   
   // Initialize socket connection with improved reconnection settings
   socket = io({
@@ -577,82 +578,71 @@ socket.on('resyncState', (state) => {
 /**
  * Load previously saved state from session storage
  */
-function loadStateFromSessionStorage(roomIdentifier) {
+function loadStateFromLocalStorage(roomId) {
   try {
-    // Load deleted story IDs
-    const deletedData = sessionStorage.getItem(`deleted_${roomIdentifier}`);
+    const deletedData = localStorage.getItem(`deleted_${roomId}`);
     if (deletedData) {
       const parsedDeleted = JSON.parse(deletedData);
       if (Array.isArray(parsedDeleted)) {
         lastKnownRoomState.deletedStoryIds = parsedDeleted;
-        console.log(`[SOCKET] Loaded ${parsedDeleted.length} deleted story IDs from session storage`);
+        console.log(`[SOCKET] Loaded ${parsedDeleted.length} deleted story IDs from localStorage`);
       }
     }
-    
-    // Load user votes
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+
+    const votesData = localStorage.getItem(`votes_${roomId}`);
     if (votesData) {
-      const parsedVotes = JSON.parse(votesData);
-      lastKnownRoomState.userVotes = parsedVotes;
-      console.log(`[SOCKET] Loaded ${Object.keys(parsedVotes).length} user votes from session storage`);
+      lastKnownRoomState.userVotes = JSON.parse(votesData);
+      console.log(`[SOCKET] Loaded ${Object.keys(lastKnownRoomState.userVotes).length} user votes from localStorage`);
     }
-    
-    // Load revealed state
-    const revealedData = sessionStorage.getItem(`revealed_${roomIdentifier}`);
+
+    const revealedData = localStorage.getItem(`revealed_${roomId}`);
     if (revealedData) {
-      const parsedRevealed = JSON.parse(revealedData);
-      lastKnownRoomState.votesRevealed = parsedRevealed;
-      console.log(`[SOCKET] Loaded vote reveal state from session storage`);
+      lastKnownRoomState.votesRevealed = JSON.parse(revealedData);
+      console.log(`[SOCKET] Loaded vote reveal state from localStorage`);
     }
   } catch (err) {
-    console.warn('[SOCKET] Error loading state from session storage:', err);
+    console.warn('[SOCKET] Error loading state from localStorage:', err);
   }
 }
+
+
+
+
 
 /**
  * Restore votes from session storage to server and other clients
  */
 function restoreVotesFromStorage(roomIdentifier) {
   if (!socket || !socket.connected) return;
-  
+
   try {
-    // Get saved votes
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+    const votesData = localStorage.getItem(`votes_${roomIdentifier}`);
     if (votesData) {
       const savedVotes = JSON.parse(votesData);
-      
-      // Process each vote
+
       for (const [storyId, vote] of Object.entries(savedVotes)) {
-        // Skip votes for deleted stories
-        if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-          continue;
-        }
-        
+        if (lastKnownRoomState.deletedStoryIds.includes(storyId)) continue;
+
         console.log(`[SOCKET] Restoring vote from storage: ${storyId} = ${vote}`);
-        
-        // Use restoreUserVote first to tell the server about this vote
+
         socket.emit('restoreUserVote', { storyId, vote });
-        
-        // Then also broadcast it directly to ensure all clients see it
-        socket.emit('castVote', {
-          vote, 
-          targetUserId: socket.id,
-          storyId
-        });
-        
-        // Update our local state
+        socket.emit('castVote', { vote, targetUserId: socket.id, storyId });
+
         if (!lastKnownRoomState.votesPerStory[storyId]) {
           lastKnownRoomState.votesPerStory[storyId] = {};
         }
         lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
       }
-      
-      console.log(`[SOCKET] Restored ${Object.keys(savedVotes).length} votes from session storage`);
+
+      console.log(`[SOCKET] Restored ${Object.keys(savedVotes).length} votes from localStorage`);
     }
   } catch (err) {
-    console.warn('[SOCKET] Error restoring votes from storage:', err);
+    console.warn('[SOCKET] Error restoring votes from localStorage:', err);
   }
 }
+
+
+
 
 /**
  * Delete a story and sync with other users
