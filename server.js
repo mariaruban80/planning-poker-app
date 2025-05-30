@@ -210,6 +210,24 @@ io.on('connection', (socket) => {
       votesRevealed: revealedVotes,
       deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds) // Include deleted IDs for client-side filtering
     });
+// Emit each vote explicitly for story-specific visibility
+for (const storyId in rooms[roomId].votesPerStory) {
+  if (!rooms[roomId].deletedStoryIds.has(storyId)) {
+    const votes = rooms[roomId].votesPerStory[storyId];
+
+    // ✅ Always send storyVotes
+    socket.emit('storyVotes', { storyId, votes });
+
+    // ✅ Re-send reveal status if already revealed
+    if (rooms[roomId].votesRevealed?.[storyId]) {
+      socket.emit('votesRevealed', { storyId });
+    }
+  }
+}
+
+
+
+    
  restoreUserVotesToCurrentSocket(roomId, socket);
 
     // Restore user's previous votes based on username
