@@ -1,6 +1,5 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
-// let userName = sessionStorage.getItem('userName');
-let userName = localStorage.getItem('userName');
+let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
@@ -111,8 +110,7 @@ window.initializeSocketWithName = function(roomId, name) {
  */
 function loadDeletedStoriesFromStorage(roomId) {
   try {
- //   const storedDeletedStories = sessionStorage.getItem(`deleted_${roomId}`);
-        const storedDeletedStories = localStorage.getItem(`deleted_${roomId}`);
+    const storedDeletedStories = sessionStorage.getItem(`deleted_${roomId}`);
     if (storedDeletedStories) {
       const parsedDeleted = JSON.parse(storedDeletedStories);
       if (Array.isArray(parsedDeleted)) {
@@ -169,13 +167,12 @@ function updateVoteBadges(storyId, votes) {
 function saveDeletedStoriesToStorage(roomId) {
   try {
     const deletedArray = Array.from(deletedStoryIds);
-    localStorage.setItem(`deleted_${roomId}`, JSON.stringify(deletedArray));
-    console.log(`[STORAGE] Saved ${deletedArray.length} deleted story IDs to localStorage`);
+    sessionStorage.setItem(`deleted_${roomId}`, JSON.stringify(deletedArray));
+    console.log(`[STORAGE] Saved ${deletedArray.length} deleted story IDs to storage`);
   } catch (err) {
-    console.warn('[STORAGE] Error saving deleted stories to localStorage:', err);
+    console.warn('[STORAGE] Error saving deleted stories:', err);
   }
 }
-
 
 // Modify the existing DOMContentLoaded event handler to check if username is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -807,7 +804,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   });
 
   // Host: Emit selected voting system to server
-  const isHost = localStorage.getItem('isHost') === 'true';
+  const isHost = sessionStorage.getItem('isHost') === 'true';
   const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
 
   if (isHost && socket) {
@@ -1961,7 +1958,7 @@ function displayCSVData(data) {
       storyListContainer.appendChild(storyItem);
       
       // Add click event for story selection (for hosts only)
-      const isHost = localStorage.getItem('isHost') === 'true';
+      const isHost = sessionStorage.getItem('isHost') === 'true';
       if (isHost) {
         storyItem.addEventListener('click', () => {
           selectStory(index);
@@ -2633,7 +2630,7 @@ function setupStoryNavigation() {
 
   if (!nextButton || !prevButton) return;
   // ✅ Disable for non-hosts
-  const isHost = localStorage.getItem('isHost') === 'true';
+  const isHost = sessionStorage.getItem('isHost') === 'true';
   if (!isHost) {
     nextButton.disabled = true;
     prevButton.disabled = true;
