@@ -338,20 +338,21 @@ function addFixedVoteStatisticsStyles() {
 }
 
 // Create a new function to generate the stats layout
+
 function createFixedVoteDisplay(votes) {
   // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Deduplicate by userId (even if sent twice)
-  const userVotes = new Map();
+  // First deduplicate any votes by userId 
+  const uniqueVotes = new Map(); // Use a Map to ensure one vote per user
+  
   for (const [userId, vote] of Object.entries(votes)) {
-    if (!userVotes.has(userId)) {
-      userVotes.set(userId, vote);
-    }
+    uniqueVotes.set(userId, vote); // This will automatically replace duplicate user votes
   }
-
-  const voteValues = Array.from(userVotes.values());
+  
+  // Convert back to an array for calculations
+  const voteValues = Array.from(uniqueVotes.values());
 
   // Extract numeric values only
   const numericValues = voteValues
@@ -360,7 +361,7 @@ function createFixedVoteDisplay(votes) {
 
   // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length;
+  let voteCount = voteValues.length;  // Use the deduplicated count
   let averageValue = 0;
 
   // Calculate statistics
@@ -402,7 +403,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
 
 
 /**
@@ -1475,6 +1475,7 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
+
 function handleVotesRevealed(storyId, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyId);
 
@@ -1483,14 +1484,14 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
+  let statsContainer = document.querySelector('.vote-statistics-container');
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
 
   if (statsAlreadyVisible && planningCardsHidden) {
-    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
-    return;
+    console.log('[VOTES] Statistics already shown, updating with latest data');
+    // Instead of skipping, update the stats with latest deduplicated data
   }
 
   votesRevealed[storyId] = true;
@@ -1504,11 +1505,12 @@ function handleVotesRevealed(storyId, votes) {
 
   addFixedVoteStatisticsStyles();
 
+  // Create vote stats with deduplicated data
   const voteStats = createFixedVoteDisplay(votes);
 
   if (planningCardsSection) {
     if (!statsContainer) {
-      statsContainer = document.createElement('div'); // ✅ Safe now
+      statsContainer = document.createElement('div');
       statsContainer.className = 'vote-statistics-container';
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
@@ -1524,8 +1526,6 @@ function handleVotesRevealed(storyId, votes) {
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
-
-
 
 /**
  * Setup Add Ticket button
