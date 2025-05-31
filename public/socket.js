@@ -134,7 +134,7 @@ socket.on('connect', () => {
 
   // ✅ Fallback: Restore votes manually if server didn't send restoreUserVote
   try {
-    const userVotes = JSON.parse(sessionStorage.getItem(`votes_${roomIdentifier}`) || '{}');
+    const userVotes = JSON.parse(localStorage.getItem(`votes_${roomIdentifier}`) || '{}');
 
     for (const [storyId, vote] of Object.entries(userVotes)) {
       if (!lastKnownRoomState.votesPerStory[storyId]) {
@@ -324,7 +324,7 @@ socket.on('connect', () => {
       // Save to sessionStorage for persistence across page refreshes
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
         console.log(`[SOCKET] Saved user vote to session storage: ${storyId} = ${vote}`);
       } catch (err) {
         console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
@@ -373,7 +373,7 @@ socket.on('connect', () => {
     // Save to sessionStorage for persistence across page refreshes
     try {
       const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+      localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       console.log(`[SOCKET] Saved restored vote to session storage: ${storyId} = ${vote}`);
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
@@ -403,7 +403,7 @@ socket.on('connect', () => {
     // Save revealed state to session storage
     try {
       const revealedData = JSON.stringify(lastKnownRoomState.votesRevealed);
-      sessionStorage.setItem(`revealed_${roomIdentifier}`, revealedData);
+      localStorage.setItem(`revealed_${roomIdentifier}`, revealedData);
     } catch (err) {
       console.warn('[SOCKET] Could not save revealed state to sessionStorage:', err);
     }
@@ -424,7 +424,7 @@ socket.on('connect', () => {
       // Save deleted story IDs to session storage
       try {
         const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-        sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
+        localStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
         console.log(`[SOCKET] Saved deleted story to session storage: ${storyId}`);
       } catch (err) {
         console.warn('[SOCKET] Could not save deleted story to sessionStorage:', err);
@@ -441,7 +441,7 @@ socket.on('connect', () => {
       // Update session storage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update userVotes in session storage:', err);
       }
@@ -475,7 +475,7 @@ socket.on('connect', () => {
       // Update sessionStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        localStorage.setItem(`votes_${roomIdentifier}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update session storage after vote reset:', err);
       }
@@ -543,7 +543,7 @@ socket.on('resyncState', (state) => {
         // Save to session storage for persistence
         try {
             const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-            sessionStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
+            localStorage.setItem(`deleted_${roomIdentifier}`, deletedData);
         } catch (err) {
             console.warn('[SOCKET] Could not save deleted story IDs to sessionStorage:', err);
         }
@@ -607,7 +607,7 @@ socket.on('resyncState', (state) => {
 function loadStateFromSessionStorage(roomIdentifier) {
   try {
     // Load deleted story IDs
-    const deletedData = sessionStorage.getItem(`deleted_${roomIdentifier}`);
+    const deletedData = localStorage.getItem(`deleted_${roomIdentifier}`);
     if (deletedData) {
       const parsedDeleted = JSON.parse(deletedData);
       if (Array.isArray(parsedDeleted)) {
@@ -617,7 +617,7 @@ function loadStateFromSessionStorage(roomIdentifier) {
     }
     
     // Load user votes
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+    const votesData = localStorage.getItem(`votes_${roomIdentifier}`);
     if (votesData) {
       const parsedVotes = JSON.parse(votesData);
       lastKnownRoomState.userVotes = parsedVotes;
@@ -625,7 +625,7 @@ function loadStateFromSessionStorage(roomIdentifier) {
     }
     
     // Load revealed state
-    const revealedData = sessionStorage.getItem(`revealed_${roomIdentifier}`);
+    const revealedData = localStorage.getItem(`revealed_${roomIdentifier}`);
     if (revealedData) {
       const parsedRevealed = JSON.parse(revealedData);
       lastKnownRoomState.votesRevealed = parsedRevealed;
@@ -644,7 +644,7 @@ function restoreVotesFromStorage(roomIdentifier) {
   
   try {
     // Get saved votes
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+    const votesData = localStorage.getItem(`votes_${roomIdentifier}`);
     if (votesData) {
       const savedVotes = JSON.parse(votesData);
       
@@ -702,7 +702,7 @@ export function emitDeleteStory(storyId) {
       // Save to session storage
       try {
         const deletedData = JSON.stringify(lastKnownRoomState.deletedStoryIds);
-        sessionStorage.setItem(`deleted_${roomId}`, deletedData);
+        localStorage.setItem(`deleted_${roomId}`, deletedData);
       } catch (err) {
         console.warn('[SOCKET] Could not save deleted story ID to sessionStorage:', err);
       }
@@ -714,7 +714,7 @@ export function emitDeleteStory(storyId) {
       
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomId}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update userVotes in session storage:', err);
       }
@@ -797,7 +797,7 @@ export function emitVote(vote, targetUserId, storyId) {
     // Save to sessionStorage for persistence
     try {
       const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      sessionStorage.setItem(`votes_${roomId}`, votesData);
+      localStorage.setItem(`votes_${roomId}`, votesData);
     } catch (err) {
       console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
     }
@@ -831,7 +831,7 @@ export function revealVotes(storyId) {
     // Save to sessionStorage
     try {
       const revealedData = JSON.stringify(lastKnownRoomState.votesRevealed);
-      sessionStorage.setItem(`revealed_${roomId}`, revealedData);
+      localStorage.setItem(`revealed_${roomId}`, revealedData);
     } catch (err) {
       console.warn('[SOCKET] Could not save revealed state to sessionStorage:', err);
     }
@@ -862,7 +862,7 @@ export function resetVotes(storyId) {
       // Update sessionStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-        sessionStorage.setItem(`votes_${roomId}`, votesData);
+        localStorage.setItem(`votes_${roomId}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update session storage after vote reset:', err);
       }
