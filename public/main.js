@@ -1,8 +1,7 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
-// Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes, requestVotesByUsername } from './socket.js';
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -76,6 +75,8 @@ window.addTicketFromModal = function(ticketData) {
  * @param {string} roomId - Room ID to join 
  * @param {string} name - Username to use
  */
+
+// Update the window.initializeSocketWithName function around line 115
 window.initializeSocketWithName = function(roomId, name) {
   if (!roomId || !name) return;
   
@@ -83,6 +84,9 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Set username in the module scope
   userName = name;
+  
+  // Store the username in sessionStorage for persistence
+  sessionStorage.setItem('userName', name);
   
   // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
@@ -103,6 +107,9 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
+  
+  // Add this line to request username-based votes
+  setTimeout(restoreVotesByUsername, 1000);
 };
 
 /**
@@ -589,34 +596,6 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   refreshVoteDisplay();
 });
 
-  // Restore personal votes from localStorage if available
-try {
-  const storedVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`) || '{}');
-  for (const [storyId, vote] of Object.entries(storedVotes)) {
-    if (deletedStoryIds.has(storyId)) continue;
-
-    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-    votesPerStory[storyId][socket.id] = vote;
-
-    const currentId = getCurrentStoryId();
-    if (storyId === currentId) {
-      updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-    }
-  }
-
-  window.currentVotesPerStory = votesPerStory;
-  refreshVoteDisplay();
-  console.log('[INIT] Restored personal votes from localStorage');
-} catch (err) {
-  console.warn('[INIT] Could not restore personal votes from localStorage:', err);
-}
-
-
-
-
-  
-
-  
   // Updated resyncState handler to restore votes
  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
@@ -793,7 +772,8 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     });
     
     // Handle successful reconnection
-    socket.on('reconnect', () => {
+// Update the socket.on('reconnect') handler around line 145
+socket.on('reconnect', () => {
   console.log('[SOCKET] Reconnected to server');
   reconnectingInProgress = false;
 
@@ -821,6 +801,10 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
 
       refreshVoteDisplay();
     }
+    
+    // Add this line to request votes by username
+    restoreVotesByUsername();
+    
   }, 500);
 });
 
@@ -861,7 +845,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   
   // Refresh votes periodically to ensure everyone sees the latest votes
   setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
+  setTimeout(restoreVotesByUsername, 1000); 
 }
+
 
 /**
  * Periodically refresh votes for the current story
@@ -2501,6 +2487,8 @@ function createAvatarContainer(user) {
 /**
  * Create vote card space for a user
  */
+
+// Update the createVoteCardSpace function to include userName in drop event
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
@@ -2527,7 +2515,13 @@ function createVoteCardSpace(user, isCurrentUser) {
       }
       
       if (socket && vote && storyId) {
-        socket.emit('castVote', { vote, targetUserId: user.id, storyId });
+        // Include userName parameter when casting vote
+        socket.emit('castVote', { 
+          vote, 
+          targetUserId: user.id, 
+          storyId,
+          userName: userName // Add username explicitly
+        });
         
         // Update local state
         if (!votesPerStory[storyId]) {
@@ -2564,7 +2558,7 @@ function createVoteCardSpace(user, isCurrentUser) {
 
 /**
  * Update vote visuals for a user
- */
+ */// Update the updateVoteVisuals function to store votes in sessionStorage
 function updateVoteVisuals(userId, vote, hasVoted = false) {
   console.log(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${hasVoted}`);
   
@@ -2577,14 +2571,29 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     return;
   }
   
-  const isRevealed = storyId && votesRevealed[storyId] === true;
+  // If this is the current user's vote, store it in sessionStorage
+  const roomId = getRoomIdFromURL();
+  if (userId === socket?.id && hasVoted) {
+    try {
+      const votesData = JSON.parse(sessionStorage.getItem(`votes_${roomId}`) || '{}');
+      votesData[storyId] = vote;
+      sessionStorage.setItem(`votes_${roomId}`, JSON.stringify(votesData));
+      console.log(`[VOTE] Stored vote in sessionStorage: ${storyId} = ${vote}`);
+      
+      // Also update localStorage as backup
+      const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`) || '{}');
+      backupVotes[storyId] = vote;
+      localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
+    } catch (err) {
+      console.warn('[VOTE] Could not store vote in storage:', err);
+    }
+  }
   
-  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
+  // Continue with the rest of the function as before
+  const isRevealed = storyId && votesRevealed[storyId] === true;
   
   // Determine what to show based on reveal state
   const displayVote = isRevealed ? vote : '👍';
-  
-  console.log(`[DEBUG] Will display: ${displayVote}`);
   
   // Update badges in sidebar
   const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
@@ -2592,10 +2601,10 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     // Only set content if the user has voted
     if (hasVoted) {
       sidebarBadge.textContent = displayVote;
-      sidebarBadge.style.color = '#673ab7'; // Make sure the text has a visible color
-      sidebarBadge.style.opacity = '1'; // Ensure full opacity
+      sidebarBadge.style.color = '#673ab7';
+      sidebarBadge.style.opacity = '1';
     } else {
-      sidebarBadge.textContent = ''; // Empty if no vote
+      sidebarBadge.textContent = '';
     }
   }
   
@@ -2607,11 +2616,10 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       // Only show vote if they've voted
       if (hasVoted) {
         voteBadge.textContent = displayVote;
-        voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
-        voteBadge.style.opacity = '1'; // Ensure full opacity
-        console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
+        voteBadge.style.color = '#673ab7';
+        voteBadge.style.opacity = '1';
       } else {
-        voteBadge.textContent = ''; // Empty if no vote
+        voteBadge.textContent = '';
       }
     }
     
@@ -2631,7 +2639,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       
       const avatar = avatarContainer.querySelector('.avatar-circle');
       if (avatar) {
-        avatar.style.backgroundColor = '#c1e1c1'; // Green background
+        avatar.style.backgroundColor = '#c1e1c1';
       }
     }
     
@@ -2642,6 +2650,8 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     }
   }
 }
+
+
 
 /**
  * Update story title
@@ -2941,6 +2951,40 @@ function handleSocketMessage(message) {
         }, 300);
       }
       break;
+
+case 'userNameVoteRestored':
+  if (message.storyId && message.vote) {
+    // Skip for deleted stories
+    if (deletedStoryIds.has(message.storyId)) {
+      console.log(`[VOTE] Ignoring username vote restoration for deleted story: ${message.storyId}`);
+      return;
+    }
+    
+    console.log(`[APP] Username-specific vote restored for story ${message.storyId}: ${message.vote}`);
+    
+    // Update local state
+    if (!votesPerStory[message.storyId]) {
+      votesPerStory[message.storyId] = {};
+    }
+    votesPerStory[message.storyId][socket.id] = message.vote;
+    window.currentVotesPerStory = votesPerStory;
+    
+    // Update UI if this is the current story
+    const currentId = getCurrentStoryId();
+    if (message.storyId === currentId) {
+      updateVoteVisuals(socket.id, votesRevealed[message.storyId] ? message.vote : '👍', true);
+    }
+    
+    // Store in localStorage for persistence
+    try {
+      const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`)) || {};
+      backupVotes[message.storyId] = message.vote;
+      localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
+    } catch (err) {
+      console.warn('[VOTE] Could not store vote in localStorage:', err);
+    }
+  }
+  break;
 
     case 'restoreUserVote':
       if (message.storyId && message.vote) {
@@ -3296,6 +3340,12 @@ case 'storySelected':
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+  // Ensure userName is loaded from sessionStorage at the beginning
+  if (!userName && sessionStorage.getItem('userName')) {
+    userName = sessionStorage.getItem('userName');
+    console.log(`[APP] Restored username from session storage: ${userName}`);
+  }
+
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
@@ -3306,4 +3356,19 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDeletedStoriesFromStorage(roomId);
   
   initializeApp(roomId);
+  
+  // Add this line to restore votes by username globally after app initialization
+  setTimeout(() => {
+    if (userName) {
+      restoreVotesByUsername();
+    }
+  }, 2000);
 });
+
+// Add this function after this code block
+function restoreVotesByUsername() {
+  if (socket && socket.connected && userName) {
+    console.log(`[APP] Requesting votes for username: ${userName}`);
+    socket.emit('requestVotesByUsername', { userName });
+  }
+}
