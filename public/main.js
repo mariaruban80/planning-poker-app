@@ -554,7 +554,8 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   });
   
   // Updated handler for restored user votes
-socket.on('restoreUserVote', ({ storyId, vote }) => {
+
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
@@ -562,25 +563,54 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
-  // ✅ Ensure the vote is stored under this user's socket.id
+  // Store vote using current socket.id
   votesPerStory[storyId][socket.id] = vote;
   window.currentVotesPerStory = votesPerStory;
+
+  // ✅ Save to localStorage for backup
+  try {
+    const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`)) || {};
+    backupVotes[storyId] = vote;
+    localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
+  } catch (err) {
+    console.warn('[VOTE] Could not store vote in localStorage:', err);
+  }
 
   const currentStoryId = getCurrentStoryId();
   const isRevealed = votesRevealed[storyId];
 
-  // ✅ Apply vote visuals
   if (storyId === currentStoryId) {
     updateVoteVisuals(socket.id, isRevealed ? vote : '👍', true);
-
     if (isRevealed) {
-      // Also regenerate statistics if this is the current story
       handleVotesRevealed(storyId, votesPerStory[storyId]);
     }
   }
 
-  refreshVoteDisplay(); // Refresh UI and badges
+  refreshVoteDisplay();
 });
+
+  // Restore personal votes from localStorage if available
+try {
+  const storedVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`) || '{}');
+  for (const [storyId, vote] of Object.entries(storedVotes)) {
+    if (deletedStoryIds.has(storyId)) continue;
+
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    votesPerStory[storyId][socket.id] = vote;
+
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId) {
+      updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+    }
+  }
+
+  window.currentVotesPerStory = votesPerStory;
+  refreshVoteDisplay();
+  console.log('[INIT] Restored personal votes from localStorage');
+} catch (err) {
+  console.warn('[INIT] Could not restore personal votes from localStorage:', err);
+}
+
 
 
 
