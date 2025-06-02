@@ -99,6 +99,7 @@ function findExistingVotesForUser(roomId, userName) {
   
   return result;
 }
+
 function restoreUserVotesToCurrentSocket(roomId, socket) {
   const userName = socket.data.userName;
   const currentId = socket.id;
@@ -106,6 +107,9 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
   
   // Get all user's votes from userName-based storage
   let userVotes = rooms[roomId].userNameVotes?.[userName] || {};
+  
+  // Track if we removed any votes that need to be resynced
+  let removedOldVotes = false;
   
   for (const [storyId, vote] of Object.entries(userVotes)) {
     if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
@@ -119,6 +123,7 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
       if (ids.includes(sid) && sid !== currentId) {
         console.log(`[SERVER] Removing old vote from ${sid} for user ${userName}`);
         delete rooms[roomId].votesPerStory[storyId][sid];
+        removedOldVotes = true;
       }
     }
     
@@ -128,10 +133,10 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
   }
 
   // Broadcast updated votes after cleanup to ensure proper statistics
-  io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+  if (removedOldVotes) {
+    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+  }
 }
-
-
 
 io.on('connection', (socket) => {
   socket.on('requestCurrentStory', () => {
@@ -153,49 +158,55 @@ io.on('connection', (socket) => {
   console.log(`[SERVER] New client connected: ${socket.id}`);
   
   // New handler for username-based vote restoration
-socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
-  const roomId = socket.data.roomId;
-  if (!roomId || !rooms[roomId] || !storyId || !userName) return;
-  
-  if (rooms[roomId].deletedStoryIds?.has(storyId)) return;
-  
-  // Store in username-based system
-  if (!rooms[roomId].userNameVotes) {
-    rooms[roomId].userNameVotes = {};
-  }
-  if (!rooms[roomId].userNameVotes[userName]) {
-    rooms[roomId].userNameVotes[userName] = {};
-  }
-  rooms[roomId].userNameVotes[userName][storyId] = vote;
-  
-  // Get all socket IDs associated with this user
-  const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
-  
-  // Remove any previous votes by this user for this story
-  if (!rooms[roomId].votesPerStory[storyId]) {
-    rooms[roomId].votesPerStory[storyId] = {};
-  }
-  
-  // IMPORTANT: Remove old socket ID votes for this user
-  for (const oldSocketId of userSocketIds) {
-    if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
-      delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+  socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId] || !storyId || !userName) return;
+    
+    if (rooms[roomId].deletedStoryIds?.has(storyId)) return;
+    
+    // Store in username-based system
+    if (!rooms[roomId].userNameVotes) {
+      rooms[roomId].userNameVotes = {};
     }
-  }
-  
-  // Add new vote with current socket ID
-  rooms[roomId].votesPerStory[storyId][socket.id] = vote;
-  
-  // Broadcast to all clients
-  io.to(roomId).emit('voteUpdate', { 
-    userId: socket.id,
-    vote, 
-    storyId
+    if (!rooms[roomId].userNameVotes[userName]) {
+      rooms[roomId].userNameVotes[userName] = {};
+    }
+    rooms[roomId].userNameVotes[userName][storyId] = vote;
+    
+    // Get all socket IDs associated with this user
+    const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+    
+    // Flag to track if we removed any old votes (to avoid unnecessary broadcasts)
+    let removedOldVotes = false;
+    
+    // Remove any previous votes by this user for this story
+    if (!rooms[roomId].votesPerStory[storyId]) {
+      rooms[roomId].votesPerStory[storyId] = {};
+    }
+    
+    // IMPORTANT: Remove old socket ID votes for this user
+    for (const oldSocketId of userSocketIds) {
+      if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
+        delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+        removedOldVotes = true;
+      }
+    }
+    
+    // Add new vote with current socket ID
+    rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+    
+    // Send voteUpdate to everyone including sender
+    io.to(roomId).emit('voteUpdate', { 
+      userId: socket.id,
+      vote, 
+      storyId
+    });
+    
+    // Only broadcast the full votesUpdate if we removed old votes
+    if (removedOldVotes) {
+      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    }
   });
-  
-  // Also broadcast updated vote stats
-  io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
-});
   
   // Handler for requesting votes by username
   socket.on('requestVotesByUsername', ({ userName }) => {
@@ -203,6 +214,26 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     if (!roomId || !rooms[roomId] || !userName) return;
     
     console.log(`[SERVER] Client ${socket.id} requested votes for username ${userName}`);
+    
+    // Get all socket IDs associated with this user
+    const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+    
+    // Flag to track if we removed any old votes (to avoid unnecessary broadcasts)
+    let removedOldVotes = false;
+    
+    // First, clean up any old votes from this user's previous socket IDs
+    // This is critical to prevent duplicate votes
+    if (rooms[roomId].votesPerStory) {
+      for (const storyId in rooms[roomId].votesPerStory) {
+        for (const sid of userSocketIds) {
+          if (sid !== socket.id && rooms[roomId].votesPerStory[storyId][sid]) {
+            console.log(`[SERVER] Removing old vote from socket ${sid} for ${userName}`);
+            delete rooms[roomId].votesPerStory[storyId][sid];
+            removedOldVotes = true;
+          }
+        }
+      }
+    }
     
     // If we have username-tracked votes, restore them
     let userVotes = {};
@@ -232,9 +263,6 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       }
     }
     
-    // Get all socket IDs associated with this user
-    const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
-    
     // Restore the votes for all non-deleted stories
     for (const [storyId, vote] of Object.entries(userVotes)) {
       // Skip deleted stories
@@ -243,14 +271,6 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       // First remove votes from any old socket IDs for this user
       if (!rooms[roomId].votesPerStory[storyId]) {
         rooms[roomId].votesPerStory[storyId] = {};
-      }
-      
-      // Remove old socket ID votes for this user to avoid duplicates
-      for (const oldSocketId of userSocketIds) {
-        if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
-          console.log(`[SERVER] Removing old vote from socket ${oldSocketId} for ${userName}`);
-          delete rooms[roomId].votesPerStory[storyId][oldSocketId];
-        }
       }
       
       // Store the vote with the current socket ID
@@ -270,7 +290,10 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     }
     
     // Broadcast updated vote stats to ensure correct counting
-    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    // But only if we removed old votes or restored new ones
+    if (removedOldVotes || Object.keys(userVotes).length > 0) {
+      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    }
   });
   
   // Handle room joining with enhanced state management
@@ -360,6 +383,7 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       }
     }
 
+    // Clean up old socket IDs and restore votes for this user
     restoreUserVotesToCurrentSocket(roomId, socket);
 
     // Send voting system to client
@@ -383,19 +407,25 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       if (socket.connected && userName) {
         const userVotes = findExistingVotesForUser(roomId, userName);
         
+        // First clean up any old votes
+        const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
+        let removedOldVotes = false;
+        
+        for (const storyId in rooms[roomId].votesPerStory) {
+          for (const oldSocketId of userSocketIds) {
+            if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
+              delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+              removedOldVotes = true;
+            }
+          }
+        }
+        
+        // Now restore votes
         for (const [storyId, vote] of Object.entries(userVotes)) {
           if (rooms[roomId].deletedStoryIds.has(storyId)) continue;
           
           if (!rooms[roomId].votesPerStory[storyId]) {
             rooms[roomId].votesPerStory[storyId] = {};
-          }
-          
-          // Remove votes from any old socket IDs for this user
-          const userSocketIds = userNameToIdMap[userName]?.socketIds || [];
-          for (const oldSocketId of userSocketIds) {
-            if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
-              delete rooms[roomId].votesPerStory[storyId][oldSocketId];
-            }
           }
           
           rooms[roomId].votesPerStory[storyId][socket.id] = vote;
@@ -411,7 +441,9 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
         }
         
         // Broadcast updated counts for statistics
-        io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+        if (removedOldVotes || Object.keys(userVotes).length > 0) {
+          io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+        }
       }
     }, 2000);
   });
@@ -429,11 +461,15 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       rooms[roomId].votesPerStory[storyId] = {};
     }
 
+    // Flag to track if we removed any old votes
+    let removedOldVotes = false;
+
     // Remove old votes from this user for this story
     const userSocketIds = userNameToIdMap[socket.data.userName]?.socketIds || [];
     for (const sid of Object.keys(rooms[roomId].votesPerStory[storyId] || {})) {
       if (userSocketIds.includes(sid) && sid !== socket.id) {
         delete rooms[roomId].votesPerStory[storyId][sid];
+        removedOldVotes = true;
       }
     }
     
@@ -465,10 +501,11 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     }
     
     // Broadcast updated vote stats to ensure correct counting
-    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    // Only if we removed old votes or changed the existing vote
+    if (removedOldVotes || existingVote !== vote) {
+      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    }
   });
-
-  
   
   // Handle reconnection with full state resync
   socket.on('requestFullStateResync', () => {
@@ -490,17 +527,24 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     const activeVotes = {};
     const activeRevealed = {};
 
+    // Flag to track if we need to broadcast updated vote stats
+    let votesChanged = false;
+
     for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory)) {
       if (!rooms[roomId].deletedStoryIds.has(storyId)) {
         const cleanedVotes = {};
 
         for (const [socketId, vote] of Object.entries(votes)) {
           // Exclude old socket IDs from the same user to avoid duplicates
-          const belongsToSameUser = userName && userNameToIdMap[userName]?.socketIds.includes(socketId) && socketId !== socket.id;
+          const belongsToSameUser = userName && 
+                                   userNameToIdMap[userName]?.socketIds.includes(socketId) && 
+                                   socketId !== socket.id;
           
           // Keep vote if it's not from the same user or is the current socket
           if (!belongsToSameUser) {
             cleanedVotes[socketId] = vote;
+          } else {
+            votesChanged = true; // Track that we removed a vote
           }
         }
 
@@ -543,11 +587,16 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
         for (const sid of userSocketIds) {
           if (sid !== socket.id && rooms[roomId].votesPerStory[storyId][sid]) {
             delete rooms[roomId].votesPerStory[storyId][sid];
+            votesChanged = true;
           }
         }
         
         // Apply new vote with current socket ID
-        rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+        const prevVote = rooms[roomId].votesPerStory[storyId][socket.id];
+        if (prevVote !== vote) {
+          rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+          votesChanged = true;
+        }
         
         // Tell the user about their vote
         socket.emit('restoreUserVote', { storyId, vote });
@@ -560,12 +609,12 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
         });
       }
       
-      // Broadcast updated vote stats
-      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+      // Broadcast updated vote stats if changes were made
+      if (votesChanged) {
+        io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+      }
     }
   });
-
-  
   
   // Handle reconnection
   socket.on('reconnect', () => {
@@ -601,6 +650,24 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       socket.emit('storySelected', { storyIndex: rooms[roomId].selectedIndex });
     }
     
+    // Flag to track if vote stats need to be broadcast
+    let votesChanged = false;
+
+    // First clean up any old votes from this user's previous socket IDs
+    if (userName && userNameToIdMap[userName]) {
+      const userSocketIds = userNameToIdMap[userName].socketIds;
+      
+      // For each story, remove votes from old socket IDs
+      for (const storyId in rooms[roomId].votesPerStory) {
+        for (const oldSocketId of userSocketIds) {
+          if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
+            delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+            votesChanged = true;
+          }
+        }
+      }
+    }
+    
     // Re-send votes and revealed state for all active stories
     const votesPerStory = rooms[roomId].votesPerStory || {};
     Object.keys(votesPerStory).forEach(storyId => {
@@ -624,23 +691,7 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       
     // Restore user votes by username
     if (userName) {
-      // First clean up any old socket IDs from this user to avoid duplicates
-      if (userNameToIdMap[userName]) {
-        const userSocketIds = userNameToIdMap[userName].socketIds;
-        
-        // For each story, remove votes from old socket IDs
-        for (const storyId in rooms[roomId].votesPerStory) {
-          for (const oldSocketId of userSocketIds) {
-            if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
-              delete rooms[roomId].votesPerStory[storyId][oldSocketId];
-            }
-          }
-        }
-      }
-      
       // Now restore votes
-      
-      // First check username-based storage for votes
       let userVotes = {};
       if (rooms[roomId].userNameVotes && rooms[roomId].userNameVotes[userName]) {
         userVotes = rooms[roomId].userNameVotes[userName];
@@ -660,7 +711,13 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
         if (!rooms[roomId].votesPerStory[storyId]) {
           rooms[roomId].votesPerStory[storyId] = {};
         }
-        rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+        
+        // Only update if vote has changed
+        const prevVote = rooms[roomId].votesPerStory[storyId][socket.id];
+        if (prevVote !== vote) {
+          rooms[roomId].votesPerStory[storyId][socket.id] = vote;
+          votesChanged = true;
+        }
         
         // Ensure this is stored in username-based system
         if (!rooms[roomId].userNameVotes) {
@@ -683,7 +740,9 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       }
       
       // Once all votes are restored, broadcast updated vote stats
-      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+      if (votesChanged) {
+        io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+      }
     }
   });
   
@@ -983,6 +1042,9 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     // Get the actual username to use
     const userNameToUse = userName || socket.data.userName;
     
+    // Flag to track if we removed any old votes
+    let removedOldVotes = false;
+    
     // Remove any old votes from this user to prevent duplicates
     if (userNameToUse && userNameToIdMap[userNameToUse]) {
       const userSocketIds = userNameToIdMap[userNameToUse].socketIds;
@@ -990,9 +1052,14 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       for (const oldSocketId of userSocketIds) {
         if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
           delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+          removedOldVotes = true;
         }
       }
     }
+    
+    // Check if this is a new or changed vote
+    const prevVote = rooms[roomId].votesPerStory[storyId][targetUserId];
+    const isNewVote = prevVote !== vote;
     
     // Store the vote
     rooms[roomId].votesPerStory[storyId][targetUserId] = vote;
@@ -1012,8 +1079,10 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     // Broadcast to all clients
     io.to(roomId).emit('voteUpdate', { userId: targetUserId, vote, storyId });
     
-    // Broadcast updated vote stats to ensure correct counting
-    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    // Broadcast updated vote stats to ensure correct counting, but only if needed
+    if (removedOldVotes || isNewVote) {
+      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    }
   });
   
   // Handle requests for votes for a specific story
@@ -1067,6 +1136,9 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       
       // If a vote was found, restore it
       if (foundVote) {
+        // Flag to track if we removed any old votes
+        let removedOldVotes = false;
+        
         // First clean up any old socket IDs
         if (userNameToIdMap[userName]) {
           const userSocketIds = userNameToIdMap[userName].socketIds;
@@ -1074,9 +1146,14 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
           for (const oldSocketId of userSocketIds) {
             if (oldSocketId !== socket.id && rooms[roomId].votesPerStory[storyId][oldSocketId]) {
               delete rooms[roomId].votesPerStory[storyId][oldSocketId];
+              removedOldVotes = true;
             }
           }
         }
+        
+        // Check if this is a new or changed vote
+        const prevVote = rooms[roomId].votesPerStory[storyId][socket.id];
+        const isNewVote = prevVote !== foundVote;
         
         rooms[roomId].votesPerStory[storyId][socket.id] = foundVote;
         
@@ -1099,8 +1176,10 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
         }
         rooms[roomId].userNameVotes[userName][storyId] = foundVote;
         
-        // Broadcast updated vote stats
-        io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+        // Broadcast updated vote stats if changes were made
+        if (removedOldVotes || isNewVote) {
+          io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+        }
       }
     }
   });
@@ -1130,9 +1209,6 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       
       // Broadcast to all clients
       io.to(roomId).emit('votesRevealed', { storyId });
-      
-      // Also broadcast updated vote stats to ensure correct presentation
-      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
     }
   });
 
@@ -1326,11 +1402,15 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
       }
     }
 
+    // Flag to track if we need to update vote stats
+    let votesChanged = false;
+
     // CRITICAL: Remove votes for disconnected socket from votesPerStory to prevent duplicates
     // But keep them in userNameVotes for reconnection
     for (const storyId in rooms[roomId].votesPerStory) {
       if (rooms[roomId].votesPerStory[storyId][socket.id]) {
         delete rooms[roomId].votesPerStory[storyId][socket.id];
+        votesChanged = true;
       }
     }
 
@@ -1338,7 +1418,9 @@ socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
     io.to(roomId).emit('userList', rooms[roomId].users);
 
     // Broadcast updated vote stats to ensure correct counting
-    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    if (votesChanged) {
+      io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+    }
 
     console.log(`[SERVER] Socket ${socket.id} disconnected from room ${roomId}`);
   });
