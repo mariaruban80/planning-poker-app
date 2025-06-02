@@ -445,10 +445,11 @@ function createFixedVoteDisplay(votes) {
 
   // Create HTML that shows the stats
   container.innerHTML = `
+    
     <div class="fixed-vote-card">
-      ${mostCommonVote}
-      <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
-    </div>
+  <div class="fixed-stat-value">${mostCommonVote}</div>
+  <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
+</div>
     <div class="fixed-vote-stats">
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Average:</div>
