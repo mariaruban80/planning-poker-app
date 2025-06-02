@@ -1616,11 +1616,9 @@ function handleVotesRevealed(storyId, votes) {
   const planningCardsSection = document.querySelector('.planning-cards-section');
 
   if (!statsContainer) {
-    statsContainer = document.createElement('div');
-    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+    statsContainer = document.createElement('div'); 
     statsContainer.className = 'vote-statistics-container';
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(createFixedVoteDisplay(votes));
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
   }
 
   // Clear existing content
