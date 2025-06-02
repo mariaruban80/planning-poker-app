@@ -220,11 +220,10 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
     rooms[roomId].votesPerStory[storyId][currentId] = vote;
     socket.emit('restoreUserVote', { storyId, vote });
   }
+io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+  io.to(roomId).emit('triggerStateResync');
 
-  // Broadcast updated votes after cleanup to ensure proper statistics
-  if (removedOldVotes) {
-    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
-  }
+
 }
 
 io.on('connection', (socket) => {
