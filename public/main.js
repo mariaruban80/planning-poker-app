@@ -340,28 +340,31 @@ function addFixedVoteStatisticsStyles() {
 // Create a new function to generate the stats layout
 
 function createFixedVoteDisplay(votes) {
-  const seenUsers = new Set();
-  const voteValues = [];
+  // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
+  // First deduplicate any votes by userId 
+  const uniqueVotes = new Map(); // Use a Map to ensure one vote per user
+  
   for (const [userId, vote] of Object.entries(votes)) {
-    const userName = window.socketIdToUserName?.[userId] || userId; // fallback if not mapped
-
-    if (!seenUsers.has(userName)) {
-      seenUsers.add(userName);
-      voteValues.push(vote);
-    }
+    uniqueVotes.set(userId, vote); // This will automatically replace duplicate user votes
   }
+  
+  // Convert back to an array for calculations
+  const voteValues = Array.from(uniqueVotes.values());
 
+  // Extract numeric values only
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
 
+  // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length;
+  let voteCount = voteValues.length;  // Use the deduplicated count
   let averageValue = 0;
 
+  // Calculate statistics
   if (numericValues.length > 0) {
     const voteFrequency = {};
     let maxCount = 0;
@@ -378,6 +381,7 @@ function createFixedVoteDisplay(votes) {
     averageValue = Math.round(averageValue * 10) / 10;
   }
 
+  // Create HTML that shows the stats
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -399,8 +403,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
-
 
 
 /**
@@ -2463,10 +2465,8 @@ function createAvatarContainer(user) {
     <div class="user-name">${user.name}</div>
   `;
   
-  // ✅ Add both ID and NAME attributes for vote deduplication
   avatarContainer.setAttribute('data-user-id', user.id);
-  avatarContainer.setAttribute('data-user-name', user.name);
-
+  
   // Get current story ID
   const storyId = getCurrentStoryId();
   
@@ -2480,11 +2480,9 @@ function createAvatarContainer(user) {
   if (existingVote) {
     avatarContainer.classList.add('has-voted');
   }
-
+  
   return avatarContainer;
 }
-
-
 
 /**
  * Create vote card space for a user
