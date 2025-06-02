@@ -2470,8 +2470,10 @@ function createAvatarContainer(user) {
     <div class="user-name">${user.name}</div>
   `;
   
+  // ✅ Add both ID and NAME attributes for vote deduplication
   avatarContainer.setAttribute('data-user-id', user.id);
-  
+  avatarContainer.setAttribute('data-user-name', user.name);
+
   // Get current story ID
   const storyId = getCurrentStoryId();
   
@@ -2485,9 +2487,11 @@ function createAvatarContainer(user) {
   if (existingVote) {
     avatarContainer.classList.add('has-voted');
   }
-  
+
   return avatarContainer;
 }
+
+
 
 /**
  * Create vote card space for a user
