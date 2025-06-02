@@ -331,61 +331,56 @@ function addFixedVoteStatisticsStyles() {
 }
 
 // Create a new function to generate the stats layout
+
+
+function getUserIdToNameMap() {
+  const map = {};
+  (window.latestUserList || []).forEach(u => {
+    map[u.id] = u.name;  });
+  return map;
+}
 function createFixedVoteDisplay(votes) {
-  // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // === 🔐 Username-based deduplication ===
-  const userIdToNameMap = getUserIdToNameMap(); // You must maintain this mapping
-  const userNameVotes = new Map();
+  const userIdToNameMap = getUserIdToNameMap();
+  const userNameVoteMap = new Map();
 
   for (const [socketId, vote] of Object.entries(votes)) {
-    const userName = userIdToNameMap[socketId] || socketId; // Fallback to ID if name unknown
-    if (!userNameVotes.has(userName)) {
-      userNameVotes.set(userName, vote);
+    const userName = userIdToNameMap[socketId] || socketId;
+    if (!userNameVoteMap.has(userName)) {
+      userNameVoteMap.set(userName, vote);
     }
   }
 
-  const voteValues = Array.from(userNameVotes.values());
+  const voteValues = Array.from(userNameVoteMap.values());
 
-  // Extract numeric values only
-  const numericValues = voteValues
-    .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
-    .map(v => parseFloat(v));
+  const numericVotes = voteValues
+    .map(v => parseFloat(v))
+    .filter(v => !isNaN(v));
 
-  // Default values
-  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length;
-  let averageValue = 0;
+  let average = numericVotes.length
+    ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 10) / 10
+    : 0;
 
-  // Calculate statistics
-  if (numericValues.length > 0) {
-    const voteFrequency = {};
-    let maxCount = 0;
+  let mostCommonVote = voteValues[0] || '0';
+  const freq = {};
+  voteValues.forEach(v => {
+    freq[v] = (freq[v] || 0) + 1;
+    if (freq[v] > (freq[mostCommonVote] || 0)) {
+      mostCommonVote = v;
+    }
+  });
 
-    voteValues.forEach(vote => {
-      voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
-      if (voteFrequency[vote] > maxCount) {
-        maxCount = voteFrequency[vote];
-        mostCommonVote = vote;
-      }
-    });
-
-    averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
-    averageValue = Math.round(averageValue * 10) / 10;
-  }
-
-  // === Render UI
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
-      <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
+      <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
     </div>
     <div class="fixed-vote-stats">
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Average:</div>
-        <div class="fixed-stat-value">${averageValue}</div>
+        <div class="fixed-stat-value">${average}</div>
       </div>
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Agreement:</div>
@@ -398,18 +393,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
-function getUserIdToNameMap() {
-  const map = {};
-  const userList = window.latestUserList || [];
-
-  userList.forEach(user => {
-    map[user.id] = user.name;
-  });
-
-  return map;
-}
-
 
 
 /**
