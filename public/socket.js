@@ -604,19 +604,14 @@ function restoreVotesFromStorage(roomIdentifier) {
   if (!socket || !socket.connected) return;
   
   try {
-    // Get saved votes
     const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
     if (votesData) {
       const savedVotes = JSON.parse(votesData);
       
-      // Process each vote
       for (const [storyId, vote] of Object.entries(savedVotes)) {
-        // Skip votes for deleted stories
         if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
           continue;
         }
-        
-        console.log(`[SOCKET] Restoring vote from storage: ${storyId} = ${vote}`);
         
         // IMPORTANT: Explicitly tell server to remember this vote by username
         socket.emit('restoreUserVoteByUsername', { 
@@ -624,22 +619,7 @@ function restoreVotesFromStorage(roomIdentifier) {
           vote, 
           userName: userName  // Add username here explicitly
         });
-        
-        // Then also broadcast it directly to ensure all clients see it
-        socket.emit('castVote', {
-          vote, 
-          targetUserId: socket.id,
-          storyId
-        });
-        
-        // Update our local state
-        if (!lastKnownRoomState.votesPerStory[storyId]) {
-          lastKnownRoomState.votesPerStory[storyId] = {};
-        }
-        lastKnownRoomState.votesPerStory[storyId][socket.id] = vote;
       }
-      
-      console.log(`[SOCKET] Restored ${Object.keys(savedVotes).length} votes from session storage`);
     }
   } catch (err) {
     console.warn('[SOCKET] Error restoring votes from storage:', err);
