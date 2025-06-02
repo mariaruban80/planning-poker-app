@@ -563,11 +563,13 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
         socket.emit('restoreUserVote', { storyId, vote });
         
         // Tell everyone else
-        socket.broadcast.to(roomId).emit('voteUpdate', {
-          userId: socket.id,
-          vote,
-          storyId
-        });
+      socket.broadcast.to(roomId).emit('voteUpdate', {
+      userId: socket.id,
+      vote,
+      storyId,
+      userName: socket.data.userName
+    });
+
       }
       
       // Broadcast updated vote stats
@@ -685,11 +687,13 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
         socket.emit('restoreUserVote', { storyId, vote });
         
         // IMPORTANT: Also broadcast to all other users in the room
-        socket.broadcast.to(roomId).emit('voteUpdate', {
-          userId: socket.id,
-          vote,
-          storyId
-        });
+       socket.broadcast.to(roomId).emit('voteUpdate', {
+  userId: socket.id,
+  vote,
+  storyId,
+  userName: socket.data.userName
+});
+
       }
       
       // Once all votes are restored, broadcast updated vote stats
@@ -905,11 +909,13 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
             socket.emit('restoreUserVote', { storyId, vote });
             
             // Broadcast to others
-            socket.broadcast.to(roomId).emit('voteUpdate', {
-              userId: socket.id,
-              vote,
-              storyId
-            });
+           socket.broadcast.to(roomId).emit('voteUpdate', {
+  userId: socket.id,
+  vote,
+  storyId,
+  userName: socket.data.userName
+});
+
             
             console.log(`[SERVER] Restored username-based vote for ${userName} on story ${storyId}: ${vote}`);
           }
@@ -925,11 +931,13 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
               socket.emit('restoreUserVote', { storyId, vote: userVotes[storyId] });
               
               // Also broadcast this vote to everyone else
-              socket.broadcast.to(roomId).emit('voteUpdate', {
-                userId: socket.id,
-                vote: userVotes[storyId],
-                storyId
-              });
+             socket.broadcast.to(roomId).emit('voteUpdate', {
+  userId: socket.id,
+  vote,
+  storyId,
+  userName: socket.data.userName
+});
+
             }
           }
         }
@@ -1095,10 +1103,12 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
         
         // IMPORTANT: Also broadcast to all other users
         socket.broadcast.to(roomId).emit('voteUpdate', {
-          userId: socket.id,
-          vote: foundVote,
-          storyId
-        });
+  userId: socket.id,
+  vote,
+  storyId,
+  userName: socket.data.userName
+});
+
         
         // Ensure it's stored in the username-based system
         if (!rooms[roomId].userNameVotes) {
