@@ -631,7 +631,23 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   // Refresh vote display to ensure username-based deduplication
   refreshVoteDisplay();
 });
+  socket.on('votesUpdate', (votesData) => {
+    console.log('[SOCKET] Full votesUpdate received:', votesData);
+    votesPerStory = { ...votesData };
+    window.currentVotesPerStory = votesPerStory;
+    refreshVoteDisplay();
 
+    for (const storyId in votesData) {
+      if (votesRevealed[storyId]) {
+        handleVotesRevealed(storyId, votesData[storyId]);
+      }
+    }
+  });
+
+  socket.on('triggerStateResync', () => {
+    console.log('[SOCKET] Received triggerStateResync — requesting full state resync');
+    socket.emit('requestFullStateResync');
+  });
   
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Don't process votes for deleted stories
@@ -1601,10 +1617,10 @@ function handleVotesRevealed(storyId, votes) {
 
   if (!statsContainer) {
     statsContainer = document.createElement('div');
+    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
     statsContainer.className = 'vote-statistics-container';
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    }
+    statsContainer.innerHTML = '';
+    statsContainer.appendChild(createFixedVoteDisplay(votes));
   }
 
   // Clear existing content
