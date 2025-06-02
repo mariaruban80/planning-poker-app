@@ -613,9 +613,12 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   }
 
   // Now add the new vote
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  votesPerStory[storyId][userId] = vote;
-  window.currentVotesPerStory = votesPerStory;
+if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+votesPerStory[storyId][userId] = vote;
+
+// Deduplicate after inserting
+votesPerStory[storyId] = deduplicateVotes(votesPerStory[storyId]);
+window.currentVotesPerStory = votesPerStory;
 
   // Update UI for current story
   const currentId = getCurrentStoryId();
@@ -631,18 +634,26 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   // Refresh vote display to ensure username-based deduplication
   refreshVoteDisplay();
 });
-  socket.on('votesUpdate', (votesData) => {
-    console.log('[SOCKET] Full votesUpdate received:', votesData);
-    votesPerStory = { ...votesData };
-    window.currentVotesPerStory = votesPerStory;
-    refreshVoteDisplay();
+socket.on('votesUpdate', (votesData) => {
+  console.log('[SOCKET] Full votesUpdate received:', votesData);
 
-    for (const storyId in votesData) {
-      if (votesRevealed[storyId]) {
-        handleVotesRevealed(storyId, votesData[storyId]);
-      }
+  const deduplicated = {};
+
+  for (const storyId in votesData) {
+    deduplicated[storyId] = deduplicateVotes(votesData[storyId]);
+  }
+
+  votesPerStory = deduplicated;
+  window.currentVotesPerStory = votesPerStory;
+
+  refreshVoteDisplay();
+
+  for (const storyId in deduplicated) {
+    if (votesRevealed[storyId]) {
+      handleVotesRevealed(storyId, deduplicated[storyId]);
     }
-  });
+  }
+});
 
   socket.on('triggerStateResync', () => {
     console.log('[SOCKET] Received triggerStateResync — requesting full state resync');
@@ -690,6 +701,7 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
 
   // Store vote using current socket.id
   votesPerStory[storyId][socket.id] = vote;
+ votesPerStory[storyId] = deduplicateVotes(votesPerStory[storyId]);   
   window.currentVotesPerStory = votesPerStory;
 
   // ✅ Save to localStorage for backup
