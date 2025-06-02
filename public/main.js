@@ -1,7 +1,8 @@
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes, requestVotesByUsername } from './socket.js';
+// Import socket functionality
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -12,35 +13,6 @@ let preservedManualTickets = [];
 let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
-function deduplicateVotes(votes) {
-  const dedupedVotes = {};
-  const userNameToSocketId = {};
-
-  // First pass: find latest socket ID per username
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userEntry = document.querySelector(`#user-${socketId} .username`);
-    const userName = userEntry ? userEntry.textContent : null;
-
-    if (userName) {
-      userNameToSocketId[userName] = socketId;
-    } else {
-      dedupedVotes[socketId] = vote;
-    }
-  }
-
-  // Second pass: only keep latest for each user
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userEntry = document.querySelector(`#user-${socketId} .username`);
-    const userName = userEntry ? userEntry.textContent : null;
-
-    if (userName && userNameToSocketId[userName] === socketId) {
-      dedupedVotes[socketId] = vote;
-    }
-  }
-
-  return dedupedVotes;
-}
-
 
 
 // Add a window function for index.html to call
@@ -104,8 +76,6 @@ window.addTicketFromModal = function(ticketData) {
  * @param {string} roomId - Room ID to join 
  * @param {string} name - Username to use
  */
-
-// Update the window.initializeSocketWithName function around line 115
 window.initializeSocketWithName = function(roomId, name) {
   if (!roomId || !name) return;
   
@@ -113,9 +83,6 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Set username in the module scope
   userName = name;
-  
-  // Store the username in sessionStorage for persistence
-  sessionStorage.setItem('userName', name);
   
   // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
@@ -136,9 +103,6 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Add this line to request username-based votes
-  setTimeout(restoreVotesByUsername, 1000);
 };
 
 /**
@@ -163,41 +127,17 @@ function loadDeletedStoriesFromStorage(roomId) {
 
 
 function refreshVoteDisplay() {
-  // Clear existing vote visuals
+  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
 
   // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
-    // Deduplicate votes by username
-    const dedupedVotes = {};
-    const userNameToSocketId = {};
-    
-    // First pass: map usernames to their latest socket IDs
-    for (const [socketId, vote] of Object.entries(votes)) {
-      const userEntry = document.querySelector(`#user-${socketId} .username`);
-      const userName = userEntry ? userEntry.textContent : null;
-      
-      if (userName) {
-        userNameToSocketId[userName] = socketId;
-      }
+    for (const [userId, vote] of Object.entries(votes)) {
+      // Update UI for each user vote on each story
+      updateVoteVisuals(userId, vote, storyId);
+          
     }
-    
-    // Second pass: keep only votes from the latest socket ID for each username
-    for (const [socketId, vote] of Object.entries(votes)) {
-      const userEntry = document.querySelector(`#user-${socketId} .username`);
-      const userName = userEntry ? userEntry.textContent : null;
-      
-      if (userName && userNameToSocketId[userName] === socketId) {
-        dedupedVotes[socketId] = vote;
-      }
-    }
-    
-    // Use the deduplicated votes for updating the UI
-    for (const [userId, vote] of Object.entries(dedupedVotes)) {
-      updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
-    }
-    
-    updateVoteBadges(storyId, dedupedVotes);
+    updateVoteBadges(storyId, votes);
   }
 }
 
@@ -396,34 +336,24 @@ function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Get all unique usernames from the DOM first
-  const usernameToVote = new Map(); // username -> vote
-
-  // For each vote, find the corresponding username
+  // Deduplicate by userId (even if sent twice)
+  const userVotes = new Map();
   for (const [userId, vote] of Object.entries(votes)) {
-    const userElement = document.querySelector(`#user-${userId} .username`);
-    
-    if (userElement) {
-      const username = userElement.textContent;
-      usernameToVote.set(username, vote);
-    } else {
-      // If no username found, use the ID as a fallback
-      usernameToVote.set(userId, vote);
+    if (!userVotes.has(userId)) {
+      userVotes.set(userId, vote);
     }
   }
 
-  // Use only unique username votes for calculations
-  const uniqueVotes = Array.from(usernameToVote.values());
-  console.log(`[STATS] Using ${uniqueVotes.length} unique username votes from ${Object.keys(votes).length} socket votes`);
+  const voteValues = Array.from(userVotes.values());
 
-  // Extract numeric values only for average calculation
-  const numericValues = uniqueVotes
+  // Extract numeric values only
+  const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
 
   // Default values
-  let mostCommonVote = uniqueVotes.length > 0 ? uniqueVotes[0] : '0';
-  let voteCount = uniqueVotes.length;  // This is now the count of UNIQUE USERNAMES
+  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  let voteCount = voteValues.length;
   let averageValue = 0;
 
   // Calculate statistics
@@ -431,7 +361,7 @@ function createFixedVoteDisplay(votes) {
     const voteFrequency = {};
     let maxCount = 0;
 
-    uniqueVotes.forEach(vote => {
+    voteValues.forEach(vote => {
       voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
       if (voteFrequency[vote] > maxCount) {
         maxCount = voteFrequency[vote];
@@ -465,6 +395,7 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
 
 
 /**
@@ -570,106 +501,28 @@ function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  // Skip for deleted stories
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring vote for deleted story: ${storyId}`);
+  // ✅ Skip if vote already exists and is identical
+  if (
+    votesPerStory[storyId] &&
+    votesPerStory[storyId][userId] === vote
+  ) {
+    console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
     return;
   }
-  
-  // Find the username for this userId (socket ID)
-  const userEntry = document.querySelector(`#user-${userId} .username`);
-  const userName = userEntry ? userEntry.textContent : null;
-  
-  if (userName) {
-    // If we found a username, check for any existing votes from the same user
-    // but with a different socket ID
-    if (votesPerStory[storyId]) {
-      let duplicateFound = false;
-      
-      // Check if this exact socket ID already has the same vote
-      if (votesPerStory[storyId][userId] === vote) {
-        console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
-        return;
-      }
-      
-      // Remove any votes from different socket IDs but same username
-      for (const existingId in votesPerStory[storyId]) {
-        if (existingId !== userId) {
-          const existingUserEntry = document.querySelector(`#user-${existingId} .username`);
-          const existingUserName = existingUserEntry ? existingUserEntry.textContent : null;
-          
-          if (existingUserName === userName) {
-            console.log(`[DEDUPE] Removing duplicate vote from ${existingId} (same user as ${userId})`);
-            delete votesPerStory[storyId][existingId];
-            duplicateFound = true;
-          }
-        }
-      }
-      
-      if (duplicateFound) {
-        console.log(`[DEDUPE] Removed old votes for user ${userName}, keeping only latest`);
-      }
-    }
-  }
 
-  // Now add the new vote
-if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-votesPerStory[storyId][userId] = vote;
+  // Proceed to merge the vote
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  votesPerStory[storyId][userId] = vote;
+  window.currentVotesPerStory = votesPerStory;
 
-// Deduplicate after inserting
-votesPerStory[storyId] = deduplicateVotes(votesPerStory[storyId]);
-window.currentVotesPerStory = votesPerStory;
-
-  // Update UI for current story
   const currentId = getCurrentStoryId();
   if (storyId === currentId) {
     updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
-    
-    // If votes are revealed, update the statistics display
-    if (votesRevealed[storyId]) {
-      handleVotesRevealed(storyId, votesPerStory[storyId]);
-    }
   }
 
-  // Refresh vote display to ensure username-based deduplication
   refreshVoteDisplay();
 });
 
-socket.on('votesUpdate', (votesData) => {
-  console.log('[SOCKET] Full votesUpdate received:', votesData);
-
-  const deduplicated = {};
-  for (const storyId in votesData) {
-    deduplicated[storyId] = deduplicateVotes(votesData[storyId]);
-  }
-
-  // Compare current vs new to avoid redundant re-renders
-  const currentSerialized = JSON.stringify(votesPerStory);
-  const newSerialized = JSON.stringify(deduplicated);
-
-  if (currentSerialized !== newSerialized) {
-    console.log('[SOCKET] votesUpdate applied — state changed');
-    votesPerStory = deduplicated;
-    window.currentVotesPerStory = votesPerStory;
-
-    refreshVoteDisplay();
-
-    for (const storyId in deduplicated) {
-      if (votesRevealed[storyId]) {
-        handleVotesRevealed(storyId, deduplicated[storyId]);
-      }
-    }
-  } else {
-    console.log('[SOCKET] votesUpdate skipped — no change in vote data');
-  }
-});
-
-  
-
-  socket.on('triggerStateResync', () => {
-    console.log('[SOCKET] Received triggerStateResync — requesting full state resync');
-    socket.emit('requestFullStateResync');
-  });
   
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Don't process votes for deleted stories
@@ -701,8 +554,7 @@ socket.on('votesUpdate', (votesData) => {
   });
   
   // Updated handler for restored user votes
-
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
+socket.on('restoreUserVote', ({ storyId, vote }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
@@ -710,33 +562,31 @@ socket.on('votesUpdate', (votesData) => {
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
-  // Store vote using current socket.id
+  // ✅ Ensure the vote is stored under this user's socket.id
   votesPerStory[storyId][socket.id] = vote;
- votesPerStory[storyId] = deduplicateVotes(votesPerStory[storyId]);   
   window.currentVotesPerStory = votesPerStory;
-
-  // ✅ Save to localStorage for backup
-  try {
-    const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`)) || {};
-    backupVotes[storyId] = vote;
-    localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
-  } catch (err) {
-    console.warn('[VOTE] Could not store vote in localStorage:', err);
-  }
 
   const currentStoryId = getCurrentStoryId();
   const isRevealed = votesRevealed[storyId];
 
+  // ✅ Apply vote visuals
   if (storyId === currentStoryId) {
     updateVoteVisuals(socket.id, isRevealed ? vote : '👍', true);
+
     if (isRevealed) {
+      // Also regenerate statistics if this is the current story
       handleVotesRevealed(storyId, votesPerStory[storyId]);
     }
   }
 
-  refreshVoteDisplay();
+  refreshVoteDisplay(); // Refresh UI and badges
 });
 
+
+
+  
+
+  
   // Updated resyncState handler to restore votes
  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
@@ -913,8 +763,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     });
     
     // Handle successful reconnection
-// Update the socket.on('reconnect') handler around line 145
-socket.on('reconnect', () => {
+    socket.on('reconnect', () => {
   console.log('[SOCKET] Reconnected to server');
   reconnectingInProgress = false;
 
@@ -942,10 +791,6 @@ socket.on('reconnect', () => {
 
       refreshVoteDisplay();
     }
-    
-    // Add this line to request votes by username
-    restoreVotesByUsername();
-    
   }, 500);
 });
 
@@ -986,9 +831,7 @@ socket.on('reconnect', () => {
   
   // Refresh votes periodically to ensure everyone sees the latest votes
   setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
-  setTimeout(restoreVotesByUsername, 1000); 
 }
-
 
 /**
  * Periodically refresh votes for the current story
@@ -1624,43 +1467,44 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
+  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
+  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
+
+  if (statsAlreadyVisible && planningCardsHidden) {
+    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
+    return;
+  }
+
   votesRevealed[storyId] = true;
 
-  // Store the votes in our global state
   if (!votesPerStory[storyId]) {
     votesPerStory[storyId] = {};
   }
-  
+
   votesPerStory[storyId] = { ...votes };
   window.currentVotesPerStory = votesPerStory;
 
-  // Get or create the stats container
-  let statsContainer = document.querySelector('.vote-statistics-container');
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  addFixedVoteStatisticsStyles();
 
-  if (!statsContainer) {
-    statsContainer = document.createElement('div'); 
-    statsContainer.className = 'vote-statistics-container';
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-  }
-
-  // Clear existing content
-  statsContainer.innerHTML = '';
-  
-  // Create vote stats using our username-based calculation
   const voteStats = createFixedVoteDisplay(votes);
-  statsContainer.appendChild(voteStats);
 
-  // Hide planning cards, show stats
   if (planningCardsSection) {
-    planningCardsSection.style.display = 'none';
-  }
-  statsContainer.style.display = 'block';
+    if (!statsContainer) {
+      statsContainer = document.createElement('div'); // ✅ Safe now
+      statsContainer.className = 'vote-statistics-container';
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    }
 
-  // Show the actual votes on cards
+    statsContainer.innerHTML = '';
+    statsContainer.appendChild(voteStats);
+
+    planningCardsSection.style.display = 'none';
+    statsContainer.style.display = 'block';
+  }
+
   applyVotesToUI(votes, false);
-  
-  // Apply font sizes 
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
@@ -2627,8 +2471,6 @@ function createAvatarContainer(user) {
 /**
  * Create vote card space for a user
  */
-
-// Update the createVoteCardSpace function to include userName in drop event
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
@@ -2655,13 +2497,7 @@ function createVoteCardSpace(user, isCurrentUser) {
       }
       
       if (socket && vote && storyId) {
-        // Include userName parameter when casting vote
-        socket.emit('castVote', { 
-          vote, 
-          targetUserId: user.id, 
-          storyId,
-          userName: userName // Add username explicitly
-        });
+        socket.emit('castVote', { vote, targetUserId: user.id, storyId });
         
         // Update local state
         if (!votesPerStory[storyId]) {
@@ -2698,7 +2534,7 @@ function createVoteCardSpace(user, isCurrentUser) {
 
 /**
  * Update vote visuals for a user
- */// Update the updateVoteVisuals function to store votes in sessionStorage
+ */
 function updateVoteVisuals(userId, vote, hasVoted = false) {
   console.log(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${hasVoted}`);
   
@@ -2711,29 +2547,14 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     return;
   }
   
-  // If this is the current user's vote, store it in sessionStorage
-  const roomId = getRoomIdFromURL();
-  if (userId === socket?.id && hasVoted) {
-    try {
-      const votesData = JSON.parse(sessionStorage.getItem(`votes_${roomId}`) || '{}');
-      votesData[storyId] = vote;
-      sessionStorage.setItem(`votes_${roomId}`, JSON.stringify(votesData));
-      console.log(`[VOTE] Stored vote in sessionStorage: ${storyId} = ${vote}`);
-      
-      // Also update localStorage as backup
-      const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`) || '{}');
-      backupVotes[storyId] = vote;
-      localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
-    } catch (err) {
-      console.warn('[VOTE] Could not store vote in storage:', err);
-    }
-  }
-  
-  // Continue with the rest of the function as before
   const isRevealed = storyId && votesRevealed[storyId] === true;
+  
+  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
   
   // Determine what to show based on reveal state
   const displayVote = isRevealed ? vote : '👍';
+  
+  console.log(`[DEBUG] Will display: ${displayVote}`);
   
   // Update badges in sidebar
   const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
@@ -2741,10 +2562,10 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     // Only set content if the user has voted
     if (hasVoted) {
       sidebarBadge.textContent = displayVote;
-      sidebarBadge.style.color = '#673ab7';
-      sidebarBadge.style.opacity = '1';
+      sidebarBadge.style.color = '#673ab7'; // Make sure the text has a visible color
+      sidebarBadge.style.opacity = '1'; // Ensure full opacity
     } else {
-      sidebarBadge.textContent = '';
+      sidebarBadge.textContent = ''; // Empty if no vote
     }
   }
   
@@ -2756,10 +2577,11 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       // Only show vote if they've voted
       if (hasVoted) {
         voteBadge.textContent = displayVote;
-        voteBadge.style.color = '#673ab7';
-        voteBadge.style.opacity = '1';
+        voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
+        voteBadge.style.opacity = '1'; // Ensure full opacity
+        console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
       } else {
-        voteBadge.textContent = '';
+        voteBadge.textContent = ''; // Empty if no vote
       }
     }
     
@@ -2779,7 +2601,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
       
       const avatar = avatarContainer.querySelector('.avatar-circle');
       if (avatar) {
-        avatar.style.backgroundColor = '#c1e1c1';
+        avatar.style.backgroundColor = '#c1e1c1'; // Green background
       }
     }
     
@@ -2790,8 +2612,6 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     }
   }
 }
-
-
 
 /**
  * Update story title
@@ -3091,40 +2911,6 @@ function handleSocketMessage(message) {
         }, 300);
       }
       break;
-
-case 'userNameVoteRestored':
-  if (message.storyId && message.vote) {
-    // Skip for deleted stories
-    if (deletedStoryIds.has(message.storyId)) {
-      console.log(`[VOTE] Ignoring username vote restoration for deleted story: ${message.storyId}`);
-      return;
-    }
-    
-    console.log(`[APP] Username-specific vote restored for story ${message.storyId}: ${message.vote}`);
-    
-    // Update local state
-    if (!votesPerStory[message.storyId]) {
-      votesPerStory[message.storyId] = {};
-    }
-    votesPerStory[message.storyId][socket.id] = message.vote;
-    window.currentVotesPerStory = votesPerStory;
-    
-    // Update UI if this is the current story
-    const currentId = getCurrentStoryId();
-    if (message.storyId === currentId) {
-      updateVoteVisuals(socket.id, votesRevealed[message.storyId] ? message.vote : '👍', true);
-    }
-    
-    // Store in localStorage for persistence
-    try {
-      const backupVotes = JSON.parse(localStorage.getItem(`votes_${roomId}`)) || {};
-      backupVotes[message.storyId] = message.vote;
-      localStorage.setItem(`votes_${roomId}`, JSON.stringify(backupVotes));
-    } catch (err) {
-      console.warn('[VOTE] Could not store vote in localStorage:', err);
-    }
-  }
-  break;
 
     case 'restoreUserVote':
       if (message.storyId && message.vote) {
@@ -3480,12 +3266,6 @@ case 'storySelected':
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  // Ensure userName is loaded from sessionStorage at the beginning
-  if (!userName && sessionStorage.getItem('userName')) {
-    userName = sessionStorage.getItem('userName');
-    console.log(`[APP] Restored username from session storage: ${userName}`);
-  }
-
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
@@ -3496,19 +3276,4 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDeletedStoriesFromStorage(roomId);
   
   initializeApp(roomId);
-  
-  // Add this line to restore votes by username globally after app initialization
-  setTimeout(() => {
-    if (userName) {
-      restoreVotesByUsername();
-    }
-  }, 2000);
 });
-
-// Add this function after this code block
-function restoreVotesByUsername() {
-  if (socket && socket.connected && userName) {
-    console.log(`[APP] Requesting votes for username: ${userName}`);
-    socket.emit('requestVotesByUsername', { userName });
-  }
-}
