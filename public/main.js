@@ -341,18 +341,21 @@ function addFixedVoteStatisticsStyles() {
 
 function createFixedVoteDisplay(votes) {
   // Create container
+  const seenUsers = new Set();
+  const voteValues = [];
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // First deduplicate any votes by userId 
-  const uniqueVotes = new Map(); // Use a Map to ensure one vote per user
-  
+  // Deduplicate votes using username instead of socket ID
   for (const [userId, vote] of Object.entries(votes)) {
-    uniqueVotes.set(userId, vote); // This will automatically replace duplicate user votes
+    const userEl = document.querySelector(`.avatar-container[data-user-id="${userId}"]`);
+    const userName = userEl?.getAttribute('data-user-name') || userId;
+
+    if (!seenUsers.has(userName)) {
+      seenUsers.add(userName);
+      voteValues.push(vote);
+    }
   }
-  
-  // Convert back to an array for calculations
-  const voteValues = Array.from(uniqueVotes.values());
 
   // Extract numeric values only
   const numericValues = voteValues
@@ -361,7 +364,7 @@ function createFixedVoteDisplay(votes) {
 
   // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length;  // Use the deduplicated count
+  let voteCount = voteValues.length;
   let averageValue = 0;
 
   // Calculate statistics
@@ -381,7 +384,7 @@ function createFixedVoteDisplay(votes) {
     averageValue = Math.round(averageValue * 10) / 10;
   }
 
-  // Create HTML that shows the stats
+  // Create HTML to show the stats
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -403,6 +406,8 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
+
 
 
 /**
