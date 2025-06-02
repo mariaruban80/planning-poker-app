@@ -12,36 +12,36 @@ let preservedManualTickets = [];
 let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
-
 function deduplicateVotes(votes) {
   const dedupedVotes = {};
   const userNameToSocketId = {};
-  
-  // First pass: map usernames to their latest socket IDs
+
+  // First pass: find latest socket ID per username
   for (const [socketId, vote] of Object.entries(votes)) {
     const userEntry = document.querySelector(`#user-${socketId} .username`);
     const userName = userEntry ? userEntry.textContent : null;
-    
+
     if (userName) {
       userNameToSocketId[userName] = socketId;
     } else {
-      // If no username available, keep the vote
       dedupedVotes[socketId] = vote;
     }
   }
-  
-  // Second pass: keep only votes from the latest socket ID for each username
+
+  // Second pass: only keep latest for each user
   for (const [socketId, vote] of Object.entries(votes)) {
     const userEntry = document.querySelector(`#user-${socketId} .username`);
     const userName = userEntry ? userEntry.textContent : null;
-    
+
     if (userName && userNameToSocketId[userName] === socketId) {
       dedupedVotes[socketId] = vote;
     }
   }
-  
+
   return dedupedVotes;
 }
+
+
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -445,11 +445,10 @@ function createFixedVoteDisplay(votes) {
 
   // Create HTML that shows the stats
   container.innerHTML = `
-    
     <div class="fixed-vote-card">
-  <div class="fixed-stat-value">${mostCommonVote}</div>
-  <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
-</div>
+      ${mostCommonVote}
+      <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
+    </div>
     <div class="fixed-vote-stats">
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Average:</div>
@@ -635,26 +634,37 @@ window.currentVotesPerStory = votesPerStory;
   // Refresh vote display to ensure username-based deduplication
   refreshVoteDisplay();
 });
+
 socket.on('votesUpdate', (votesData) => {
   console.log('[SOCKET] Full votesUpdate received:', votesData);
 
   const deduplicated = {};
-
   for (const storyId in votesData) {
     deduplicated[storyId] = deduplicateVotes(votesData[storyId]);
   }
 
-  votesPerStory = deduplicated;
-  window.currentVotesPerStory = votesPerStory;
+  // Compare current vs new to avoid redundant re-renders
+  const currentSerialized = JSON.stringify(votesPerStory);
+  const newSerialized = JSON.stringify(deduplicated);
 
-  refreshVoteDisplay();
+  if (currentSerialized !== newSerialized) {
+    console.log('[SOCKET] votesUpdate applied — state changed');
+    votesPerStory = deduplicated;
+    window.currentVotesPerStory = votesPerStory;
 
-  for (const storyId in deduplicated) {
-    if (votesRevealed[storyId]) {
-      handleVotesRevealed(storyId, deduplicated[storyId]);
+    refreshVoteDisplay();
+
+    for (const storyId in deduplicated) {
+      if (votesRevealed[storyId]) {
+        handleVotesRevealed(storyId, deduplicated[storyId]);
+      }
     }
+  } else {
+    console.log('[SOCKET] votesUpdate skipped — no change in vote data');
   }
 });
+
+  
 
   socket.on('triggerStateResync', () => {
     console.log('[SOCKET] Received triggerStateResync — requesting full state resync');
