@@ -357,13 +357,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
     }
-    
-    // IMPORTANT: Also broadcast this vote to everyone else to ensure visibility
-    // This ensures other clients see the vote without host interaction
-    if (socket && socket.connected) {
-      console.log(`[SOCKET] Broadcasting restored vote to all users: ${storyId} = ${vote}`);
-      socket.emit('castVote', { vote, targetUserId: socket.id, storyId });
-    }
+ 
     
     handleMessage({ type: 'restoreUserVote', storyId, vote });
   });
