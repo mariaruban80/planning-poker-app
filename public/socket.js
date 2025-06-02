@@ -122,7 +122,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Listen for votes updates from server
     socket.on('votesUpdate', (votesData) => {
       console.log('[SOCKET] votesUpdate received:', votesData);
-   //   updateVoteVisuals(votesData);  // Your function to update UI with new votes
+      updateVoteVisuals(votesData);  // Your function to update UI with new votes
     });
 
     // Request votes by username after initial connection
@@ -281,44 +281,37 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     }, 100);
   });
 
-socket.on('voteUpdate', ({ userId, vote, storyId, userName }) => {
-  // ✅ Step 1: Track socket-to-username mapping
-  window.socketIdToUserName = window.socketIdToUserName || {};
-  if (userId && userName) {
-    window.socketIdToUserName[userId] = userName;
-  }
-
-  // ✅ Step 2: Ignore votes on deleted stories
-  if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-    console.log(`[SOCKET] Ignoring vote for deleted story: ${storyId}`);
-    return;
-  }
-
-  console.log(`[SOCKET] Vote update received: ${userId} (${userName || 'unknown'}) voted ${vote} for story ${storyId}`);
-
-  // ✅ Step 3: Store vote in local state
-  lastKnownRoomState.votesPerStory ??= {};
-  lastKnownRoomState.votesPerStory[storyId] ??= {};
-  lastKnownRoomState.votesPerStory[storyId][userId] = vote;
-
-  // ✅ Step 4: Store current user's vote for recovery
-  if (socket && userId === socket.id) {
-    lastKnownRoomState.userVotes ??= {};
-    lastKnownRoomState.userVotes[storyId] = vote;
-
-    try {
-      const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-      sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
-      console.log(`[SOCKET] Saved user vote to session storage: ${storyId} = ${vote}`);
-    } catch (err) {
-      console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
+  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+    // Check if we should ignore this because the story is deleted
+    if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+      console.log(`[SOCKET] Ignoring vote for deleted story: ${storyId}`);
+      return;
     }
-  }
-
-  // ✅ Step 5: Trigger UI update
-  handleMessage({ type: 'voteUpdate', userId, vote, storyId });
-});
-
+    
+    console.log(`[SOCKET] Vote update received: ${userId} voted ${vote} for story ${storyId}`);
+    
+    // Store in last known state - ensure initialization
+    if (!lastKnownRoomState.votesPerStory) lastKnownRoomState.votesPerStory = {};
+    if (!lastKnownRoomState.votesPerStory[storyId]) lastKnownRoomState.votesPerStory[storyId] = {};
+    lastKnownRoomState.votesPerStory[storyId][userId] = vote;
+    
+    // If this is the current user's vote, store it separately for easier recovery
+    if (socket && userId === socket.id) {
+      if (!lastKnownRoomState.userVotes) lastKnownRoomState.userVotes = {};
+      lastKnownRoomState.userVotes[storyId] = vote;
+      
+      // Save to sessionStorage for persistence across page refreshes
+      try {
+        const votesData = JSON.stringify(lastKnownRoomState.userVotes);
+        sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+        console.log(`[SOCKET] Saved user vote to session storage: ${storyId} = ${vote}`);
+      } catch (err) {
+        console.warn('[SOCKET] Could not save vote to sessionStorage:', err);
+      }
+    }
+    
+    handleMessage({ type: 'voteUpdate', userId, vote, storyId });
+  });
 
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Check if we should ignore this because the story is deleted
@@ -363,7 +356,14 @@ socket.on('voteUpdate', ({ userId, vote, storyId, userName }) => {
       console.log(`[SOCKET] Saved restored vote to session storage: ${storyId} = ${vote}`);
     } catch (err) {
       console.warn('[SOCKET] Could not save restored vote to sessionStorage:', err);
-    }    
+    }
+    
+    // IMPORTANT: Also broadcast this vote to everyone else to ensure visibility
+    // This ensures other clients see the vote without host interaction
+    if (socket && socket.connected) {
+      console.log(`[SOCKET] Broadcasting restored vote to all users: ${storyId} = ${vote}`);
+      socket.emit('castVote', { vote, targetUserId: socket.id, storyId });
+    }
     
     handleMessage({ type: 'restoreUserVote', storyId, vote });
   });
