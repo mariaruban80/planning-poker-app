@@ -340,16 +340,13 @@ function addFixedVoteStatisticsStyles() {
 // Create a new function to generate the stats layout
 
 function createFixedVoteDisplay(votes) {
-  // Create container
   const seenUsers = new Set();
   const voteValues = [];
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Deduplicate votes using username instead of socket ID
   for (const [userId, vote] of Object.entries(votes)) {
-    const userEl = document.querySelector(`.avatar-container[data-user-id="${userId}"]`);
-    const userName = userEl?.getAttribute('data-user-name') || userId;
+    const userName = window.socketIdToUserName?.[userId] || userId; // fallback if not mapped
 
     if (!seenUsers.has(userName)) {
       seenUsers.add(userName);
@@ -357,17 +354,14 @@ function createFixedVoteDisplay(votes) {
     }
   }
 
-  // Extract numeric values only
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
 
-  // Default values
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
   let voteCount = voteValues.length;
   let averageValue = 0;
 
-  // Calculate statistics
   if (numericValues.length > 0) {
     const voteFrequency = {};
     let maxCount = 0;
@@ -384,7 +378,6 @@ function createFixedVoteDisplay(votes) {
     averageValue = Math.round(averageValue * 10) / 10;
   }
 
-  // Create HTML to show the stats
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
