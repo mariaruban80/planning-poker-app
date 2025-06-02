@@ -340,7 +340,6 @@ function addFixedVoteStatisticsStyles() {
 // Create a new function to generate the stats layout
 
 function createFixedVoteDisplay(votes) {
-  // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
