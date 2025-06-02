@@ -479,6 +479,8 @@ io.on('connection', (socket) => {
 
     // Clean up old socket IDs and restore votes for this user
     restoreUserVotesToCurrentSocket(roomId, socket);
+    cleanupRoomVotes(roomId);
+    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
 
     // Send voting system to client
     socket.emit('votingSystemUpdate', { votingSystem: roomVotingSystems[roomId] || 'fibonacci' });
