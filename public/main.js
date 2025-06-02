@@ -391,37 +391,39 @@ function addFixedVoteStatisticsStyles() {
 }
 
 // Create a new function to generate the stats layout
-
 function createFixedVoteDisplay(votes) {
   // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Deduplicate votes by username to ensure accurate statistics
-  const uniqueUserVotes = new Map(); // username -> vote
-  
-  // Process each vote to deduplicate by username
+  // Get all unique usernames from the DOM first
+  const usernameToVote = new Map(); // username -> vote
+
+  // For each vote, find the corresponding username
   for (const [userId, vote] of Object.entries(votes)) {
     const userElement = document.querySelector(`#user-${userId} .username`);
-    const userName = userElement ? userElement.textContent : userId; // Fallback to userId if no name found
     
-    // Only add/replace votes for a username
-    uniqueUserVotes.set(userName, vote);
+    if (userElement) {
+      const username = userElement.textContent;
+      usernameToVote.set(username, vote);
+    } else {
+      // If no username found, use the ID as a fallback
+      usernameToVote.set(userId, vote);
+    }
   }
-  
-  // Convert to array of vote values only (deduplicated by username)
-  const voteValues = Array.from(uniqueUserVotes.values());
-  
-  console.log(`[STATS] Using ${voteValues.length} deduplicated votes from ${Object.keys(votes).length} total votes`);
 
-  // Extract numeric values only
-  const numericValues = voteValues
+  // Use only unique username votes for calculations
+  const uniqueVotes = Array.from(usernameToVote.values());
+  console.log(`[STATS] Using ${uniqueVotes.length} unique username votes from ${Object.keys(votes).length} socket votes`);
+
+  // Extract numeric values only for average calculation
+  const numericValues = uniqueVotes
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
 
   // Default values
-  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
-  let voteCount = voteValues.length;  // Use the deduplicated count
+  let mostCommonVote = uniqueVotes.length > 0 ? uniqueVotes[0] : '0';
+  let voteCount = uniqueVotes.length;  // This is now the count of UNIQUE USERNAMES
   let averageValue = 0;
 
   // Calculate statistics
@@ -429,7 +431,7 @@ function createFixedVoteDisplay(votes) {
     const voteFrequency = {};
     let maxCount = 0;
 
-    voteValues.forEach(vote => {
+    uniqueVotes.forEach(vote => {
       voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
       if (voteFrequency[vote] > maxCount) {
         maxCount = voteFrequency[vote];
@@ -463,6 +465,7 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
 
 /**
  * Determines if current user is a guest
@@ -1582,74 +1585,50 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  // Set the revealed state
   votesRevealed[storyId] = true;
-  
-  // Deduplicate votes by username to ensure accurate display
-  const deduplicatedVotes = {};
-  const userNameMap = new Map(); // username -> userId
-  
-  // First pass: map usernames to their userId
-  for (const userId in votes) {
-    const userElement = document.querySelector(`#user-${userId} .username`);
-    if (userElement) {
-      const userName = userElement.textContent;
-      if (userName) {
-        // If we already have this username, keep the newer one (assumed to be current userId)
-        userNameMap.set(userName, userId);
-      } else {
-        // If no username found, keep this vote
-        deduplicatedVotes[userId] = votes[userId];
-      }
-    } else {
-      // If user element not found, keep this vote
-      deduplicatedVotes[userId] = votes[userId];
-    }
+
+  // Store the votes in our global state
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
   }
   
-  // Second pass: add one vote per username using the mapped userId
-  userNameMap.forEach((userId, userName) => {
-    deduplicatedVotes[userId] = votes[userId];
-  });
-  
-  console.log(`[VOTES] Deduplicated from ${Object.keys(votes).length} to ${Object.keys(deduplicatedVotes).length} votes`);
-
-  let statsContainer = document.querySelector('.vote-statistics-container');
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
-  const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
-
-  if (statsAlreadyVisible && planningCardsHidden) {
-    console.log('[VOTES] Statistics already shown, updating with latest data');
-  }
-
-  // Update stored votes with deduplicated version
-  votesPerStory[storyId] = deduplicatedVotes;
+  votesPerStory[storyId] = { ...votes };
   window.currentVotesPerStory = votesPerStory;
 
-  addFixedVoteStatisticsStyles();
+  // Get or create the stats container
+  let statsContainer = document.querySelector('.vote-statistics-container');
+  const planningCardsSection = document.querySelector('.planning-cards-section');
 
-  // Create vote stats with deduplicated data
-  const voteStats = createFixedVoteDisplay(deduplicatedVotes);
-
-  if (planningCardsSection) {
-    if (!statsContainer) {
-      statsContainer = document.createElement('div');
-      statsContainer.className = 'vote-statistics-container';
+  if (!statsContainer) {
+    statsContainer = document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    if (planningCardsSection && planningCardsSection.parentNode) {
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
-
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(voteStats);
-
-    planningCardsSection.style.display = 'none';
-    statsContainer.style.display = 'block';
   }
 
-  applyVotesToUI(deduplicatedVotes, false);
+  // Clear existing content
+  statsContainer.innerHTML = '';
+  
+  // Create vote stats using our username-based calculation
+  const voteStats = createFixedVoteDisplay(votes);
+  statsContainer.appendChild(voteStats);
+
+  // Hide planning cards, show stats
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'none';
+  }
+  statsContainer.style.display = 'block';
+
+  // Show the actual votes on cards
+  applyVotesToUI(votes, false);
+  
+  // Apply font sizes 
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
+
+
 
 /**
  * Setup Add Ticket button
