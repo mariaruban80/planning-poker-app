@@ -122,7 +122,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Listen for votes updates from server
     socket.on('votesUpdate', (votesData) => {
       console.log('[SOCKET] votesUpdate received:', votesData);
-      updateVoteVisuals(votesData);  // Your function to update UI with new votes
+   //   updateVoteVisuals(votesData);  // Your function to update UI with new votes
     });
 
     // Request votes by username after initial connection
