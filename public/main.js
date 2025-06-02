@@ -336,15 +336,18 @@ function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Deduplicate by userId (even if sent twice)
-  const userVotes = new Map();
-  for (const [userId, vote] of Object.entries(votes)) {
-    if (!userVotes.has(userId)) {
-      userVotes.set(userId, vote);
+  // === 🔐 Username-based deduplication ===
+  const userIdToNameMap = getUserIdToNameMap(); // You must maintain this mapping
+  const userNameVotes = new Map();
+
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userName = userIdToNameMap[socketId] || socketId; // Fallback to ID if name unknown
+    if (!userNameVotes.has(userName)) {
+      userNameVotes.set(userName, vote);
     }
   }
 
-  const voteValues = Array.from(userVotes.values());
+  const voteValues = Array.from(userNameVotes.values());
 
   // Extract numeric values only
   const numericValues = voteValues
@@ -373,7 +376,7 @@ function createFixedVoteDisplay(votes) {
     averageValue = Math.round(averageValue * 10) / 10;
   }
 
-  // Create HTML that shows the stats
+  // === Render UI
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -394,6 +397,17 @@ function createFixedVoteDisplay(votes) {
   `;
 
   return container;
+}
+
+function getUserIdToNameMap() {
+  const map = {};
+  const userList = window.latestUserList || [];
+
+  userList.forEach(user => {
+    map[user.id] = user.name;
+  });
+
+  return map;
 }
 
 
@@ -499,6 +513,9 @@ function appendRoomIdToURL(roomId) {
 function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  socket.on('userList', users => {
+  window.latestUserList = users;
+});
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   // ✅ Skip if vote already exists and is identical
@@ -2823,6 +2840,7 @@ function handleSocketMessage(message) {
       // Update the user list when server sends an updated list
       if (Array.isArray(message.users)) {
         updateUserList(message.users);
+            window.latestUserList = message.users;
       }
       break;
 
