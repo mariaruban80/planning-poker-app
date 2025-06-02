@@ -139,7 +139,7 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
   }
 
   // Broadcast updated votes after cleanup to ensure proper statistics
-  io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+ // io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
 }
 
 
