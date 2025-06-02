@@ -13,6 +13,35 @@ let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
 
+function deduplicateVotes(votes) {
+  const dedupedVotes = {};
+  const userNameToSocketId = {};
+  
+  // First pass: map usernames to their latest socket IDs
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userEntry = document.querySelector(`#user-${socketId} .username`);
+    const userName = userEntry ? userEntry.textContent : null;
+    
+    if (userName) {
+      userNameToSocketId[userName] = socketId;
+    } else {
+      // If no username available, keep the vote
+      dedupedVotes[socketId] = vote;
+    }
+  }
+  
+  // Second pass: keep only votes from the latest socket ID for each username
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userEntry = document.querySelector(`#user-${socketId} .username`);
+    const userName = userEntry ? userEntry.textContent : null;
+    
+    if (userName && userNameToSocketId[userName] === socketId) {
+      dedupedVotes[socketId] = vote;
+    }
+  }
+  
+  return dedupedVotes;
+}
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -134,17 +163,41 @@ function loadDeletedStoriesFromStorage(roomId) {
 
 
 function refreshVoteDisplay() {
-  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
+  // Clear existing vote visuals
   clearAllVoteVisuals();
 
   // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
-    for (const [userId, vote] of Object.entries(votes)) {
-      // Update UI for each user vote on each story
-      updateVoteVisuals(userId, vote, storyId);
-          
+    // Deduplicate votes by username
+    const dedupedVotes = {};
+    const userNameToSocketId = {};
+    
+    // First pass: map usernames to their latest socket IDs
+    for (const [socketId, vote] of Object.entries(votes)) {
+      const userEntry = document.querySelector(`#user-${socketId} .username`);
+      const userName = userEntry ? userEntry.textContent : null;
+      
+      if (userName) {
+        userNameToSocketId[userName] = socketId;
+      }
     }
-    updateVoteBadges(storyId, votes);
+    
+    // Second pass: keep only votes from the latest socket ID for each username
+    for (const [socketId, vote] of Object.entries(votes)) {
+      const userEntry = document.querySelector(`#user-${socketId} .username`);
+      const userName = userEntry ? userEntry.textContent : null;
+      
+      if (userName && userNameToSocketId[userName] === socketId) {
+        dedupedVotes[socketId] = vote;
+      }
+    }
+    
+    // Use the deduplicated votes for updating the UI
+    for (const [userId, vote] of Object.entries(dedupedVotes)) {
+      updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+    }
+    
+    updateVoteBadges(storyId, dedupedVotes);
   }
 }
 
@@ -340,18 +393,26 @@ function addFixedVoteStatisticsStyles() {
 // Create a new function to generate the stats layout
 
 function createFixedVoteDisplay(votes) {
+  // Create container
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // First deduplicate any votes by userId 
-  const uniqueVotes = new Map(); // Use a Map to ensure one vote per user
+  // Deduplicate votes by username to ensure accurate statistics
+  const uniqueUserVotes = new Map(); // username -> vote
   
+  // Process each vote to deduplicate by username
   for (const [userId, vote] of Object.entries(votes)) {
-    uniqueVotes.set(userId, vote); // This will automatically replace duplicate user votes
+    const userElement = document.querySelector(`#user-${userId} .username`);
+    const userName = userElement ? userElement.textContent : userId; // Fallback to userId if no name found
+    
+    // Only add/replace votes for a username
+    uniqueUserVotes.set(userName, vote);
   }
   
-  // Convert back to an array for calculations
-  const voteValues = Array.from(uniqueVotes.values());
+  // Convert to array of vote values only (deduplicated by username)
+  const voteValues = Array.from(uniqueUserVotes.values());
+  
+  console.log(`[STATS] Using ${voteValues.length} deduplicated votes from ${Object.keys(votes).length} total votes`);
 
   // Extract numeric values only
   const numericValues = voteValues
@@ -402,7 +463,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
 
 /**
  * Determines if current user is a guest
@@ -507,25 +567,65 @@ function initializeApp(roomId) {
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  // ✅ Skip if vote already exists and is identical
-  if (
-    votesPerStory[storyId] &&
-    votesPerStory[storyId][userId] === vote
-  ) {
-    console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
+  // Skip for deleted stories
+  if (deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Ignoring vote for deleted story: ${storyId}`);
     return;
   }
+  
+  // Find the username for this userId (socket ID)
+  const userEntry = document.querySelector(`#user-${userId} .username`);
+  const userName = userEntry ? userEntry.textContent : null;
+  
+  if (userName) {
+    // If we found a username, check for any existing votes from the same user
+    // but with a different socket ID
+    if (votesPerStory[storyId]) {
+      let duplicateFound = false;
+      
+      // Check if this exact socket ID already has the same vote
+      if (votesPerStory[storyId][userId] === vote) {
+        console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
+        return;
+      }
+      
+      // Remove any votes from different socket IDs but same username
+      for (const existingId in votesPerStory[storyId]) {
+        if (existingId !== userId) {
+          const existingUserEntry = document.querySelector(`#user-${existingId} .username`);
+          const existingUserName = existingUserEntry ? existingUserEntry.textContent : null;
+          
+          if (existingUserName === userName) {
+            console.log(`[DEDUPE] Removing duplicate vote from ${existingId} (same user as ${userId})`);
+            delete votesPerStory[storyId][existingId];
+            duplicateFound = true;
+          }
+        }
+      }
+      
+      if (duplicateFound) {
+        console.log(`[DEDUPE] Removed old votes for user ${userName}, keeping only latest`);
+      }
+    }
+  }
 
-  // Proceed to merge the vote
+  // Now add the new vote
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
   votesPerStory[storyId][userId] = vote;
   window.currentVotesPerStory = votesPerStory;
 
+  // Update UI for current story
   const currentId = getCurrentStoryId();
   if (storyId === currentId) {
     updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+    
+    // If votes are revealed, update the statistics display
+    if (votesRevealed[storyId]) {
+      handleVotesRevealed(storyId, votesPerStory[storyId]);
+    }
   }
 
+  // Refresh vote display to ensure username-based deduplication
   refreshVoteDisplay();
 });
 
@@ -1474,7 +1574,6 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
-
 function handleVotesRevealed(storyId, votes) {
   console.log('[VOTES] Handling votes revealed for story:', storyId);
 
@@ -1483,29 +1582,55 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
+  // Set the revealed state
+  votesRevealed[storyId] = true;
+  
+  // Deduplicate votes by username to ensure accurate display
+  const deduplicatedVotes = {};
+  const userNameMap = new Map(); // username -> userId
+  
+  // First pass: map usernames to their userId
+  for (const userId in votes) {
+    const userElement = document.querySelector(`#user-${userId} .username`);
+    if (userElement) {
+      const userName = userElement.textContent;
+      if (userName) {
+        // If we already have this username, keep the newer one (assumed to be current userId)
+        userNameMap.set(userName, userId);
+      } else {
+        // If no username found, keep this vote
+        deduplicatedVotes[userId] = votes[userId];
+      }
+    } else {
+      // If user element not found, keep this vote
+      deduplicatedVotes[userId] = votes[userId];
+    }
+  }
+  
+  // Second pass: add one vote per username using the mapped userId
+  userNameMap.forEach((userId, userName) => {
+    deduplicatedVotes[userId] = votes[userId];
+  });
+  
+  console.log(`[VOTES] Deduplicated from ${Object.keys(votes).length} to ${Object.keys(deduplicatedVotes).length} votes`);
+
   let statsContainer = document.querySelector('.vote-statistics-container');
-  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
 
   if (statsAlreadyVisible && planningCardsHidden) {
     console.log('[VOTES] Statistics already shown, updating with latest data');
-    // Instead of skipping, update the stats with latest deduplicated data
   }
 
-  votesRevealed[storyId] = true;
-
-  if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
-  }
-
-  votesPerStory[storyId] = { ...votes };
+  // Update stored votes with deduplicated version
+  votesPerStory[storyId] = deduplicatedVotes;
   window.currentVotesPerStory = votesPerStory;
 
   addFixedVoteStatisticsStyles();
 
   // Create vote stats with deduplicated data
-  const voteStats = createFixedVoteDisplay(votes);
+  const voteStats = createFixedVoteDisplay(deduplicatedVotes);
 
   if (planningCardsSection) {
     if (!statsContainer) {
@@ -1521,7 +1646,7 @@ function handleVotesRevealed(storyId, votes) {
     statsContainer.style.display = 'block';
   }
 
-  applyVotesToUI(votes, false);
+  applyVotesToUI(deduplicatedVotes, false);
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
