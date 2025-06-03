@@ -198,12 +198,12 @@ function saveDeletedStoriesToStorage(roomId) {
 
 // Modify the existing DOMContentLoaded event handler to check if username is ready
 document.addEventListener('DOMContentLoaded', () => {
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
   const statsContainer = document.querySelector('.vote-statistics-container');
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
 
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
   if (planningCardsSection) {
     planningCardsSection.style.display = 'none';
   }
@@ -724,7 +724,7 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
     applyVotesToUI(votes, false);
 
     // Show statistics
-    const planningCardsSection = document.querySelector('.planning-cards-section');
+    let planningCardsSection = document.querySelector('.planning-cards-section');
     const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
     statsContainer.className = 'vote-statistics-container';
     statsContainer.innerHTML = '';
@@ -842,7 +842,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   
   const storyId = getCurrentStoryId();
   if (!votesRevealed[storyId]) {
-    const planningCardsSection = document.querySelector('.planning-cards-section');
+    let planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.style.display = 'block';
     }
@@ -856,7 +856,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   const currentId = getCurrentStoryId();
   if (!votesRevealed[currentId]) {
     setupPlanningCards();
-    const planningCardsSection = document.querySelector('.planning-cards-section');
+    let planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.style.display = 'block';
     }
@@ -1511,7 +1511,7 @@ function handleVotesRevealed(storyId, votes) {
 
   let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
 
   if (statsAlreadyVisible && planningCardsHidden) {
@@ -2103,7 +2103,7 @@ function displayCSVData(data) {
   const currentId = getCurrentStoryId();
   if (!votesRevealed[currentId]) {
     setupPlanningCards();
-    const planningCardsSection = document.querySelector('.planning-cards-section');
+    let planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.style.display = 'block';
     }
@@ -2151,7 +2151,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         }
 
         // Show planning cards and hide stats when changing stories
-        const planningCardsSection = document.querySelector('.planning-cards-section');
+        let planningCardsSection = document.querySelector('.planning-cards-section');
         const statsContainer = document.querySelector('.vote-statistics-container');
 
         if (planningCardsSection) planningCardsSection.style.display = 'block';
@@ -3083,7 +3083,7 @@ function handleSocketMessage(message) {
   const currentId = getCurrentStoryId();
   if (!votesRevealed[currentId]) {
     setupPlanningCards();
-    const planningCardsSection = document.querySelector('.planning-cards-section');
+    let planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.style.display = 'block';
     }
@@ -3167,7 +3167,7 @@ case 'votesRevealed':
           resetAllVoteVisuals();
           
           // ✅ Hide vote statistics and show planning cards again
-          const planningCardsSection = document.querySelector('.planning-cards-section');
+          let planningCardsSection = document.querySelector('.planning-cards-section');
           const statsContainer = document.querySelector('.vote-statistics-container');
           
           if (planningCardsSection) planningCardsSection.style.display = 'block';
@@ -3332,12 +3332,12 @@ case 'storySelected':
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
   const statsContainer = document.querySelector('.vote-statistics-container');
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
 
-  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
   if (planningCardsSection) {
     planningCardsSection.style.display = 'none';
   }
