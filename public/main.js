@@ -520,6 +520,12 @@ function appendRoomIdToURL(roomId) {
 function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+ // ✅ Hide planning cards initially to prevent flicker
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'none';
+  }
+  
   socket.on('userList', users => {
   window.latestUserList = users;
 });
@@ -606,14 +612,16 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   refreshVoteDisplay(); // Refresh UI and badges
 });
 
-
-
-  
-
-  
   // Updated resyncState handler to restore votes
- socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+
+socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
+
+  // ✅ Hide planning cards by default
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'none';
+  }
 
   // Update local deleted stories tracking
   if (Array.isArray(serverDeletedIds)) {
@@ -636,35 +644,36 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
       votesPerStory[storyId] = { ...votes };
       window.currentVotesPerStory = votesPerStory;
 
- if (serverRevealed && serverRevealed[storyId]) {
-  votesRevealed[storyId] = true;
+      const currentId = getCurrentStoryId();
 
-  // Merge in local vote from session storage if available
-  const allVotes = { ...(votes || {}) };
+      if (serverRevealed && serverRevealed[storyId]) {
+        votesRevealed[storyId] = true;
 
-  if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
-    allVotes[socket.id] = votesPerStory[storyId][socket.id];
-  }
+        const allVotes = { ...(votes || {}) };
+        if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
+          allVotes[socket.id] = votesPerStory[storyId][socket.id];
+        }
 
-  // Save the merged result
-  votesPerStory[storyId] = allVotes;
-  window.currentVotesPerStory = votesPerStory;
+        votesPerStory[storyId] = allVotes;
+        window.currentVotesPerStory = votesPerStory;
 
-  // Apply to UI if current story
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    applyVotesToUI(allVotes, false);
-      debouncedHandleVotesRevealed(storyId, allVotes);
-  }
+        if (storyId === currentId) {
+          applyVotesToUI(allVotes, false);
+          debouncedHandleVotesRevealed(storyId, allVotes);
 
-}
+          // ✅ Planning cards stay hidden — vote stats will be shown instead
+        }
+      } 
+      else if (storyId === currentId) {
+        // ✅ Only show planning cards if votes are not revealed
+        planningCardsSection?.style?.display = 'block';
+      }
     }
   }
 
   // Restore saved personal votes from session storage
   try {
     const savedUserVotes = getUserVotes ? getUserVotes() : {};
-
     for (const [storyId, vote] of Object.entries(savedUserVotes)) {
       if (deletedStoryIds.has(storyId)) continue;
 
@@ -683,6 +692,8 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   window.currentVotesPerStory = votesPerStory;
   refreshVoteDisplay();
 });
+
+  
 
   
   // Updated deleteStory event handler to track deletions locally
@@ -706,38 +717,29 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
+socket.on('votesRevealed', ({ storyId }) => {
+  if (deletedStoryIds.has(storyId)) return;
 
-  socket.on('votesRevealed', ({ storyId }) => {
-    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
-    
-    // Check if this story is deleted
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-      return;
-    }
-    
-    votesRevealed[storyId] = true;
-    const votes = votesPerStory[storyId] || {};
-    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
+  votesRevealed[storyId] = true;
+  const votes = votesPerStory[storyId] || {};
+  applyVotesToUI(votes, false);
 
-    // Show votes on cards
-    applyVotesToUI(votes, false);
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.innerHTML = '';
+  statsContainer.appendChild(createFixedVoteDisplay(votes));
 
-    // Show statistics
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(createFixedVoteDisplay(votes));
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.style.display = 'none';
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-      statsContainer.style.display = 'block';
-    }
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.style.display = 'none';
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    statsContainer.style.display = 'block';
+  }
 
-    // Fix font sizes
-    setTimeout(fixRevealedVoteFontSizes, 100);
-  });
+  setTimeout(fixRevealedVoteFontSizes, 100);
+});
+
+
 
   socket.on('votesReset', ({ storyId }) => {
     // Skip processing for deleted stories
