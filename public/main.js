@@ -777,6 +777,16 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   }
 
   selectStory(storyIndex, false);
+const storyId = getCurrentStoryId();
+if (storyId && !votesRevealed[storyId]) {
+  const voteCardArea = document.querySelector('.cards');
+  if (voteCardArea && voteCardArea.style.display === 'none') {
+    voteCardArea.style.display = 'block';
+    console.log('[UI] Showing vote cards after storySelected fallback');
+  }
+}
+
+  
 });
 
 
