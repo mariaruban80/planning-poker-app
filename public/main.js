@@ -339,6 +339,16 @@ function getUserIdToNameMap() {
     map[u.id] = u.name;  });
   return map;
 }
+function debounce(func, delay = 100) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => func(...args), delay);
+  };
+}
+const debouncedHandleVotesRevealed = debounce((storyId, votes) => {
+    handleVotesRevealed(storyId, votes);
+}, 100);
 function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
@@ -393,6 +403,7 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
 
 
 /**
@@ -575,7 +586,7 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
     if (isRevealed) {
       // Also regenerate statistics if this is the current story
-      handleVotesRevealed(storyId, votesPerStory[storyId]);
+     debouncedHandleVotesRevealed(storyId, votesPerStory[storyId]);
     }
   }
 
@@ -630,10 +641,9 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   const currentId = getCurrentStoryId();
   if (storyId === currentId) {
     applyVotesToUI(allVotes, false);
+      debouncedHandleVotesRevealed(storyId, allVotes);
   }
 
-  // Always regenerate vote stats with full vote list
-  handleVotesRevealed(storyId, allVotes);
 }
     }
   }
@@ -1467,7 +1477,12 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
+  if (!votes || Object.keys(votes).length === 0) {
+    console.log('[VOTES] No votes to reveal, skipping.');
+    return;
+  }
+
+  let statsContainer = document.querySelector('.vote-statistics-container');
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
@@ -1490,9 +1505,18 @@ function handleVotesRevealed(storyId, votes) {
 
   const voteStats = createFixedVoteDisplay(votes);
 
+  // ✅ Prevent re-render if DOM already matches
+  const existingHtml = statsContainer?.innerHTML || '';
+  const newStatsHtml = voteStats.outerHTML;
+
+  if (existingHtml === newStatsHtml) {
+    console.log('[VOTES] Stats already match DOM, skipping DOM update');
+    return;
+  }
+
   if (planningCardsSection) {
     if (!statsContainer) {
-      statsContainer = document.createElement('div'); // ✅ Safe now
+      statsContainer = document.createElement('div');
       statsContainer.className = 'vote-statistics-container';
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
@@ -1505,11 +1529,10 @@ function handleVotesRevealed(storyId, votes) {
   }
 
   applyVotesToUI(votes, false);
-  setTimeout(fixRevealedVoteFontSizes, 100);
-  setTimeout(fixRevealedVoteFontSizes, 300);
+
+  // Slight delay to avoid flicker from race conditions
+  setTimeout(fixRevealedVoteFontSizes, 200);
 }
-
-
 
 /**
  * Setup Add Ticket button
