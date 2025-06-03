@@ -203,10 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
 
-  let planningCardsSection = document.querySelector('.planning-cards-section');
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'none';
-  }
+//  let planningCardsSection = document.querySelector('.planning-cards-section');
+ // if (planningCardsSection) {
+  //  planningCardsSection.style.display = 'none';
+ // }
 
   // Check if we're waiting for a username (joining via invite)
   if (window.userNameReady === false) {
@@ -3337,10 +3337,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
 
-  let planningCardsSection = document.querySelector('.planning-cards-section');
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'none';
-  }
+  //let planningCardsSection = document.querySelector('.planning-cards-section');
+  //if (planningCardsSection) {
+   // planningCardsSection.style.display = 'none';
+ // }
 
   let roomId = getRoomIdFromURL();
   if (!roomId) {
