@@ -928,56 +928,97 @@ function initializeApp(roomId) {
       reconnectingInProgress = true;
     });
     
-    // Handle successful reconnection with improved UI stability
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
+// Handle successful reconnection with improved UI stability
+socket.on('reconnect', () => {
+  console.log('[SOCKET] Reconnected to server');
+  reconnectingInProgress = false;
+  
+  // IMPORTANT: Don't modify UI visibility until we know the state
+  // Make a SINGLE update after we have all information
 
-      // Request current state and story
-      socket.emit('requestAllTickets');
-      socket.emit('requestCurrentStory');
+  // Request current state and story
+  socket.emit('requestCurrentStory');
+  socket.emit('requestAllTickets');
+  
+  // Add a delay before requesting full state and changing UI
+  setTimeout(() => {
+    socket.emit('requestFullStateResync');
+    
+    // Check current story reveal state
+    const currentId = getCurrentStoryId();
+    if (currentId) {
+      // Check local storage first for revealed state
+      const isRevealed = getPersistedRevealState(currentId);
+      votesRevealed[currentId] = isRevealed;
       
-      // Add a small delay before requesting full state to ensure UI stability
-      setTimeout(() => {
-        socket.emit('requestFullStateResync');
-        
-        // Check current story reveal state
-        const currentId = getCurrentStoryId();
-        if (currentId) {
-          // Check local storage first, then fall back to memory
-          const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
-          votesRevealed[currentId] = isRevealed; // Make sure to update memory state
+      // Only update UI ONCE with correct state
+      if (isRevealed) {
+        // If votes were revealed, don't show planning cards at all
+        if (votesPerStory[currentId]) {
+          // Use direct DOM manipulation rather than the function that might transition
+          const statsContainer = document.querySelector('.vote-statistics-container');
+          const planningCardsSection = document.querySelector('.planning-cards-section');
           
-          // Use centralized function to manage visibility
-          updateUIVisibilityState(currentId);
-          
-          // Request votes to ensure we have current data
-          socket.emit('requestStoryVotes', { storyId: currentId });
-        } else {
-          // No current story selected, use centralized function for cards
-          updateUIVisibilityState(null, 'cards');
-        }
-    
-        // Re-apply stored votes
-        if (typeof getUserVotes === 'function') {
-          const userVotes = getUserVotes();
-          for (const [storyId, vote] of Object.entries(userVotes)) {
-            if (deletedStoryIds.has(storyId)) continue;
-    
-            if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-            votesPerStory[storyId][socket.id] = vote;
-            window.currentVotesPerStory = votesPerStory;
-    
-            const currentId = getCurrentStoryId();
-            if (storyId === currentId) {
-              updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-            }
+          if (statsContainer) {
+            statsContainer.style.transition = 'none';
+            statsContainer.innerHTML = '';
+            statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[currentId]));
+            statsContainer.style.display = 'block';
+            
+            // Show actual vote values
+            applyVotesToUI(votesPerStory[currentId], false);
+            setTimeout(fixRevealedVoteFontSizes, 100);
           }
-    
-          refreshVoteDisplay();
+          
+          if (planningCardsSection) {
+            planningCardsSection.style.transition = 'none';
+            planningCardsSection.style.display = 'none';
+          }
         }
-      }, 500);
-    });
+      } else {
+        // If votes not revealed, only show planning cards
+        updateUIVisibilityState(currentId, 'cards');
+      }
+      
+      // Request votes for this story
+      socket.emit('requestStoryVotes', { storyId: currentId });
+    } else {
+      // No current story, show planning cards
+      updateUIVisibilityState(null, 'cards');
+    }
+
+    // Re-apply stored votes after we know the UI state
+    if (typeof getUserVotes === 'function') {
+      const userVotes = getUserVotes();
+      for (const [storyId, vote] of Object.entries(userVotes)) {
+        if (deletedStoryIds.has(storyId)) continue;
+
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        votesPerStory[storyId][socket.id] = vote;
+        window.currentVotesPerStory = votesPerStory;
+
+        const currentId = getCurrentStoryId();
+        if (storyId === currentId) {
+          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+        }
+      }
+
+      // Use non-debounced version to ensure immediate update
+      refreshVoteDisplay();
+    }
+    
+    // Resume transitions after a delay
+    setTimeout(() => {
+      const statsContainer = document.querySelector('.vote-statistics-container');
+      const planningCardsSection = document.querySelector('.planning-cards-section');
+      if (statsContainer) statsContainer.style.transition = '';
+      if (planningCardsSection) planningCardsSection.style.transition = '';
+    }, 1000);
+  }, 500);
+});
+
+
+    
   }
   
   // Guest: Listen for host's voting system
@@ -2447,11 +2488,54 @@ function applyVotesToUI(votes, hideValues) {
   console.log('[DEBUG] applyVotesToUI called with:', 
     { votes: JSON.stringify(votes), hideValues });
   
+  // Process one vote at a time to avoid accidental cross-updates
   Object.entries(votes).forEach(([userId, vote]) => {
-    console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
-    updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
+    const displayVote = hideValues ? '👍' : vote;
+    console.log(`[DEBUG] Updating vote for ${userId} to ${displayVote}`);
+    
+    // Update sidebar badge
+    const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
+    if (sidebarBadge) {
+      sidebarBadge.textContent = displayVote;
+      sidebarBadge.style.color = '#673ab7';
+      sidebarBadge.style.opacity = '1';
+    }
+    
+    // Update vote space
+    const voteSpace = document.querySelector(`#vote-space-${userId}`);
+    if (voteSpace) {
+      // Add vote class
+      voteSpace.classList.add('has-vote');
+      
+      // Update badge
+      const voteBadge = voteSpace.querySelector('.vote-badge');
+      if (voteBadge) {
+        voteBadge.textContent = displayVote;
+        voteBadge.style.color = '#673ab7';
+        voteBadge.style.opacity = '1';
+      }
+    }
+    
+    // Update avatar display
+    const avatarContainer = document.querySelector(`#user-circle-${userId}`);
+    if (avatarContainer) {
+      avatarContainer.classList.add('has-voted');
+      
+      const avatar = avatarContainer.querySelector('.avatar-circle');
+      if (avatar) {
+        avatar.style.backgroundColor = '#c1e1c1'; // Green background
+      }
+    }
+    
+    // Also update sidebar avatar
+    const sidebarAvatar = document.querySelector(`#user-${userId} img.avatar`);
+    if (sidebarAvatar) {
+      sidebarAvatar.style.backgroundColor = '#c1e1c1';
+    }
   });
 }
+
+
 
 /**
  * Reset all vote visuals
@@ -2721,13 +2805,27 @@ function createVoteCardSpace(user, isCurrentUser) {
       if (socket && vote && storyId) {
         socket.emit('castVote', { vote, targetUserId: user.id, storyId });
         
-        // Update local state
+        // Update local state immediately - only for current user
         if (!votesPerStory[storyId]) {
           votesPerStory[storyId] = {};
         }
         
         votesPerStory[storyId][user.id] = vote;
-        updateVoteVisuals(user.id, votesRevealed[storyId] ? vote : '👍', true);
+        
+        // Just update the current user's vote visual, server will handle others
+        voteCard.classList.add('has-vote');
+        voteBadge.textContent = votesRevealed[storyId] ? vote : '👍';
+        
+        // Mark avatar as voted
+        const avatarContainer = document.querySelector(`#user-circle-${user.id}`);
+        if (avatarContainer) {
+          avatarContainer.classList.add('has-voted');
+          
+          const avatar = avatarContainer.querySelector('.avatar-circle');
+          if (avatar) {
+            avatar.style.backgroundColor = '#c1e1c1'; // Green background
+          }
+        }
       }
     });
   } else {
@@ -2791,7 +2889,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     }
   }
   
-  // Update vote card space
+  // Update vote card space - ONLY update the specified user's card
   const voteSpace = document.querySelector(`#vote-space-${userId}`);
   if (voteSpace) {
     const voteBadge = voteSpace.querySelector('.vote-badge');
@@ -2834,6 +2932,7 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     }
   }
 }
+
 
 /**
  * Update story title
