@@ -403,7 +403,20 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+// ⬇️ Ensure stats are shown again if story is revealed
+function reassertVoteStatsIfRevealed(storyId) {
+  if (votesRevealed[storyId]) {
+    debouncedHandleVotesRevealed(storyId, votesPerStory[storyId] || {});
+  }
+}
 
+// Hook into story selection re-application
+const originalStorySelectedHandler = window.handleStorySelected;
+window.handleStorySelected = function (storyIndex) {
+  originalStorySelectedHandler?.(storyIndex);
+  const currentStoryId = getCurrentStoryId();
+  reassertVoteStatsIfRevealed(currentStoryId);
+};
 
 
 /**
