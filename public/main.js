@@ -339,16 +339,6 @@ function getUserIdToNameMap() {
     map[u.id] = u.name;  });
   return map;
 }
-function debounce(func, delay = 100) {
-  let timer = null;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => func(...args), delay);
-  };
-}
-const debouncedHandleVotesRevealed = debounce((storyId, votes) => {
-    handleVotesRevealed(storyId, votes);
-}, 100);
 function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
@@ -403,20 +393,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-// ⬇️ Ensure stats are shown again if story is revealed
-function reassertVoteStatsIfRevealed(storyId) {
-  if (votesRevealed[storyId]) {
-    debouncedHandleVotesRevealed(storyId, votesPerStory[storyId] || {});
-  }
-}
-
-// Hook into story selection re-application
-const originalStorySelectedHandler = window.handleStorySelected;
-window.handleStorySelected = function (storyIndex) {
-  originalStorySelectedHandler?.(storyIndex);
-  const currentStoryId = getCurrentStoryId();
-  reassertVoteStatsIfRevealed(currentStoryId);
-};
 
 
 /**
@@ -520,12 +496,6 @@ function appendRoomIdToURL(roomId) {
 function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
- // ✅ Hide planning cards initially to prevent flicker
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'none';
-  }
-  
   socket.on('userList', users => {
   window.latestUserList = users;
 });
@@ -605,37 +575,35 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
     if (isRevealed) {
       // Also regenerate statistics if this is the current story
-     debouncedHandleVotesRevealed(storyId, votesPerStory[storyId]);
+      handleVotesRevealed(storyId, votesPerStory[storyId]);
     }
   }
 
   refreshVoteDisplay(); // Refresh UI and badges
 });
 
-  // Updated resyncState handler to restore votes
 
-socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+
+  
+
+  
+  // Updated resyncState handler to restore votes
+ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
 
-  // ✅ Only hide vote cards — not entire planning section
-  const voteCardArea = document.querySelector('.cards');
-  if (voteCardArea && voteCardArea.style) {
-    voteCardArea.style.display = 'none';
-  }
-
-  // Update deleted stories tracking
+  // Update local deleted stories tracking
   if (Array.isArray(serverDeletedIds)) {
     serverDeletedIds.forEach(id => deletedStoryIds.add(id));
     saveDeletedStoriesToStorage(roomId);
   }
 
-  // Process non-deleted tickets
+  // Filter and process non-deleted tickets
   const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
   if (Array.isArray(filteredTickets)) {
     processAllTickets(filteredTickets);
   }
 
-  // Update local votes and reveal status
+  // Update local vote state for non-deleted stories
   if (serverVotes) {
     for (const [storyId, votes] of Object.entries(serverVotes)) {
       if (deletedStoryIds.has(storyId)) continue;
@@ -644,37 +612,36 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
       votesPerStory[storyId] = { ...votes };
       window.currentVotesPerStory = votesPerStory;
 
-      const currentId = getCurrentStoryId();
+ if (serverRevealed && serverRevealed[storyId]) {
+  votesRevealed[storyId] = true;
 
-      if (serverRevealed && serverRevealed[storyId]) {
-        votesRevealed[storyId] = true;
+  // Merge in local vote from session storage if available
+  const allVotes = { ...(votes || {}) };
 
-        const allVotes = { ...votes };
-        if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
-          allVotes[socket.id] = votesPerStory[storyId][socket.id];
-        }
+  if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
+    allVotes[socket.id] = votesPerStory[storyId][socket.id];
+  }
 
-        votesPerStory[storyId] = allVotes;
-        window.currentVotesPerStory = votesPerStory;
+  // Save the merged result
+  votesPerStory[storyId] = allVotes;
+  window.currentVotesPerStory = votesPerStory;
 
-        if (storyId === currentId) {
-          applyVotesToUI(allVotes, false);
-          debouncedHandleVotesRevealed(storyId, allVotes);
+  // Apply to UI if current story
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId) {
+    applyVotesToUI(allVotes, false);
+  }
 
-          // ✅ Don't show vote cards — statistics will be rendered instead
-        }
-      } else if (storyId === currentId) {
-        // ✅ Votes not revealed — allow vote cards
-        if (voteCardArea && voteCardArea.style) {
-          voteCardArea.style.display = 'block';
-        }
-      }
+  // Always regenerate vote stats with full vote list
+  handleVotesRevealed(storyId, allVotes);
+}
     }
   }
 
-  // Restore votes from sessionStorage
+  // Restore saved personal votes from session storage
   try {
     const savedUserVotes = getUserVotes ? getUserVotes() : {};
+
     for (const [storyId, vote] of Object.entries(savedUserVotes)) {
       if (deletedStoryIds.has(storyId)) continue;
 
@@ -693,9 +660,6 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
   window.currentVotesPerStory = votesPerStory;
   refreshVoteDisplay();
 });
-
-  
-  
 
   
   // Updated deleteStory event handler to track deletions locally
@@ -719,29 +683,38 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
-socket.on('votesRevealed', ({ storyId }) => {
-  if (deletedStoryIds.has(storyId)) return;
 
-  votesRevealed[storyId] = true;
-  const votes = votesPerStory[storyId] || {};
-  applyVotesToUI(votes, false);
+  socket.on('votesRevealed', ({ storyId }) => {
+    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
+    
+    // Check if this story is deleted
+    if (deletedStoryIds.has(storyId)) {
+      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
+      return;
+    }
+    
+    votesRevealed[storyId] = true;
+    const votes = votesPerStory[storyId] || {};
+    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
-  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-  statsContainer.className = 'vote-statistics-container';
-  statsContainer.innerHTML = '';
-  statsContainer.appendChild(createFixedVoteDisplay(votes));
+    // Show votes on cards
+    applyVotesToUI(votes, false);
 
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  if (planningCardsSection && planningCardsSection.parentNode) {
-    planningCardsSection.style.display = 'none';
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    statsContainer.style.display = 'block';
-  }
+    // Show statistics
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    statsContainer.innerHTML = '';
+    statsContainer.appendChild(createFixedVoteDisplay(votes));
+    if (planningCardsSection && planningCardsSection.parentNode) {
+      planningCardsSection.style.display = 'none';
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+      statsContainer.style.display = 'block';
+    }
 
-  setTimeout(fixRevealedVoteFontSizes, 100);
-});
-
-
+    // Fix font sizes
+    setTimeout(fixRevealedVoteFontSizes, 100);
+  });
 
   socket.on('votesReset', ({ storyId }) => {
     // Skip processing for deleted stories
@@ -777,16 +750,6 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   }
 
   selectStory(storyIndex, false);
-const storyId = getCurrentStoryId();
-if (storyId && !votesRevealed[storyId]) {
-  const voteCardArea = document.querySelector('.cards');
-  if (voteCardArea && voteCardArea.style.display === 'none') {
-    voteCardArea.style.display = 'block';
-    console.log('[UI] Showing vote cards after storySelected fallback');
-  }
-}
-
-  
 });
 
 
@@ -1504,12 +1467,7 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  if (!votes || Object.keys(votes).length === 0) {
-    console.log('[VOTES] No votes to reveal, skipping.');
-    return;
-  }
-
-  let statsContainer = document.querySelector('.vote-statistics-container');
+  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
   const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
@@ -1532,18 +1490,9 @@ function handleVotesRevealed(storyId, votes) {
 
   const voteStats = createFixedVoteDisplay(votes);
 
-  // ✅ Prevent re-render if DOM already matches
-  const existingHtml = statsContainer?.innerHTML || '';
-  const newStatsHtml = voteStats.outerHTML;
-
-  if (existingHtml === newStatsHtml) {
-    console.log('[VOTES] Stats already match DOM, skipping DOM update');
-    return;
-  }
-
   if (planningCardsSection) {
     if (!statsContainer) {
-      statsContainer = document.createElement('div');
+      statsContainer = document.createElement('div'); // ✅ Safe now
       statsContainer.className = 'vote-statistics-container';
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     }
@@ -1556,10 +1505,11 @@ function handleVotesRevealed(storyId, votes) {
   }
 
   applyVotesToUI(votes, false);
-
-  // Slight delay to avoid flicker from race conditions
-  setTimeout(fixRevealedVoteFontSizes, 200);
+  setTimeout(fixRevealedVoteFontSizes, 100);
+  setTimeout(fixRevealedVoteFontSizes, 300);
 }
+
+
 
 /**
  * Setup Add Ticket button
