@@ -36,6 +36,37 @@ function getPersistedRevealState(storyId) {
   }
 }
 
+/**
+ * Ensure planning cards are visible for guests when stories are added
+ */
+function ensurePlanningCardsVisibleForGuests() {
+  if (!isGuestUser()) return;
+  
+  const storyList = document.getElementById('storyList');
+  if (storyList && storyList.children.length > 0) {
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    const statsContainer = document.querySelector('.vote-statistics-container');
+    const currentStoryId = getCurrentStoryId();
+    
+    // Check if votes are revealed for current story
+    const isRevealed = currentStoryId && votesRevealed[currentStoryId] === true;
+    
+    if (!isRevealed) {
+      // Make sure planning cards are set up
+      setupPlanningCards();
+      
+      // Show planning cards section
+      if (planningCardsSection) {
+        console.log('[GUEST] Ensuring planning cards are visible for guest');
+        planningCardsSection.style.display = 'block';
+      }
+      if (statsContainer) {
+        statsContainer.style.display = 'none';
+      }
+    }
+  }
+}
+
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
 // Flag to track manually added tickets that need to be preserved
@@ -110,6 +141,9 @@ window.addTicketFromModal = function(ticketData) {
   
   // Store in manually added tickets
   manuallyAddedTickets.push(ticketData);
+  
+  // Ensure planning cards are visible for guests
+  ensurePlanningCardsVisibleForGuests();
 };
 
 /**
@@ -144,6 +178,28 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
+  
+  // Explicitly set up planning cards for guests
+  setupPlanningCards();
+  
+  // Explicitly show planning cards section for guests
+  setTimeout(() => {
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    const statsContainer = document.querySelector('.vote-statistics-container');
+    
+    if (planningCardsSection) {
+      console.log('[GUEST] Showing planning cards section for guest user');
+      planningCardsSection.style.display = 'block';
+    }
+    if (statsContainer) {
+      statsContainer.style.display = 'none';
+    }
+    
+    // Request current story to ensure we're in sync
+    if (socket && socket.connected) {
+      socket.emit('requestCurrentStory');
+    }
+  }, 1000); // Delay to ensure DOM is ready
 };
 
 /**
@@ -684,6 +740,9 @@ function initializeApp(roomId) {
       // Debounce the UI update to avoid flicker
       debouncedRefreshVoteDisplay();
     }
+    
+    // Ensure planning cards are visible for guests
+    ensurePlanningCardsVisibleForGuests();
   });
 
   // Updated deleteStory event handler to track deletions locally
@@ -784,6 +843,9 @@ function initializeApp(roomId) {
     }
 
     selectStory(storyIndex, false);
+    
+    // Ensure planning cards are visible for guests
+    ensurePlanningCardsVisibleForGuests();
   });
 
   // Add reconnection handlers for socket
@@ -839,7 +901,13 @@ function initializeApp(roomId) {
               statsContainer.style.display = 'none';
               planningCardsSection.style.display = 'block';
             }
+            
+            // Ensure planning cards are visible for guests
+            ensurePlanningCardsVisibleForGuests();
           }
+        } else {
+          // No story selected, ensure planning cards are visible for guests
+          ensurePlanningCardsVisibleForGuests();
         }
     
         // Re-apply stored votes
@@ -950,6 +1018,9 @@ function initializeApp(roomId) {
   
   // Refresh votes periodically to ensure everyone sees the latest votes
   setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
+  
+  // Ensure planning cards are visible for guests
+  ensurePlanningCardsVisibleForGuests();
 }
 
 /**
@@ -1608,7 +1679,12 @@ function handleVotesRevealed(storyId, votes) {
     if (planningCardsSection && planningCardsSection.parentNode) {
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     } else {
-      document.querySelector('.cards-container').appendChild(statsContainer);
+      const cardsContainer = document.querySelector('.cards-container');
+      if (cardsContainer) {
+        cardsContainer.appendChild(statsContainer);
+      } else {
+        document.body.appendChild(statsContainer);
+      }
     }
   }
 
@@ -1646,8 +1722,7 @@ function setupAddTicketButton() {
           id: `story_${Date.now()}`,
           text: storyText.trim()
         };
-        
-        // Check if this ID is in our deleted set
+                // Check if this ID is in our deleted set
         if (deletedStoryIds.has(ticketData.id)) {
           console.log('[ADD] Cannot add previously deleted ticket:', ticketData.id);
           return;
@@ -1661,6 +1736,9 @@ function setupAddTicketButton() {
         
         addTicketToUI(ticketData, true);
         manuallyAddedTickets.push(ticketData);
+        
+        // Ensure planning cards are visible for guests
+        ensurePlanningCardsVisibleForGuests();
       }
     }
   });
@@ -1762,7 +1840,10 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     card.setAttribute('draggable', 'true');
   });
   normalizeStoryIndexes();
-} 
+  
+  // Ensure planning cards are visible for guests
+  ensurePlanningCardsVisibleForGuests();
+}
 
 /**
  * Set up a mutation observer to catch any newly added story cards
@@ -1846,6 +1927,9 @@ function processAllTickets(tickets) {
       // 🛠️ Add this line to re-highlight the story in UI
       selectStory(currentStoryIndex, false);
     }
+    
+    // Make sure planning cards are visible if we have stories
+    ensurePlanningCardsVisibleForGuests();
   }
 
   if (isGuestUser()) {
@@ -1967,6 +2051,9 @@ function setupCSVUploader() {
         currentStoryIndex = 0;
         renderCurrentStory();
       }
+      
+      // Ensure planning cards are visible for guests
+      ensurePlanningCardsVisibleForGuests();
     };
     reader.readAsText(file);
   });
@@ -2206,6 +2293,9 @@ function displayCSVData(data) {
     }
 
     setupStoryCardInteractions();
+    // Ensure planning cards are visible for guests
+    ensurePlanningCardsVisibleForGuests();
+    
     // Always release the processing flag
     processingCSVData = false;
   }
@@ -2299,6 +2389,9 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                 }
             }
         }
+        
+        // Ensure planning cards are visible for guests
+        ensurePlanningCardsVisibleForGuests();
 
     } else if (forceSelection) {
         console.log(`[UI] Story card with index ${index} not found yet, retrying selection soon...`);
@@ -2332,6 +2425,9 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                     currentStoryIndex = index;
                 }
             }
+            
+            // Ensure planning cards are visible for guests
+            ensurePlanningCardsVisibleForGuests();
         }, 300);
     } else {
         console.log(`[UI] Story card with index ${index} not found`);
@@ -2603,6 +2699,9 @@ function updateUserList(users) {
     console.log('[USERLIST] Requesting votes for current story to ensure UI is up to date');
     socket.emit('requestStoryVotes', { storyId });
   }
+  
+  // Ensure planning cards are visible for guests
+  ensurePlanningCardsVisibleForGuests();
 }
 
 /**
@@ -3009,6 +3108,9 @@ function handleSocketMessage(message) {
         // Add ticket to UI without selecting it (to avoid loops)
         addTicketToUI(message.ticketData, false);
         applyGuestRestrictions();
+        
+        // Ensure planning cards are visible for guests when new story is added
+        ensurePlanningCardsVisibleForGuests();
       }
       break;
       
@@ -3083,6 +3185,9 @@ function handleSocketMessage(message) {
           socket.emit('requestStoryVotes', { storyId: currentStoryId });
         }, 300);
       }
+      
+      // Ensure planning cards are visible for guests
+      ensurePlanningCardsVisibleForGuests();
       break;
 
     case 'restoreUserVote':
@@ -3127,6 +3232,9 @@ function handleSocketMessage(message) {
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
         processAllTickets(filteredTickets);
         applyGuestRestrictions();
+        
+        // Ensure planning cards are visible for guests
+        ensurePlanningCardsVisibleForGuests();
       }
       break;
       
@@ -3210,6 +3318,9 @@ function handleSocketMessage(message) {
           }
 
           setupStoryCardInteractions();
+          
+          // Ensure planning cards are visible for guests
+          ensurePlanningCardsVisibleForGuests();
         } else {
           console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
         }
@@ -3292,6 +3403,9 @@ function handleSocketMessage(message) {
           
           if (planningCardsSection) planningCardsSection.style.display = 'block';
           if (statsContainer) statsContainer.style.display = 'none';
+          
+          // Ensure planning cards are visible for guests
+          ensurePlanningCardsVisibleForGuests();
         }
       }
       break;
@@ -3311,6 +3425,9 @@ function handleSocketMessage(message) {
             socket.emit('requestStoryVotes', { storyId: currentStoryId });
           }, 100);
         }
+        
+        // Ensure planning cards are visible for guests
+        ensurePlanningCardsVisibleForGuests();
       }
       break;
 
@@ -3380,7 +3497,7 @@ function handleSocketMessage(message) {
           });
         }
         
-              console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+        console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
         
         // Display CSV data (this will clear CSV stories but preserve manual ones)
         displayCSVData(csvData);
@@ -3389,6 +3506,9 @@ function handleSocketMessage(message) {
         
         // Update UI
         renderCurrentStory();
+        
+        // Ensure planning cards are visible for guests
+        ensurePlanningCardsVisibleForGuests();
       }
       break;
 
@@ -3465,7 +3585,13 @@ function handleSocketMessage(message) {
               statsContainer.style.display = 'none';
               planningCardsSection.style.display = 'block';
             }
+            
+            // Ensure planning cards are visible for guests
+            ensurePlanningCardsVisibleForGuests();
           }
+        } else {
+          // No story selected, ensure planning cards are visible for guests
+          ensurePlanningCardsVisibleForGuests();
         }
     
         // Re-apply stored votes
