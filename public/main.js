@@ -1,4 +1,3 @@
-
 function clearAllVoteVisuals() {
   const voteSpaces = document.querySelectorAll('.vote-card-space');
   voteSpaces.forEach(space => {
@@ -13,6 +12,29 @@ let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
+
+// New functions for persisting reveal state
+function persistRevealState(storyId, isRevealed) {
+  try {
+    const roomId = getRoomIdFromURL();
+    const key = `reveal_state_${roomId}_${storyId}`;
+    localStorage.setItem(key, isRevealed ? 'true' : 'false');
+    console.log(`[STORAGE] Saved reveal state for story ${storyId}: ${isRevealed}`);
+  } catch (err) {
+    console.warn('[STORAGE] Error saving reveal state:', err);
+  }
+}
+
+function getPersistedRevealState(storyId) {
+  try {
+    const roomId = getRoomIdFromURL();
+    const key = `reveal_state_${roomId}_${storyId}`;
+    const state = localStorage.getItem(key);
+    return state === 'true';
+  } catch (err) {
+    return false;
+  }
+}
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -33,9 +55,6 @@ function debounce(func, wait) {
 
 // Create a debounced version of refreshVoteDisplay
 const debouncedRefreshVoteDisplay = debounce(refreshVoteDisplay, 200);
-
-
-
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -146,8 +165,6 @@ function loadDeletedStoriesFromStorage(roomId) {
   }
 }
 
-
-
 function refreshVoteDisplay() {
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
@@ -162,7 +179,6 @@ function refreshVoteDisplay() {
     updateVoteBadges(storyId, votes);
   }
 }
-
 
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
@@ -181,7 +197,6 @@ function updateVoteBadges(storyId, votes) {
     voteBadge.setAttribute('title', `${voteCount} vote${voteCount !== 1 ? 's' : ''}`);
   }
 }
-
 
 /**
  * Save deleted story IDs to sessionStorage
@@ -202,11 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const statsContainer = document.querySelector('.vote-statistics-container');
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
-
-//  let planningCardsSection = document.querySelector('.planning-cards-section');
- // if (planningCardsSection) {
-  //  planningCardsSection.style.display = 'none';
- // }
 
   // Check if we're waiting for a username (joining via invite)
   if (window.userNameReady === false) {
@@ -363,14 +373,13 @@ function addFixedVoteStatisticsStyles() {
 }
 
 // Create a new function to generate the stats layout
-
-
 function getUserIdToNameMap() {
   const map = {};
   (window.latestUserList || []).forEach(u => {
     map[u.id] = u.name;  });
   return map;
 }
+
 function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
@@ -425,7 +434,6 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
-
 
 /**
  * Determines if current user is a guest
@@ -529,33 +537,32 @@ function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
   socket.on('userList', users => {
-  window.latestUserList = users;
-});
+    window.latestUserList = users;
+  });
 
-socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  // ✅ Skip if vote already exists and is identical
-  if (
-    votesPerStory[storyId] &&
-    votesPerStory[storyId][userId] === vote
-  ) {
-    console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
-    return;
-  }
+  socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+    // ✅ Skip if vote already exists and is identical
+    if (
+      votesPerStory[storyId] &&
+      votesPerStory[storyId][userId] === vote
+    ) {
+      console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
+      return;
+    }
 
-  // Proceed to merge the vote
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  votesPerStory[storyId][userId] = vote;
-  window.currentVotesPerStory = votesPerStory;
+    // Proceed to merge the vote
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    votesPerStory[storyId][userId] = vote;
+    window.currentVotesPerStory = votesPerStory;
 
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
-  }
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId) {
+      updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+    }
 
-  refreshVoteDisplay();
-});
+    refreshVoteDisplay();
+  });
 
-  
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Don't process votes for deleted stories
     if (deletedStoryIds.has(storyId)) {
@@ -568,8 +575,7 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     }
     
     // Store the votes
-
-      votesPerStory[storyId] = { ...votes };
+    votesPerStory[storyId] = { ...votes };
     window.currentVotesPerStory = votesPerStory;
     
     // Update UI immediately if this is the current story
@@ -586,105 +592,100 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   });
   
   // Updated handler for restored user votes
-socket.on('restoreUserVote', ({ storyId, vote }) => {
-  // Skip for deleted stories
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
-    return;
-  }
-
-  // Don't update if the vote is the same (prevent flicker)
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  
-  const existingVote = votesPerStory[storyId][socket.id];
-  if (existingVote === vote) {
-    console.log(`[VOTE] Skipping duplicate vote update: ${vote} for story ${storyId}`);
-    return;
-  }
-
-  votesPerStory[storyId][socket.id] = vote;
-  window.currentVotesPerStory = votesPerStory;
-
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-    
-    // If votes are already revealed, also regenerate statistics
-    if (votesRevealed[storyId]) {
-      // Use debounce to prevent rapid UI updates after reconnection
-      debounceHandleVotesRevealed(storyId, votesPerStory[storyId]);
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+    // Skip for deleted stories
+    if (deletedStoryIds.has(storyId)) {
+      console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
+      return;
     }
-  }
 
-  // Use debounced refresh to avoid flickering
-  debouncedRefreshVoteDisplay();
-});
+    // Don't update if the vote is the same (prevent flicker)
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    
+    const existingVote = votesPerStory[storyId][socket.id];
+    if (existingVote === vote) {
+      console.log(`[VOTE] Skipping duplicate vote update: ${vote} for story ${storyId}`);
+      return;
+    }
 
-// Create debounced version of handleVotesRevealed
-const debounceHandleVotesRevealed = debounce((storyId, votes) => {
-  handleVotesRevealed(storyId, votes);
-}, 300);
+    votesPerStory[storyId][socket.id] = vote;
+    window.currentVotesPerStory = votesPerStory;
 
-
-
-  
-
-  
-  // Updated resyncState handler to restore votes
-socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
-  console.log('[SOCKET] Received resyncState from server');
-
-  // Flag to track if we need a UI refresh
-  let needRefresh = false;
-
-  // Update local deleted stories tracking
-  if (Array.isArray(serverDeletedIds)) {
-    serverDeletedIds.forEach(id => deletedStoryIds.add(id));
-    saveDeletedStoriesToStorage(roomId);
-  }
-
-  // Filter and process non-deleted tickets
-  const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
-  if (Array.isArray(filteredTickets)) {
-    processAllTickets(filteredTickets);
-  }
-
-  // Update local vote state for non-deleted stories
-  if (serverVotes) {
-    for (const [storyId, votes] of Object.entries(serverVotes)) {
-      if (deletedStoryIds.has(storyId)) continue;
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId) {
+      updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
       
-      // Compare votes before updating
-      const previousVotes = JSON.stringify(votesPerStory[storyId] || {});
-      const newVotes = JSON.stringify(votes || {});
-      
-      if (previousVotes !== newVotes) {
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-        votesPerStory[storyId] = { ...votes };
-        window.currentVotesPerStory = votesPerStory;
-        needRefresh = true;
+      // If votes are already revealed, also regenerate statistics
+      if (votesRevealed[storyId]) {
+        // Use debounce to prevent rapid UI updates after reconnection
+        debounceHandleVotesRevealed(storyId, votesPerStory[storyId]);
       }
+    }
 
-      if (serverRevealed && serverRevealed[storyId]) {
-        votesRevealed[storyId] = true;
+    // Use debounced refresh to avoid flickering
+    debouncedRefreshVoteDisplay();
+  });
+
+  // Create debounced version of handleVotesRevealed
+  const debounceHandleVotesRevealed = debounce((storyId, votes) => {
+    handleVotesRevealed(storyId, votes);
+  }, 300);
+
+  // Updated resyncState handler to restore votes
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+    console.log('[SOCKET] Received resyncState from server');
+
+    // Flag to track if we need a UI refresh
+    let needRefresh = false;
+
+    // Update local deleted stories tracking
+    if (Array.isArray(serverDeletedIds)) {
+      serverDeletedIds.forEach(id => deletedStoryIds.add(id));
+      saveDeletedStoriesToStorage(roomId);
+    }
+
+    // Filter and process non-deleted tickets
+    const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
+    if (Array.isArray(filteredTickets)) {
+      processAllTickets(filteredTickets);
+    }
+
+    // Update local vote state for non-deleted stories
+    if (serverVotes) {
+      for (const [storyId, votes] of Object.entries(serverVotes)) {
+        if (deletedStoryIds.has(storyId)) continue;
         
-        // Apply to UI if current story - avoid duplicate rendering
-        const currentId = getCurrentStoryId();
-        if (storyId === currentId) {
-          applyVotesToUI(votes, false);
+        // Compare votes before updating
+        const previousVotes = JSON.stringify(votesPerStory[storyId] || {});
+        const newVotes = JSON.stringify(votes || {});
+        
+        if (previousVotes !== newVotes) {
+          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+          votesPerStory[storyId] = { ...votes };
+          window.currentVotesPerStory = votesPerStory;
+          needRefresh = true;
+        }
+
+        if (serverRevealed && serverRevealed[storyId]) {
+          votesRevealed[storyId] = true;
+          persistRevealState(storyId, true);
+          
+          // Apply to UI if current story - avoid duplicate rendering
+          const currentId = getCurrentStoryId();
+          if (storyId === currentId) {
+            applyVotesToUI(votes, false);
+          }
         }
       }
     }
-  }
 
-  // Only refresh once if needed, after all changes
-  if (needRefresh) {
-    // Debounce the UI update to avoid flicker
-    debouncedRefreshVoteDisplay();
-  }
-});
+    // Only refresh once if needed, after all changes
+    if (needRefresh) {
+      // Debounce the UI update to avoid flicker
+      debouncedRefreshVoteDisplay();
+    }
+  });
 
-  
   // Updated deleteStory event handler to track deletions locally
   socket.on('deleteStory', ({ storyId }) => {
     console.log('[SOCKET] Story deletion event received:', storyId);
@@ -717,6 +718,7 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
     }
     
     votesRevealed[storyId] = true;
+    persistRevealState(storyId, true);
     const votes = votesPerStory[storyId] || {};
     console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
@@ -751,32 +753,39 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
     }
     
     votesRevealed[storyId] = false;
+    persistRevealState(storyId, false);
     resetAllVoteVisuals();
+    
+    // Explicitly update UI elements
+    const statsContainer = document.querySelector('.vote-statistics-container');
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    
+    if (planningCardsSection) planningCardsSection.style.display = 'block';
+    if (statsContainer) statsContainer.style.display = 'none';
   });
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  hasReceivedStorySelection = true;
 
-  // Fallback: get storyId from index if missing
-  if (!storyId && typeof storyIndex === 'number') {
-    const storyCards = document.querySelectorAll('.story-card');
-    const target = storyCards[storyIndex];
-    if (target) {
-      storyId = target.id;
-      console.log('[SOCKET] Fallback resolved storyId from index:', storyId);
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    hasReceivedStorySelection = true;
+
+    // Fallback: get storyId from index if missing
+    if (!storyId && typeof storyIndex === 'number') {
+      const storyCards = document.querySelectorAll('.story-card');
+      const target = storyCards[storyIndex];
+      if (target) {
+        storyId = target.id;
+        console.log('[SOCKET] Fallback resolved storyId from index:', storyId);
+      }
     }
-  }
 
-  if (!storyId) {
-    console.warn(`[storySelected] Could not resolve storyId`);
-    return;
-  }
+    if (!storyId) {
+      console.warn(`[storySelected] Could not resolve storyId`);
+      return;
+    }
 
-  selectStory(storyIndex, false);
-});
+    selectStory(storyIndex, false);
+  });
 
-
-  
   // Add reconnection handlers for socket
   if (socket) {
     // New handler for reconnect attempts
@@ -785,38 +794,74 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
       reconnectingInProgress = true;
     });
     
-    // Handle successful reconnection
+    // Handle successful reconnection with improved UI handling
     socket.on('reconnect', () => {
-  console.log('[SOCKET] Reconnected to server');
-  reconnectingInProgress = false;
+      console.log('[SOCKET] Reconnected to server');
+      reconnectingInProgress = false;
 
-  // Request current state and story
-  socket.emit('requestAllTickets');
-  socket.emit('requestCurrentStory');
-  setTimeout(() => {
-    socket.emit('requestFullStateResync');
+      // Don't immediately show planning cards section
+      const statsContainer = document.querySelector('.vote-statistics-container');
+      const planningCardsSection = document.querySelector('.planning-cards-section');
+      
+      // Hide both temporarily until we know the state
+      if (planningCardsSection) planningCardsSection.style.display = 'none';
+      if (statsContainer) statsContainer.style.display = 'none';
 
-    // Re-apply stored votes
-    if (typeof getUserVotes === 'function') {
-      const userVotes = getUserVotes();
-      for (const [storyId, vote] of Object.entries(userVotes)) {
-        if (deletedStoryIds.has(storyId)) continue;
-
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-        votesPerStory[storyId][socket.id] = vote;
-        window.currentVotesPerStory = votesPerStory;
-
+      // Request current state and story
+      socket.emit('requestAllTickets');
+      socket.emit('requestCurrentStory');
+      
+      // Add a small delay before requesting full state to ensure UI stability
+      setTimeout(() => {
+        socket.emit('requestFullStateResync');
+        
+        // Check current story reveal state
         const currentId = getCurrentStoryId();
-        if (storyId === currentId) {
-          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+        if (currentId) {
+          // Check local storage first, then fall back to memory
+          const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+          
+          if (isRevealed && votesPerStory[currentId]) {
+            // If votes were revealed, restore the statistics view immediately
+            votesRevealed[currentId] = true;
+            
+            // Use a cleaner approach to show statistics
+            if (statsContainer && planningCardsSection) {
+              statsContainer.style.display = 'block';
+              planningCardsSection.style.display = 'none';
+              
+              // Rebuild statistics display
+              handleVotesRevealed(currentId, votesPerStory[currentId]);
+            }
+          } else {
+            // If votes were not revealed, show planning cards
+            if (statsContainer && planningCardsSection) {
+              statsContainer.style.display = 'none';
+              planningCardsSection.style.display = 'block';
+            }
+          }
         }
-      }
-
-      refreshVoteDisplay();
-    }
-  }, 500);
-});
-
+    
+        // Re-apply stored votes
+        if (typeof getUserVotes === 'function') {
+          const userVotes = getUserVotes();
+          for (const [storyId, vote] of Object.entries(userVotes)) {
+            if (deletedStoryIds.has(storyId)) continue;
+    
+            if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+            votesPerStory[storyId][socket.id] = vote;
+            window.currentVotesPerStory = votesPerStory;
+    
+            const currentId = getCurrentStoryId();
+            if (storyId === currentId) {
+              updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+            }
+          }
+    
+          refreshVoteDisplay();
+        }
+      }, 500);
+    });
   }
   
   // Guest: Listen for host's voting system
@@ -854,15 +899,47 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   setupGuestModeRestrictions(); // Add guest mode restrictions
   
   const currentId = getCurrentStoryId();
-  if (!votesRevealed[currentId]) {
-    setupPlanningCards();
-    let planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.style.display = 'block';
+
+  // Check for stored reveal state during initialization
+  if (currentId) {
+    const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+    
+    if (isRevealed) {
+      votesRevealed[currentId] = true;
+      
+      // Request votes for this story
+      if (socket && socket.connected) {
+        socket.emit('requestStoryVotes', { storyId: currentId });
+      }
+      
+      // If we have votes already, show them
+      if (votesPerStory[currentId] && Object.keys(votesPerStory[currentId]).length > 0) {
+        // Short delay to ensure DOM is ready
+        setTimeout(() => {
+          handleVotesRevealed(currentId, votesPerStory[currentId]);
+        }, 300);
+      }
+    } else {
+      if (!votesRevealed[currentId]) {
+        setupPlanningCards();
+        let planningCardsSection = document.querySelector('.planning-cards-section');
+        if (planningCardsSection) {
+          planningCardsSection.style.display = 'block';
+        }
+      }
+    }
+  } else {
+    // No current story selected yet
+    if (!votesRevealed[currentId]) {
+      setupPlanningCards();
+      let planningCardsSection = document.querySelector('.planning-cards-section');
+      if (planningCardsSection) {
+        planningCardsSection.style.display = 'block';
+      }
     }
   }
 
-setupStoryCardInteractions();
+  setupStoryCardInteractions();
   
   // Add these cleanup and setup calls for delete buttons
   cleanupDeleteButtonHandlers();
@@ -1396,7 +1473,6 @@ function deleteStory(storyId) {
   console.log('[DELETE] Deletion complete for story:', storyId);
 }
 
-
 function createVoteStatisticsDisplay(votes) {
   // Create container
   const container = document.createElement('div');
@@ -1509,18 +1585,10 @@ function handleVotesRevealed(storyId, votes) {
     return;
   }
 
-  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
-  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
-  let planningCardsSection = document.querySelector('.planning-cards-section');
-  const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
-
-  if (statsAlreadyVisible && planningCardsHidden) {
-    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
-    return;
-  }
-
+  // Store and persist the revealed state
   votesRevealed[storyId] = true;
-
+  persistRevealState(storyId, true);
+  
   if (!votesPerStory[storyId]) {
     votesPerStory[storyId] = {};
   }
@@ -1530,28 +1598,34 @@ function handleVotesRevealed(storyId, votes) {
 
   addFixedVoteStatisticsStyles();
 
-  const voteStats = createFixedVoteDisplay(votes);
-
-  if (planningCardsSection) {
-    if (!statsContainer) {
-      statsContainer = document.createElement('div'); // ✅ Safe now
-      statsContainer.className = 'vote-statistics-container';
+  // Get or create stats container 
+  let statsContainer = document.querySelector('.vote-statistics-container');
+  let planningCardsSection = document.querySelector('.planning-cards-section');
+  
+  if (!statsContainer) {
+    statsContainer = document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    if (planningCardsSection && planningCardsSection.parentNode) {
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    } else {
+      document.querySelector('.cards-container').appendChild(statsContainer);
     }
-
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(voteStats);
-
-    planningCardsSection.style.display = 'none';
-    statsContainer.style.display = 'block';
   }
 
+  // Clear container and add new stats
+  statsContainer.innerHTML = '';
+  statsContainer.appendChild(createFixedVoteDisplay(votes));
+  
+  // Hide planning cards and show stats
+  if (planningCardsSection) planningCardsSection.style.display = 'none';
+  statsContainer.style.display = 'block';
+
   applyVotesToUI(votes, false);
+  
+  // Make sure the font sizes are correct
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
-
-
 
 /**
  * Setup Add Ticket button
@@ -1747,7 +1821,6 @@ function applyGuestRestrictions() {
  * Process multiple tickets at once (used when receiving all tickets from server)
  * @param {Array} tickets - Array of ticket data objects
  */
-
 function processAllTickets(tickets) {
   const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
   console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
@@ -1779,7 +1852,6 @@ function processAllTickets(tickets) {
     applyGuestRestrictions();
   }
 }
-
 
 // Get storyId from selected card
 function getCurrentStoryId() {
@@ -1815,7 +1887,15 @@ function setupRevealResetButtons() {
         }
         
         votesRevealed[storyId] = false;
+        persistRevealState(storyId, false);
         resetAllVoteVisuals();
+        
+        // Explicitly update UI elements
+        const statsContainer = document.querySelector('.vote-statistics-container');
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        
+        if (planningCardsSection) planningCardsSection.style.display = 'block';
+        if (statsContainer) statsContainer.style.display = 'none';
       }
     });
   }
@@ -1872,8 +1952,7 @@ function setupCSVUploader() {
         
         // Make sure this ticket isn't already in the list to avoid duplicates
         if (!document.getElementById(ticket.id)) {
-        addTicketToUI(ticket, false);
-        
+          addTicketToUI(ticket, false);
         }
       });
       
@@ -1883,7 +1962,7 @@ function setupCSVUploader() {
       // Emit the CSV data to server AFTER ensuring all UI is updated
       emitCSVData(parsedData);
       
-        // Reset current story index only if no stories were selected before
+      // Reset current story index only if no stories were selected before
       if (!document.querySelector('.story-card.selected')) {
         currentStoryIndex = 0;
         renderCurrentStory();
@@ -2100,16 +2179,33 @@ function displayCSVData(data) {
   } finally {
     normalizeStoryIndexes();
     
-  const currentId = getCurrentStoryId();
-  if (!votesRevealed[currentId]) {
-    setupPlanningCards();
-    let planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.style.display = 'block';
+    const currentId = getCurrentStoryId();
+    // Check for stored reveal state during initialization
+    if (currentId) {
+      const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+      
+      if (isRevealed) {
+        votesRevealed[currentId] = true;
+        
+        // If we have votes already, show them
+        if (votesPerStory[currentId] && Object.keys(votesPerStory[currentId]).length > 0) {
+          // Short delay to ensure DOM is ready
+          setTimeout(() => {
+            handleVotesRevealed(currentId, votesPerStory[currentId]);
+          }, 300);
+        }
+      } else {
+        if (!votesRevealed[currentId]) {
+          setupPlanningCards();
+          let planningCardsSection = document.querySelector('.planning-cards-section');
+          if (planningCardsSection) {
+            planningCardsSection.style.display = 'block';
+          }
+        }
+      }
     }
-  }
 
-setupStoryCardInteractions();
+    setupStoryCardInteractions();
     // Always release the processing flag
     processingCSVData = false;
   }
@@ -2147,15 +2243,33 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
 
         // Ensure vote reveal state is initialized for this story
         if (storyId && typeof votesRevealed[storyId] === 'undefined') {
-            votesRevealed[storyId] = false;
+            // Check persisted state first
+            votesRevealed[storyId] = getPersistedRevealState(storyId) || false;
         }
 
         // Show planning cards and hide stats when changing stories
         let planningCardsSection = document.querySelector('.planning-cards-section');
         const statsContainer = document.querySelector('.vote-statistics-container');
 
-        if (planningCardsSection) planningCardsSection.style.display = 'block';
-        if (statsContainer) statsContainer.style.display = 'none';
+        // Check if votes are revealed for this story
+        const isRevealed = votesRevealed[storyId] === true;
+        
+        if (isRevealed && votesPerStory[storyId] && Object.keys(votesPerStory[storyId]).length > 0) {
+            // If votes were revealed, restore the statistics view
+            if (statsContainer && planningCardsSection) {
+                statsContainer.style.display = 'block';
+                planningCardsSection.style.display = 'none';
+                
+                // Rebuild statistics display
+                handleVotesRevealed(storyId, votesPerStory[storyId]);
+            }
+        } else {
+            // If votes were not revealed, show planning cards
+            if (statsContainer && planningCardsSection) {
+                statsContainer.style.display = 'none';
+                planningCardsSection.style.display = 'block';
+            }
+        }
 
         renderCurrentStory();
 
@@ -2206,7 +2320,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                         let storyId = card.id;
                         if (storyId && !deletedStoryIds.has(storyId)) {
                             if (typeof votesRevealed[storyId] === 'undefined') {
-                                votesRevealed[storyId] = false;
+                                votesRevealed[storyId] = getPersistedRevealState(storyId) || false;
                             }
                             resetOrRestoreVotes(storyId);
                         }
@@ -2223,10 +2337,6 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         console.log(`[UI] Story card with index ${index} not found`);
     }
 }
-
-
-
-
 
 /**
  * Reset or restore votes for a story
@@ -2251,8 +2361,14 @@ function resetOrRestoreVotes(storyId) {
     return; // We'll update the UI when the votes come back
   }
   
+  // Check persisted state first
+  const isRevealed = getPersistedRevealState(storyId) || votesRevealed[storyId];
+  
   // If we have stored votes for this story and they've been revealed
-  if (votesRevealed[storyId]) {
+  if (isRevealed) {
+    // Update local state to match persisted state
+    votesRevealed[storyId] = true;
+    
     // Show the actual vote values
     applyVotesToUI(votesPerStory[storyId], false);
     
@@ -2407,6 +2523,7 @@ function updateUserList(users) {
         
         // Update local state
         votesRevealed[storyId] = true;
+        persistRevealState(storyId, true);
         
         // Update UI if we have votes for this story
         if (votesPerStory[storyId]) {
@@ -2875,7 +2992,7 @@ function handleSocketMessage(message) {
       // Update the user list when server sends an updated list
       if (Array.isArray(message.users)) {
         updateUserList(message.users);
-            window.latestUserList = message.users;
+        window.latestUserList = message.users;
       }
       break;
 
@@ -2945,6 +3062,9 @@ function handleSocketMessage(message) {
           if (deletedStoryIds.has(storyId)) continue;
           
           votesRevealed[storyId] = message.votesRevealed[storyId];
+          
+          // Also update persisted state
+          persistRevealState(storyId, message.votesRevealed[storyId]);
           
           // If this is the current story and votes are revealed, update UI
           const currentId = getCurrentStoryId();
@@ -3020,30 +3140,30 @@ function handleSocketMessage(message) {
       
     case 'voteReceived':
     case 'voteUpdate':
-  // Skip processing for deleted story
-  if (message.storyId && deletedStoryIds.has(message.storyId)) {
-    console.log(`[VOTE] Ignoring vote for deleted story: ${message.storyId}`);
-    return;
-  }
-  
-  // Handle vote received
-  if (message.userId && message.vote) {
-    if (!votesPerStory[message.storyId]) {
-      votesPerStory[message.storyId] = {};
-    }
-    votesPerStory[message.storyId][message.userId] = message.vote;
-    
-    // Update UI if this is the current story
-    const currentStoryId = getCurrentStoryId();
-    if (message.storyId === currentStoryId) {
-      // Display either actual vote or thumbs up depending on reveal status
-      updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
-    }
-    
-    // Use the debounced refresh to avoid UI flicker
-    debouncedRefreshVoteDisplay();
-  }
-  break;
+      // Skip processing for deleted story
+      if (message.storyId && deletedStoryIds.has(message.storyId)) {
+        console.log(`[VOTE] Ignoring vote for deleted story: ${message.storyId}`);
+        return;
+      }
+      
+      // Handle vote received
+      if (message.userId && message.vote) {
+        if (!votesPerStory[message.storyId]) {
+          votesPerStory[message.storyId] = {};
+        }
+        votesPerStory[message.storyId][message.userId] = message.vote;
+        
+        // Update UI if this is the current story
+        const currentStoryId = getCurrentStoryId();
+        if (message.storyId === currentStoryId) {
+          // Display either actual vote or thumbs up depending on reveal status
+          updateVoteVisuals(message.userId, votesRevealed[message.storyId] ? message.vote : '👍', true);
+        }
+        
+        // Use the debounced refresh to avoid UI flicker
+        debouncedRefreshVoteDisplay();
+      }
+      break;
       
     case 'deleteStory':
       // Handle story deletion from another user
@@ -3057,7 +3177,7 @@ function handleSocketMessage(message) {
         const roomId = getRoomIdFromURL();
         saveDeletedStoriesToStorage(roomId);
         
-        // Get the story element
+        // Remove from DOM
         const storyCard = document.getElementById(message.storyId);
         if (storyCard) {
           // Get the index for potential reselection
@@ -3080,16 +3200,16 @@ function handleSocketMessage(message) {
           }
           // Update card interactions after DOM changes
           
-  const currentId = getCurrentStoryId();
-  if (!votesRevealed[currentId]) {
-    setupPlanningCards();
-    let planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.style.display = 'block';
-    }
-  }
+          const currentId = getCurrentStoryId();
+          if (!votesRevealed[currentId]) {
+            setupPlanningCards();
+            let planningCardsSection = document.querySelector('.planning-cards-section');
+            if (planningCardsSection) {
+              planningCardsSection.style.display = 'block';
+            }
+          }
 
-setupStoryCardInteractions();
+          setupStoryCardInteractions();
         } else {
           console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
         }
@@ -3105,44 +3225,43 @@ setupStoryCardInteractions();
       }
       break;
       
- 
-
-case 'votesRevealed':
-  console.log('[DEBUG] Received votesRevealed event', message);
-  
-  // Skip processing for deleted story
-  if (message.storyId && deletedStoryIds.has(message.storyId)) {
-    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
-    return;
-  }
-  
-  const storyId = message.storyId;
-  
-  if (storyId) {
-    // Check if we've already revealed this story - IMPORTANT NEW CHECK
-    if (votesRevealed[storyId] === true) {
-      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      return; // Skip the rest to avoid duplicate animations
-    }
-    
-    // Store the revealed state
-    votesRevealed[storyId] = true;
-    console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
-    
-    // Get the votes for this story
-    const votes = votesPerStory[storyId] || {};
-    console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
-    
-    // This is where we display the actual vote values
-    applyVotesToUI(votes, false);
-    
-    // Show statistics  
-    handleVotesRevealed(storyId, votes);
-    
-    // Trigger emoji burst for fun effect - ONLY ONCE
-    triggerGlobalEmojiBurst();
-  }
-  break;
+    case 'votesRevealed':
+      console.log('[DEBUG] Received votesRevealed event', message);
+      
+      // Skip processing for deleted story
+      if (message.storyId && deletedStoryIds.has(message.storyId)) {
+        console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
+        return;
+      }
+      
+      const storyId = message.storyId;
+      
+      if (storyId) {
+        // Check if we've already revealed this story - IMPORTANT NEW CHECK
+        if (votesRevealed[storyId] === true) {
+          console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
+          return; // Skip the rest to avoid duplicate animations
+        }
+        
+        // Store the revealed state
+        votesRevealed[storyId] = true;
+        persistRevealState(storyId, true);
+        console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
+        
+        // Get the votes for this story
+        const votes = votesPerStory[storyId] || {};
+        console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
+        
+        // This is where we display the actual vote values
+        applyVotesToUI(votes, false);
+        
+        // Show statistics  
+        handleVotesRevealed(storyId, votes);
+        
+        // Trigger emoji burst for fun effect - ONLY ONCE
+        triggerGlobalEmojiBurst();
+      }
+      break;
       
     case 'votesReset':
       // Skip processing for deleted story
@@ -3160,6 +3279,7 @@ case 'votesRevealed':
         
         // Reset revealed status
         votesRevealed[message.storyId] = false;
+        persistRevealState(message.storyId, false);
         
         // Update UI if this is the current story
         const currentId = getCurrentStoryId();
@@ -3175,26 +3295,25 @@ case 'votesRevealed':
         }
       }
       break;
-case 'storySelected':
-  if (typeof message.storyIndex === 'number') {
-    console.log('[SOCKET] Story selected from server:', message.storyIndex);
-    
-    // Pass the forceSelection parameter if it exists
-    const forceSelection = message.forceSelection === true;
-    selectStory(message.storyIndex, false, forceSelection); // false to avoid re-emitting
-    
-    // After story selection, request votes for it
-    const currentStoryId = getCurrentStoryId();
-    if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
-      setTimeout(() => {
-        socket.emit('requestStoryVotes', { storyId: currentStoryId });
-      }, 100);
-    }
-  }
-  break;
 
+    case 'storySelected':
+      if (typeof message.storyIndex === 'number') {
+        console.log('[SOCKET] Story selected from server:', message.storyIndex);
+        
+        // Pass the forceSelection parameter if it exists
+        const forceSelection = message.forceSelection === true;
+        selectStory(message.storyIndex, false, forceSelection); // false to avoid re-emitting
+        
+        // After story selection, request votes for it
+        const currentStoryId = getCurrentStoryId();
+        if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
+          setTimeout(() => {
+            socket.emit('requestStoryVotes', { storyId: currentStoryId });
+          }, 100);
+        }
+      }
+      break;
 
-      
     case 'storyVotes':
       // Skip processing for deleted story
       if (message.storyId && deletedStoryIds.has(message.storyId)) {
@@ -3215,8 +3334,12 @@ case 'storySelected':
         // Update UI if this is the current story
         const currentId = getCurrentStoryId();
         if (message.storyId === currentId) {
+          // Check persisted state for this story
+          const isRevealed = getPersistedRevealState(message.storyId) || votesRevealed[message.storyId];
+          
           // If votes are revealed, show them; otherwise, just show that people voted
-          if (votesRevealed[message.storyId]) {
+          if (isRevealed) {
+            votesRevealed[message.storyId] = true;
             applyVotesToUI(message.votes, false);
             handleVotesRevealed(message.storyId, votesPerStory[message.storyId]);
           } else {
@@ -3257,7 +3380,7 @@ case 'storySelected':
           });
         }
         
-        console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+              console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
         
         // Display CSV data (this will clear CSV stories but preserve manual ones)
         displayCSVData(csvData);
@@ -3298,27 +3421,70 @@ case 'storySelected':
       break;
       
     case 'reconnect':
-      // Handle successful reconnection
+      // Handle successful reconnection with improved UI stability
       updateConnectionStatus('connected');
       reconnectingInProgress = false;
+
+      // Don't immediately show planning cards section
+      const statsContainer = document.querySelector('.vote-statistics-container');
+      const planningCardsSection = document.querySelector('.planning-cards-section');
       
-      // Request current state after reconnection
+      // Hide both temporarily until we know the state
+      if (planningCardsSection) planningCardsSection.style.display = 'none';
+      if (statsContainer) statsContainer.style.display = 'none';
+
+      // Request current state and story
+      socket.emit('requestAllTickets');
+      socket.emit('requestCurrentStory');
+      
+      // Add a small delay before requesting full state to ensure UI stability
       setTimeout(() => {
-        if (socket && socket.connected) {
-          // Request votes for current story
-          const currentId = getCurrentStoryId();
-          if (currentId && !deletedStoryIds.has(currentId)) {
-            socket.emit('requestStoryVotes', { storyId: currentId });
-          }
+        socket.emit('requestFullStateResync');
+        
+        // Check current story reveal state
+        const currentId = getCurrentStoryId();
+        if (currentId) {
+          // Check local storage first, then fall back to memory
+          const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
           
-          // Request all tickets if we don't have them
-          if (!hasRequestedTickets) {
-            socket.emit('requestAllTickets');
-            hasRequestedTickets = true;
+          if (isRevealed && votesPerStory[currentId]) {
+            // If votes were revealed, restore the statistics view immediately
+            votesRevealed[currentId] = true;
+            
+            // Use a cleaner approach to show statistics
+            if (statsContainer && planningCardsSection) {
+              statsContainer.style.display = 'block';
+              planningCardsSection.style.display = 'none';
+              
+              // Rebuild statistics display
+              handleVotesRevealed(currentId, votesPerStory[currentId]);
+            }
+          } else {
+            // If votes were not revealed, show planning cards
+            if (statsContainer && planningCardsSection) {
+              statsContainer.style.display = 'none';
+              planningCardsSection.style.display = 'block';
+            }
           }
-          
-          // Request a full state resync to ensure we have the latest state
-          socket.emit('requestFullStateResync');
+        }
+    
+        // Re-apply stored votes
+        if (typeof getUserVotes === 'function') {
+          const userVotes = getUserVotes();
+          for (const [storyId, vote] of Object.entries(userVotes)) {
+            if (deletedStoryIds.has(storyId)) continue;
+    
+            if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+            votesPerStory[storyId][socket.id] = vote;
+            window.currentVotesPerStory = votesPerStory;
+    
+            const currentId = getCurrentStoryId();
+            if (storyId === currentId) {
+              updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+            }
+          }
+    
+          refreshVoteDisplay();
         }
       }, 500);
       break;
@@ -3337,11 +3503,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (planningCardsSection) planningCardsSection.style.display = 'none';
   if (statsContainer) statsContainer.style.display = 'none';
 
-  //let planningCardsSection = document.querySelector('.planning-cards-section');
-  //if (planningCardsSection) {
-   // planningCardsSection.style.display = 'none';
- // }
-
+  // Check if we're waiting for a username (joining via invite)
+  if (window.userNameReady === false) {
+    console.log('[APP] Waiting for username before initializing app');
+    return; // Exit early, we'll initialize after username is provided
+  }
+  
+  // Normal initialization for users who already have a name
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
