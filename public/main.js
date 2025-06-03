@@ -49,7 +49,7 @@ function updateUIVisibilityState(storyId, forceState = null) {
     statsContainer = document.createElement('div');
     statsContainer.className = 'vote-statistics-container';
     
-    // Find the best place to add it - look for planning cards section first
+    // Find the best place to add it
     if (planningCardsSection && planningCardsSection.parentNode) {
       planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     } else {
@@ -73,53 +73,53 @@ function updateUIVisibilityState(storyId, forceState = null) {
     shouldShowStats = forceState === 'stats';
   } else if (storyId) {
     // Otherwise check the reveal state
-    shouldShowStats = votesRevealed[storyId] === true && 
-                      votesPerStory[storyId] && 
-                      Object.keys(votesPerStory[storyId]).length > 0;
+    shouldShowStats = votesRevealed[storyId] === true;
   }
   
   console.log(`[UI] Updating visibility state: stats=${shouldShowStats ? 'visible' : 'hidden'}, storyId=${storyId}`);
   
+  // CRITICAL CHANGE: First hide both to avoid any overlap
   // Temporarily disable transitions to avoid flicker
   statsContainer.style.transition = 'none';
   planningCardsSection.style.transition = 'none';
+  statsContainer.style.display = 'none';
+  planningCardsSection.style.display = 'none';
   
-  // Always make sure one is visible and one is hidden, never both
+  // Force a reflow to make sure the hiding takes effect immediately
+  // This is a browser trick to ensure style changes are applied
+  void statsContainer.offsetWidth;
+  void planningCardsSection.offsetWidth;
+  
+  // Now show only the appropriate element
   if (shouldShowStats) {
-    // Ensure both aren't visible at the same time
-    planningCardsSection.style.display = 'none';
-    
     // Make sure we have content and prepare it before showing
     if (storyId && votesPerStory[storyId]) {
       statsContainer.innerHTML = '';
       addFixedVoteStatisticsStyles();
       statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
+      
+      // Only show after content is ready - in a separate tick
+      requestAnimationFrame(() => {
+        statsContainer.style.display = 'block';
+        setTimeout(fixRevealedVoteFontSizes, 50);
+      });
     }
-    
-    // Only show after content is ready
-    setTimeout(() => {
-      statsContainer.style.display = 'block';
-      setTimeout(fixRevealedVoteFontSizes, 50);
-    }, 0);
   } else {
-    // Hide stats first
-    statsContainer.style.display = 'none';
-    
     // Setup planning cards if needed
     if (isGuestUser()) {
       setupPlanningCards();
     }
     
-    // Show planning cards after stats are hidden
-    setTimeout(() => {
+    // Show planning cards - in a separate tick
+    requestAnimationFrame(() => {
       planningCardsSection.style.display = 'block';
-    }, 0);
+    });
   }
   
   // Re-enable transitions after a delay
   setTimeout(() => {
-    if (statsContainer) statsContainer.style.transition = '';
-    if (planningCardsSection) planningCardsSection.style.transition = '';
+    statsContainer.style.transition = '';
+    planningCardsSection.style.transition = '';
   }, 500);
 }
 
@@ -942,14 +942,18 @@ socket.on('reconnect', () => {
   console.log('[SOCKET] Reconnected to server');
   reconnectingInProgress = false;
   
-  // IMPORTANT: Don't modify UI visibility until we know the state
-  // Make a SINGLE update after we have all information
-
-  // Request current state and story
+  // FORCE HIDE BOTH elements initially
+  const statsContainer = document.querySelector('.vote-statistics-container');
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  
+  if (statsContainer) statsContainer.style.display = 'none';
+  if (planningCardsSection) planningCardsSection.style.display = 'none';
+  
+  // Request critical state data
   socket.emit('requestCurrentStory');
   socket.emit('requestAllTickets');
   
-  // Add a delay before requesting full state and changing UI
+  // Add a delay before requesting full state
   setTimeout(() => {
     socket.emit('requestFullStateResync');
     
@@ -960,72 +964,17 @@ socket.on('reconnect', () => {
       const isRevealed = getPersistedRevealState(currentId);
       votesRevealed[currentId] = isRevealed;
       
-      // Only update UI ONCE with correct state
-      if (isRevealed) {
-        // If votes were revealed, don't show planning cards at all
-        if (votesPerStory[currentId]) {
-          // Use direct DOM manipulation rather than the function that might transition
-          const statsContainer = document.querySelector('.vote-statistics-container');
-          const planningCardsSection = document.querySelector('.planning-cards-section');
-          
-          if (statsContainer) {
-            statsContainer.style.transition = 'none';
-            statsContainer.innerHTML = '';
-            statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[currentId]));
-            statsContainer.style.display = 'block';
-            
-            // Show actual vote values
-            applyVotesToUI(votesPerStory[currentId], false);
-            setTimeout(fixRevealedVoteFontSizes, 100);
-          }
-          
-          if (planningCardsSection) {
-            planningCardsSection.style.transition = 'none';
-            planningCardsSection.style.display = 'none';
-          }
-        }
-      } else {
-        // If votes not revealed, only show planning cards
-        updateUIVisibilityState(currentId, 'cards');
-      }
+      // Use centralized function with FORCED state to prevent flicker
+      updateUIVisibilityState(currentId, isRevealed ? 'stats' : 'cards');
       
       // Request votes for this story
       socket.emit('requestStoryVotes', { storyId: currentId });
     } else {
-      // No current story, show planning cards
+      // No current story, explicitly force planning cards
       updateUIVisibilityState(null, 'cards');
     }
-
-    // Re-apply stored votes after we know the UI state
-    if (typeof getUserVotes === 'function') {
-      const userVotes = getUserVotes();
-      for (const [storyId, vote] of Object.entries(userVotes)) {
-        if (deletedStoryIds.has(storyId)) continue;
-
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-        votesPerStory[storyId][socket.id] = vote;
-        window.currentVotesPerStory = votesPerStory;
-
-        const currentId = getCurrentStoryId();
-        if (storyId === currentId) {
-          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-        }
-      }
-
-      // Use non-debounced version to ensure immediate update
-      refreshVoteDisplay();
-    }
-    
-    // Resume transitions after a delay
-    setTimeout(() => {
-      const statsContainer = document.querySelector('.vote-statistics-container');
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      if (statsContainer) statsContainer.style.transition = '';
-      if (planningCardsSection) planningCardsSection.style.transition = '';
-    }, 1000);
   }, 500);
 });
-
 
     
   }
