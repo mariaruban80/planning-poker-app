@@ -583,12 +583,11 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 });
 
 
-
   
 
   
   // Updated resyncState handler to restore votes
- socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
 
   // Update local deleted stories tracking
@@ -684,37 +683,43 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
     delete votesRevealed[storyId];
   });
 
-  socket.on('votesRevealed', ({ storyId }) => {
-    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
-    
-    // Check if this story is deleted
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-      return;
-    }
-    
-    votesRevealed[storyId] = true;
-    const votes = votesPerStory[storyId] || {};
-    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
+socket.on('votesRevealed', ({ storyId }) => {
+  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
+  
+  // Check if this story is deleted
+  if (deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
+    return;
+  }
+  
+  // ✅ Check if we already have this story marked as revealed
+  if (votesRevealed[storyId]) {
+    console.log(`[DEBUG] Story ${storyId} already marked as revealed, avoiding duplicate work`);
+    return;
+  }
+  
+  votesRevealed[storyId] = true;
+  const votes = votesPerStory[storyId] || {};
+  console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
-    // Show votes on cards
-    applyVotesToUI(votes, false);
+  // Show votes on cards
+  applyVotesToUI(votes, false);
 
-    // Show statistics
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(createFixedVoteDisplay(votes));
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.style.display = 'none';
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-      statsContainer.style.display = 'block';
-    }
+  // Show statistics
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.innerHTML = '';
+  statsContainer.appendChild(createFixedVoteDisplay(votes));
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.style.display = 'none';
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    statsContainer.style.display = 'block';
+  }
 
-    // Fix font sizes
-    setTimeout(fixRevealedVoteFontSizes, 100);
-  });
+  // Fix font sizes
+  setTimeout(fixRevealedVoteFontSizes, 100);
+});
 
   socket.on('votesReset', ({ storyId }) => {
     // Skip processing for deleted stories
@@ -1508,9 +1513,6 @@ function handleVotesRevealed(storyId, votes) {
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
 }
-
-
-
 /**
  * Setup Add Ticket button
  */
@@ -3039,10 +3041,7 @@ function handleSocketMessage(message) {
         }
       }
       break;
-      
- 
-
-case 'votesRevealed':
+   case 'votesRevealed':
   console.log('[DEBUG] Received votesRevealed event', message);
   
   // Skip processing for deleted story
@@ -3077,7 +3076,10 @@ case 'votesRevealed':
     // Trigger emoji burst for fun effect - ONLY ONCE
     triggerGlobalEmojiBurst();
   }
-  break;
+  break;   
+ 
+
+
       
     case 'votesReset':
       // Skip processing for deleted story
