@@ -1,3 +1,13 @@
+
+function clearAllVoteVisuals() {
+  const voteSpaces = document.querySelectorAll('.vote-card-space');
+  voteSpaces.forEach(space => {
+    space.classList.remove('has-vote');
+    const badge = space.querySelector('.vote-badge');
+    if (badge) badge.textContent = '';
+  });
+}
+
 // Get username from sessionStorage (already set from main.html or by index.html prompt)
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
@@ -188,6 +198,11 @@ function saveDeletedStoriesToStorage(roomId) {
 
 // Modify the existing DOMContentLoaded event handler to check if username is ready
 document.addEventListener('DOMContentLoaded', () => {
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsContainer = document.querySelector('.vote-statistics-container');
+  if (planningCardsSection) planningCardsSection.style.display = 'none';
+  if (statsContainer) statsContainer.style.display = 'none';
+
   const planningCardsSection = document.querySelector('.planning-cards-section');
   if (planningCardsSection) {
     planningCardsSection.style.display = 'none';
@@ -831,13 +846,23 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     if (planningCardsSection) {
       planningCardsSection.style.display = 'block';
     }
-    setupPlanningCards(); // generate cards only if votes are not revealed
+    
   }
 
   setupRevealResetButtons();
   setupAddTicketButton();
   setupGuestModeRestrictions(); // Add guest mode restrictions
-  setupStoryCardInteractions();
+  
+  const currentId = getCurrentStoryId();
+  if (!votesRevealed[currentId]) {
+    setupPlanningCards();
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+    }
+  }
+
+setupStoryCardInteractions();
   
   // Add these cleanup and setup calls for delete buttons
   cleanupDeleteButtonHandlers();
@@ -2074,7 +2099,17 @@ function displayCSVData(data) {
     
   } finally {
     normalizeStoryIndexes();
-    setupStoryCardInteractions();
+    
+  const currentId = getCurrentStoryId();
+  if (!votesRevealed[currentId]) {
+    setupPlanningCards();
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+    }
+  }
+
+setupStoryCardInteractions();
     // Always release the processing flag
     processingCSVData = false;
   }
@@ -3044,7 +3079,17 @@ function handleSocketMessage(message) {
             }
           }
           // Update card interactions after DOM changes
-          setupStoryCardInteractions();
+          
+  const currentId = getCurrentStoryId();
+  if (!votesRevealed[currentId]) {
+    setupPlanningCards();
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+    }
+  }
+
+setupStoryCardInteractions();
         } else {
           console.warn(`[SOCKET] Could not find story card ${message.storyId} to delete`);
         }
@@ -3287,6 +3332,11 @@ case 'storySelected':
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsContainer = document.querySelector('.vote-statistics-container');
+  if (planningCardsSection) planningCardsSection.style.display = 'none';
+  if (statsContainer) statsContainer.style.display = 'none';
+
   const planningCardsSection = document.querySelector('.planning-cards-section');
   if (planningCardsSection) {
     planningCardsSection.style.display = 'none';
