@@ -617,25 +617,25 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
   console.log('[SOCKET] Received resyncState from server');
 
-  // ✅ Hide planning cards by default
-const voteCardArea = document.querySelector('.cards');
-if (voteCardArea) {
-  voteCardArea.style.display = 'none';
-}
+  // ✅ Only hide vote cards — not entire planning section
+  const voteCardArea = document.querySelector('.cards');
+  if (voteCardArea && voteCardArea.style) {
+    voteCardArea.style.display = 'none';
+  }
 
-  // Update local deleted stories tracking
+  // Update deleted stories tracking
   if (Array.isArray(serverDeletedIds)) {
     serverDeletedIds.forEach(id => deletedStoryIds.add(id));
     saveDeletedStoriesToStorage(roomId);
   }
 
-  // Filter and process non-deleted tickets
+  // Process non-deleted tickets
   const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
   if (Array.isArray(filteredTickets)) {
     processAllTickets(filteredTickets);
   }
 
-  // Update local vote state for non-deleted stories
+  // Update local votes and reveal status
   if (serverVotes) {
     for (const [storyId, votes] of Object.entries(serverVotes)) {
       if (deletedStoryIds.has(storyId)) continue;
@@ -649,7 +649,7 @@ if (voteCardArea) {
       if (serverRevealed && serverRevealed[storyId]) {
         votesRevealed[storyId] = true;
 
-        const allVotes = { ...(votes || {}) };
+        const allVotes = { ...votes };
         if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
           allVotes[socket.id] = votesPerStory[storyId][socket.id];
         }
@@ -661,18 +661,18 @@ if (voteCardArea) {
           applyVotesToUI(allVotes, false);
           debouncedHandleVotesRevealed(storyId, allVotes);
 
-          // ✅ Planning cards stay hidden — vote stats will be shown instead
+          // ✅ Don't show vote cards — statistics will be rendered instead
         }
-      } 
-      else if (storyId === currentId) {
-        // ✅ Only show planning cards if votes are not revealed
-voteCardArea?.style?.display = 'block';
-
+      } else if (storyId === currentId) {
+        // ✅ Votes not revealed — allow vote cards
+        if (voteCardArea && voteCardArea.style) {
+          voteCardArea.style.display = 'block';
+        }
       }
     }
   }
 
-  // Restore saved personal votes from session storage
+  // Restore votes from sessionStorage
   try {
     const savedUserVotes = getUserVotes ? getUserVotes() : {};
     for (const [storyId, vote] of Object.entries(savedUserVotes)) {
@@ -694,6 +694,7 @@ voteCardArea?.style?.display = 'block';
   refreshVoteDisplay();
 });
 
+  
   
 
   
