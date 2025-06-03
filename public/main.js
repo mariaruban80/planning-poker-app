@@ -188,6 +188,11 @@ function saveDeletedStoriesToStorage(roomId) {
 
 // Modify the existing DOMContentLoaded event handler to check if username is ready
 document.addEventListener('DOMContentLoaded', () => {
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'none';
+  }
+
   // Check if we're waiting for a username (joining via invite)
   if (window.userNameReady === false) {
     console.log('[APP] Waiting for username before initializing app');
@@ -819,7 +824,16 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
-  setupPlanningCards(); // generates the cards AND sets up drag listeners
+  
+  const storyId = getCurrentStoryId();
+  if (!votesRevealed[storyId]) {
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+    }
+    setupPlanningCards(); // generate cards only if votes are not revealed
+  }
+
   setupRevealResetButtons();
   setupAddTicketButton();
   setupGuestModeRestrictions(); // Add guest mode restrictions
@@ -3273,6 +3287,11 @@ case 'storySelected':
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'none';
+  }
+
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
