@@ -594,6 +594,7 @@ function loadStateFromSessionStorage(roomIdentifier) {
 /**
  * Restore votes from session storage to server and other clients
  */
+
 function restoreVotesFromStorage(roomIdentifier) {
   if (!socket || !socket.connected) return;
   
@@ -601,18 +602,41 @@ function restoreVotesFromStorage(roomIdentifier) {
     const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
     if (votesData) {
       const savedVotes = JSON.parse(votesData);
+      const validVotes = {};
       
+      // First collect all valid votes (not deleted stories)
       for (const [storyId, vote] of Object.entries(savedVotes)) {
-        if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-          continue;
+        if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
+          validVotes[storyId] = vote;
+        }
+      }
+      
+      // Then emit them all at once if possible, or in sequence with short delay
+      if (Object.keys(validVotes).length > 0) {
+        console.log(`[SOCKET] Restoring ${Object.keys(validVotes).length} votes from storage`);
+        
+        // Option 1: Emit a bulk restore event if your server supports it
+        if (socket.connected) {
+          socket.emit('restoreMultipleUserVotes', { 
+            votes: validVotes, 
+            userName: userName 
+          });
         }
         
-        // IMPORTANT: Explicitly tell server to remember this vote by username
-        socket.emit('restoreUserVoteByUsername', { 
-          storyId, 
-          vote, 
-          userName: userName  // Add username here explicitly
-        });
+        // Option 2: If bulk restore not implemented, use a sequence with delay
+        let delay = 0;
+        for (const [storyId, vote] of Object.entries(validVotes)) {
+          setTimeout(() => {
+            if (socket.connected) {
+              socket.emit('restoreUserVoteByUsername', { 
+                storyId, 
+                vote, 
+                userName: userName
+              });
+            }
+          }, delay);
+          delay += 50; // Small staggered delay to reduce UI thrashing
+        }
       }
     }
   } catch (err) {
