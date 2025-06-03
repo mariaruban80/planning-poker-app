@@ -80,40 +80,49 @@ function updateUIVisibilityState(storyId, forceState = null) {
   
   console.log(`[UI] Updating visibility state: stats=${shouldShowStats ? 'visible' : 'hidden'}, storyId=${storyId}`);
   
-  // Set visibility based on state - avoid any transitions for stability
+  // Temporarily disable transitions to avoid flicker
   statsContainer.style.transition = 'none';
   planningCardsSection.style.transition = 'none';
   
+  // Always make sure one is visible and one is hidden, never both
   if (shouldShowStats) {
-    // Show stats only
-    statsContainer.style.display = 'block';
+    // Ensure both aren't visible at the same time
     planningCardsSection.style.display = 'none';
     
-    // Make sure stats are up to date
+    // Make sure we have content and prepare it before showing
     if (storyId && votesPerStory[storyId]) {
-      // Always recreate the display to ensure consistency
       statsContainer.innerHTML = '';
-      const newDisplay = createFixedVoteDisplay(votesPerStory[storyId]);
-      statsContainer.appendChild(newDisplay);
-      setTimeout(fixRevealedVoteFontSizes, 50);
+      addFixedVoteStatisticsStyles();
+      statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
     }
-  } else {
-    // Show planning cards only
-    statsContainer.style.display = 'none';
-    planningCardsSection.style.display = 'block';
     
-    // For guests, ensure planning cards are properly set up
+    // Only show after content is ready
+    setTimeout(() => {
+      statsContainer.style.display = 'block';
+      setTimeout(fixRevealedVoteFontSizes, 50);
+    }, 0);
+  } else {
+    // Hide stats first
+    statsContainer.style.display = 'none';
+    
+    // Setup planning cards if needed
     if (isGuestUser()) {
       setupPlanningCards();
     }
+    
+    // Show planning cards after stats are hidden
+    setTimeout(() => {
+      planningCardsSection.style.display = 'block';
+    }, 0);
   }
   
-  // Allow transitions again after a delay
+  // Re-enable transitions after a delay
   setTimeout(() => {
     if (statsContainer) statsContainer.style.transition = '';
     if (planningCardsSection) planningCardsSection.style.transition = '';
   }, 500);
 }
+
 
 
 
@@ -2777,6 +2786,9 @@ function createAvatarContainer(user) {
 /**
  * Create vote card space for a user
  */
+/**
+ * Create vote card space for a user
+ */
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
@@ -2803,29 +2815,42 @@ function createVoteCardSpace(user, isCurrentUser) {
       }
       
       if (socket && vote && storyId) {
+        // Emit the vote to the server
         socket.emit('castVote', { vote, targetUserId: user.id, storyId });
         
-        // Update local state immediately - only for current user
+        // Update local state
         if (!votesPerStory[storyId]) {
           votesPerStory[storyId] = {};
         }
         
         votesPerStory[storyId][user.id] = vote;
         
-        // Just update the current user's vote visual, server will handle others
+        // IMPORTANT: Immediate UI update for user feedback
         voteCard.classList.add('has-vote');
-        voteBadge.textContent = votesRevealed[storyId] ? vote : '👍';
+        voteBadge.textContent = '👍'; // Always show thumbs up if not revealed
+        voteBadge.style.color = '#673ab7';
+        voteBadge.style.opacity = '1';
         
-        // Mark avatar as voted
+        // Update avatar
         const avatarContainer = document.querySelector(`#user-circle-${user.id}`);
         if (avatarContainer) {
           avatarContainer.classList.add('has-voted');
           
           const avatar = avatarContainer.querySelector('.avatar-circle');
           if (avatar) {
-            avatar.style.backgroundColor = '#c1e1c1'; // Green background
+            avatar.style.backgroundColor = '#c1e1c1';
           }
         }
+        
+        // Update sidebar
+        const sidebarBadge = document.querySelector(`#user-${user.id} .vote-badge`);
+        if (sidebarBadge) {
+          sidebarBadge.textContent = '👍';
+          sidebarBadge.style.color = '#673ab7';
+          sidebarBadge.style.opacity = '1';
+        }
+        
+        console.log(`[VOTE] Vote ${vote} cast, displayed as 👍`);
       }
     });
   } else {
@@ -2847,6 +2872,8 @@ function createVoteCardSpace(user, isCurrentUser) {
   if (existingVote) {
     voteCard.classList.add('has-vote');
     voteBadge.textContent = votesRevealed[storyId] ? existingVote : '👍';
+    voteBadge.style.color = '#673ab7';
+    voteBadge.style.opacity = '1';
   }
 
   return voteCard;
