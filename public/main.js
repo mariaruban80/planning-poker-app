@@ -618,10 +618,10 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
   console.log('[SOCKET] Received resyncState from server');
 
   // ✅ Hide planning cards by default
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  if (planningCardsSection) {
-    planningCardsSection.style.display = 'none';
-  }
+const voteCardArea = document.querySelector('.cards');
+if (voteCardArea) {
+  voteCardArea.style.display = 'none';
+}
 
   // Update local deleted stories tracking
   if (Array.isArray(serverDeletedIds)) {
@@ -666,7 +666,8 @@ socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: 
       } 
       else if (storyId === currentId) {
         // ✅ Only show planning cards if votes are not revealed
-        planningCardsSection?.style?.display = 'block';
+voteCardArea?.style?.display = 'block';
+
       }
     }
   }
