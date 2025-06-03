@@ -35,7 +35,6 @@ function getPersistedRevealState(storyId) {
     return false;
   }
 }
-
 /**
  * Centralized function to manage UI visibility states of planning cards and statistics
  * This ensures a consistent approach without flickering
@@ -92,15 +91,11 @@ function updateUIVisibilityState(storyId, forceState = null) {
     
     // Make sure stats are up to date
     if (storyId && votesPerStory[storyId]) {
-      const currentContent = statsContainer.innerHTML;
+      // Always recreate the display to ensure consistency
+      statsContainer.innerHTML = '';
       const newDisplay = createFixedVoteDisplay(votesPerStory[storyId]);
-      
-      // Only update if content has changed to prevent flickering
-      if (!currentContent || currentContent.trim() === '') {
-        statsContainer.innerHTML = '';
-        statsContainer.appendChild(newDisplay);
-        setTimeout(fixRevealedVoteFontSizes, 50);
-      }
+      statsContainer.appendChild(newDisplay);
+      setTimeout(fixRevealedVoteFontSizes, 50);
     }
   } else {
     // Show planning cards only
@@ -119,6 +114,8 @@ function updateUIVisibilityState(storyId, forceState = null) {
     if (planningCardsSection) planningCardsSection.style.transition = '';
   }, 500);
 }
+
+
 
 /**
  * Ensure planning cards are visible for guests when stories are added
@@ -248,17 +245,16 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
+  addFixedVoteStatisticsStyles(); // Add this explicitly for guests
   
   // Create stats container if it doesn't exist yet
-  if (!document.querySelector('.vote-statistics-container')) {
-    const statsContainer = document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    statsContainer.style.display = 'none';
-    
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    }
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.style.display = 'none';
+  
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection && planningCardsSection.parentNode && !document.querySelector('.vote-statistics-container')) {
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
   }
   
   // Explicitly set up planning cards for guests
@@ -287,6 +283,7 @@ window.initializeSocketWithName = function(roomId, name) {
     }
   }, 800); // Slightly longer delay to ensure DOM stability
 };
+
 
 /**
  * Load deleted story IDs from sessionStorage
@@ -521,8 +518,9 @@ function getUserIdToNameMap() {
     map[u.id] = u.name;  });
   return map;
 }
-
 function createFixedVoteDisplay(votes) {
+  addFixedVoteStatisticsStyles(); // Always ensure styles are added
+  
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
@@ -576,6 +574,7 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
 
 /**
  * Determines if current user is a guest
@@ -3285,42 +3284,42 @@ function handleSocketMessage(message) {
       break;
       
     case 'votesRevealed':
-      console.log('[DEBUG] Received votesRevealed event', message);
-      
-      // Skip processing for deleted story
-      if (message.storyId && deletedStoryIds.has(message.storyId)) {
-        console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
-        return;
-      }
-      
-      const storyId = message.storyId;
-      
-      if (storyId) {
-        // Check if we've already revealed this story - IMPORTANT NEW CHECK
-        if (votesRevealed[storyId] === true) {
-          console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-          return; // Skip the rest to avoid duplicate animations
-        }
-        
-        // Store the revealed state
-        votesRevealed[storyId] = true;
-        persistRevealState(storyId, true);
-        console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
-        
-        // Get the votes for this story
-        const votes = votesPerStory[storyId] || {};
-        console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
-        
-        // This is where we display the actual vote values
-        applyVotesToUI(votes, false);
-        
-        // Use centralized function for UI visibility
-        updateUIVisibilityState(storyId, 'stats');
-        
-        // Trigger emoji burst for fun effect - ONLY ONCE
-        triggerGlobalEmojiBurst();
-      }
-      break;
+ console.log('[DEBUG] Received votesRevealed event', message);
+  
+  // Skip processing for deleted story
+  if (message.storyId && deletedStoryIds.has(message.storyId)) {
+    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${message.storyId}`);
+    return;
+  }
+  
+  const storyId = message.storyId;
+  
+  if (storyId) {
+    // Check if we've already revealed this story - IMPORTANT NEW CHECK
+    if (votesRevealed[storyId] === true) {
+      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
+      return; // Skip the rest to avoid duplicate animations
+    }
+    
+    // Store the revealed state
+    votesRevealed[storyId] = true;
+    persistRevealState(storyId, true);
+    console.log(`[DEBUG] Set votesRevealed[${storyId}] = true`);
+    
+    // Get the votes for this story
+    const votes = votesPerStory[storyId] || {};
+    console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
+    
+    // This is where we display the actual vote values
+    applyVotesToUI(votes, false);
+    
+    // Use centralized function for UI visibility - same for hosts and guests
+    updateUIVisibilityState(storyId, 'stats');
+    
+    // Trigger emoji burst for fun effect - ONLY ONCE
+    triggerGlobalEmojiBurst();
+  }
+  break;
       
     case 'votesReset':
       // Skip processing for deleted story
