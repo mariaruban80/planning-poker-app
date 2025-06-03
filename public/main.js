@@ -37,6 +37,90 @@ function getPersistedRevealState(storyId) {
 }
 
 /**
+ * Centralized function to manage UI visibility states of planning cards and statistics
+ * This ensures a consistent approach without flickering
+ */
+function updateUIVisibilityState(storyId, forceState = null) {
+  // Get necessary elements
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  let statsContainer = document.querySelector('.vote-statistics-container');
+  
+  // Create stats container if it doesn't exist
+  if (!statsContainer) {
+    statsContainer = document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    
+    // Find the best place to add it - look for planning cards section first
+    if (planningCardsSection && planningCardsSection.parentNode) {
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    } else {
+      // Fallback locations
+      const cardsContainer = document.querySelector('.cards-container');
+      if (cardsContainer) {
+        cardsContainer.appendChild(statsContainer);
+      } else {
+        document.body.appendChild(statsContainer);
+      }
+    }
+  }
+  
+  if (!planningCardsSection) return;
+  
+  // Determine what should be visible based on story state or forced state
+  let shouldShowStats = false;
+  
+  if (forceState !== null) {
+    // If a state is forced (like during transitions), use that
+    shouldShowStats = forceState === 'stats';
+  } else if (storyId) {
+    // Otherwise check the reveal state
+    shouldShowStats = votesRevealed[storyId] === true && 
+                      votesPerStory[storyId] && 
+                      Object.keys(votesPerStory[storyId]).length > 0;
+  }
+  
+  console.log(`[UI] Updating visibility state: stats=${shouldShowStats ? 'visible' : 'hidden'}, storyId=${storyId}`);
+  
+  // Set visibility based on state - avoid any transitions for stability
+  statsContainer.style.transition = 'none';
+  planningCardsSection.style.transition = 'none';
+  
+  if (shouldShowStats) {
+    // Show stats only
+    statsContainer.style.display = 'block';
+    planningCardsSection.style.display = 'none';
+    
+    // Make sure stats are up to date
+    if (storyId && votesPerStory[storyId]) {
+      const currentContent = statsContainer.innerHTML;
+      const newDisplay = createFixedVoteDisplay(votesPerStory[storyId]);
+      
+      // Only update if content has changed to prevent flickering
+      if (!currentContent || currentContent.trim() === '') {
+        statsContainer.innerHTML = '';
+        statsContainer.appendChild(newDisplay);
+        setTimeout(fixRevealedVoteFontSizes, 50);
+      }
+    }
+  } else {
+    // Show planning cards only
+    statsContainer.style.display = 'none';
+    planningCardsSection.style.display = 'block';
+    
+    // For guests, ensure planning cards are properly set up
+    if (isGuestUser()) {
+      setupPlanningCards();
+    }
+  }
+  
+  // Allow transitions again after a delay
+  setTimeout(() => {
+    if (statsContainer) statsContainer.style.transition = '';
+    if (planningCardsSection) planningCardsSection.style.transition = '';
+  }, 500);
+}
+
+/**
  * Ensure planning cards are visible for guests when stories are added
  */
 function ensurePlanningCardsVisibleForGuests() {
@@ -44,26 +128,13 @@ function ensurePlanningCardsVisibleForGuests() {
   
   const storyList = document.getElementById('storyList');
   if (storyList && storyList.children.length > 0) {
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container');
     const currentStoryId = getCurrentStoryId();
     
     // Check if votes are revealed for current story
     const isRevealed = currentStoryId && votesRevealed[currentStoryId] === true;
     
-    if (!isRevealed) {
-      // Make sure planning cards are set up
-      setupPlanningCards();
-      
-      // Show planning cards section
-      if (planningCardsSection) {
-        console.log('[GUEST] Ensuring planning cards are visible for guest');
-        planningCardsSection.style.display = 'block';
-      }
-      if (statsContainer) {
-        statsContainer.style.display = 'none';
-      }
-    }
+    // Use the centralized function with appropriate state
+    updateUIVisibilityState(currentStoryId, isRevealed ? 'stats' : 'cards');
   }
 }
 
@@ -113,7 +184,6 @@ window.notifyStoriesUpdated = function() {
   
   console.log(`Preserved ${preservedManualTickets.length} manual tickets`);
 };
-
 /**
  * Handle adding a ticket from the modal
  * @param {Object} ticketData - Ticket data {id, text}
@@ -179,27 +249,43 @@ window.initializeSocketWithName = function(roomId, name) {
   // Add CSS for new layout
   addNewLayoutStyles();
   
+  // Create stats container if it doesn't exist yet
+  if (!document.querySelector('.vote-statistics-container')) {
+    const statsContainer = document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    statsContainer.style.display = 'none';
+    
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection && planningCardsSection.parentNode) {
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    }
+  }
+  
   // Explicitly set up planning cards for guests
   setupPlanningCards();
   
-  // Explicitly show planning cards section for guests
+  // Give time for DOM to be ready, then check if we need stats or cards
   setTimeout(() => {
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container');
+    const currentId = getCurrentStoryId();
     
-    if (planningCardsSection) {
-      console.log('[GUEST] Showing planning cards section for guest user');
-      planningCardsSection.style.display = 'block';
+    if (currentId) {
+      // Check if votes are revealed for this story
+      const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+      
+      // Update state and UI
+      votesRevealed[currentId] = isRevealed;
+      updateUIVisibilityState(currentId);
+      
+      // Request votes for this story
+      if (socket && socket.connected) {
+        socket.emit('requestStoryVotes', { storyId: currentId });
+        socket.emit('requestCurrentStory');
+      }
+    } else {
+      // No current story, just ensure planning cards
+      updateUIVisibilityState(null, 'cards');
     }
-    if (statsContainer) {
-      statsContainer.style.display = 'none';
-    }
-    
-    // Request current story to ensure we're in sync
-    if (socket && socket.connected) {
-      socket.emit('requestCurrentStory');
-    }
-  }, 1000); // Delay to ensure DOM is ready
+  }, 800); // Slightly longer delay to ensure DOM stability
 };
 
 /**
@@ -784,17 +870,8 @@ function initializeApp(roomId) {
     // Show votes on cards
     applyVotesToUI(votes, false);
 
-    // Show statistics
-    let planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(createFixedVoteDisplay(votes));
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.style.display = 'none';
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-      statsContainer.style.display = 'block';
-    }
+    // Use centralized function for UI visibility
+    updateUIVisibilityState(storyId, 'stats');
 
     // Fix font sizes
     setTimeout(fixRevealedVoteFontSizes, 100);
@@ -815,12 +892,8 @@ function initializeApp(roomId) {
     persistRevealState(storyId, false);
     resetAllVoteVisuals();
     
-    // Explicitly update UI elements
-    const statsContainer = document.querySelector('.vote-statistics-container');
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    
-    if (planningCardsSection) planningCardsSection.style.display = 'block';
-    if (statsContainer) statsContainer.style.display = 'none';
+    // Use centralized function for UI visibility
+    updateUIVisibilityState(storyId, 'cards');
   });
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
@@ -856,18 +929,10 @@ function initializeApp(roomId) {
       reconnectingInProgress = true;
     });
     
-    // Handle successful reconnection with improved UI handling
+    // Handle successful reconnection with improved UI stability
     socket.on('reconnect', () => {
       console.log('[SOCKET] Reconnected to server');
       reconnectingInProgress = false;
-
-      // Don't immediately show planning cards section
-      const statsContainer = document.querySelector('.vote-statistics-container');
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      
-      // Hide both temporarily until we know the state
-      if (planningCardsSection) planningCardsSection.style.display = 'none';
-      if (statsContainer) statsContainer.style.display = 'none';
 
       // Request current state and story
       socket.emit('requestAllTickets');
@@ -882,32 +947,16 @@ function initializeApp(roomId) {
         if (currentId) {
           // Check local storage first, then fall back to memory
           const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+          votesRevealed[currentId] = isRevealed; // Make sure to update memory state
           
-          if (isRevealed && votesPerStory[currentId]) {
-            // If votes were revealed, restore the statistics view immediately
-            votesRevealed[currentId] = true;
-            
-            // Use a cleaner approach to show statistics
-            if (statsContainer && planningCardsSection) {
-              statsContainer.style.display = 'block';
-              planningCardsSection.style.display = 'none';
-              
-              // Rebuild statistics display
-              handleVotesRevealed(currentId, votesPerStory[currentId]);
-            }
-          } else {
-            // If votes were not revealed, show planning cards
-            if (statsContainer && planningCardsSection) {
-              statsContainer.style.display = 'none';
-              planningCardsSection.style.display = 'block';
-            }
-            
-            // Ensure planning cards are visible for guests
-            ensurePlanningCardsVisibleForGuests();
-          }
+          // Use centralized function to manage visibility
+          updateUIVisibilityState(currentId);
+          
+          // Request votes to ensure we have current data
+          socket.emit('requestStoryVotes', { storyId: currentId });
         } else {
-          // No story selected, ensure planning cards are visible for guests
-          ensurePlanningCardsVisibleForGuests();
+          // No current story selected, use centralized function for cards
+          updateUIVisibilityState(null, 'cards');
         }
     
         // Re-apply stored votes
@@ -954,13 +1003,8 @@ function initializeApp(roomId) {
   setupStoryNavigation();
   
   const storyId = getCurrentStoryId();
-  if (!votesRevealed[storyId]) {
-    let planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.style.display = 'block';
-    }
-    
-  }
+  // Use centralized function for initial UI state
+  updateUIVisibilityState(storyId);
 
   setupRevealResetButtons();
   setupAddTicketButton();
@@ -988,23 +1032,13 @@ function initializeApp(roomId) {
         }, 300);
       }
     } else {
-      if (!votesRevealed[currentId]) {
-        setupPlanningCards();
-        let planningCardsSection = document.querySelector('.planning-cards-section');
-        if (planningCardsSection) {
-          planningCardsSection.style.display = 'block';
-        }
-      }
+      // Use centralized function for planning cards visibility
+      updateUIVisibilityState(currentId, 'cards');
     }
   } else {
     // No current story selected yet
-    if (!votesRevealed[currentId]) {
-      setupPlanningCards();
-      let planningCardsSection = document.querySelector('.planning-cards-section');
-      if (planningCardsSection) {
-        planningCardsSection.style.display = 'block';
-      }
-    }
+    // Use centralized function for planning cards visibility
+    updateUIVisibilityState(null, 'cards');
   }
 
   setupStoryCardInteractions();
@@ -1669,34 +1703,8 @@ function handleVotesRevealed(storyId, votes) {
 
   addFixedVoteStatisticsStyles();
 
-  // Get or create stats container 
-  let statsContainer = document.querySelector('.vote-statistics-container');
-  let planningCardsSection = document.querySelector('.planning-cards-section');
-  
-  if (!statsContainer) {
-    statsContainer = document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    } else {
-      const cardsContainer = document.querySelector('.cards-container');
-      if (cardsContainer) {
-        cardsContainer.appendChild(statsContainer);
-      } else {
-        document.body.appendChild(statsContainer);
-      }
-    }
-  }
-
-  // Clear container and add new stats
-  statsContainer.innerHTML = '';
-  statsContainer.appendChild(createFixedVoteDisplay(votes));
-  
-  // Hide planning cards and show stats
-  if (planningCardsSection) planningCardsSection.style.display = 'none';
-  statsContainer.style.display = 'block';
-
-  applyVotesToUI(votes, false);
+  // Use centralized function to manage UI visibility
+  updateUIVisibilityState(storyId, 'stats');
   
   // Make sure the font sizes are correct
   setTimeout(fixRevealedVoteFontSizes, 100);
@@ -1722,7 +1730,8 @@ function setupAddTicketButton() {
           id: `story_${Date.now()}`,
           text: storyText.trim()
         };
-                // Check if this ID is in our deleted set
+        
+        // Check if this ID is in our deleted set
         if (deletedStoryIds.has(ticketData.id)) {
           console.log('[ADD] Cannot add previously deleted ticket:', ticketData.id);
           return;
@@ -1917,7 +1926,6 @@ function processAllTickets(tickets) {
       addTicketToUI(ticket, false);
     }
   });
-
   if (filtered.length > 0) {
     if (currentStoryIndex === null || currentStoryIndex === undefined || currentStoryIndex < 0 || currentStoryIndex >= filtered.length) {
       currentStoryIndex = 0;
@@ -1974,12 +1982,8 @@ function setupRevealResetButtons() {
         persistRevealState(storyId, false);
         resetAllVoteVisuals();
         
-        // Explicitly update UI elements
-        const statsContainer = document.querySelector('.vote-statistics-container');
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        
-        if (planningCardsSection) planningCardsSection.style.display = 'block';
-        if (statsContainer) statsContainer.style.display = 'none';
+        // Use centralized function to update UI visibility
+        updateUIVisibilityState(storyId, 'cards');
       }
     });
   }
@@ -2267,30 +2271,8 @@ function displayCSVData(data) {
     normalizeStoryIndexes();
     
     const currentId = getCurrentStoryId();
-    // Check for stored reveal state during initialization
-    if (currentId) {
-      const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
-      
-      if (isRevealed) {
-        votesRevealed[currentId] = true;
-        
-        // If we have votes already, show them
-        if (votesPerStory[currentId] && Object.keys(votesPerStory[currentId]).length > 0) {
-          // Short delay to ensure DOM is ready
-          setTimeout(() => {
-            handleVotesRevealed(currentId, votesPerStory[currentId]);
-          }, 300);
-        }
-      } else {
-        if (!votesRevealed[currentId]) {
-          setupPlanningCards();
-          let planningCardsSection = document.querySelector('.planning-cards-section');
-          if (planningCardsSection) {
-            planningCardsSection.style.display = 'block';
-          }
-        }
-      }
-    }
+    // Use centralized function for UI state management
+    updateUIVisibilityState(currentId);
 
     setupStoryCardInteractions();
     // Ensure planning cards are visible for guests
@@ -2337,29 +2319,8 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
             votesRevealed[storyId] = getPersistedRevealState(storyId) || false;
         }
 
-        // Show planning cards and hide stats when changing stories
-        let planningCardsSection = document.querySelector('.planning-cards-section');
-        const statsContainer = document.querySelector('.vote-statistics-container');
-
-        // Check if votes are revealed for this story
-        const isRevealed = votesRevealed[storyId] === true;
-        
-        if (isRevealed && votesPerStory[storyId] && Object.keys(votesPerStory[storyId]).length > 0) {
-            // If votes were revealed, restore the statistics view
-            if (statsContainer && planningCardsSection) {
-                statsContainer.style.display = 'block';
-                planningCardsSection.style.display = 'none';
-                
-                // Rebuild statistics display
-                handleVotesRevealed(storyId, votesPerStory[storyId]);
-            }
-        } else {
-            // If votes were not revealed, show planning cards
-            if (statsContainer && planningCardsSection) {
-                statsContainer.style.display = 'none';
-                planningCardsSection.style.display = 'block';
-            }
-        }
+        // Use centralized function to manage UI visibility
+        updateUIVisibilityState(storyId);
 
         renderCurrentStory();
 
@@ -2468,12 +2429,8 @@ function resetOrRestoreVotes(storyId) {
     // Show the actual vote values
     applyVotesToUI(votesPerStory[storyId], false);
     
-    // If votes were revealed, also show the statistics
-    setTimeout(() => {
-      if (votesRevealed[storyId]) {
-        handleVotesRevealed(storyId, votesPerStory[storyId]);
-      }
-    }, 100);
+    // Use centralized function for UI visibility
+    updateUIVisibilityState(storyId);
   } else {
     // If we have votes but they're not revealed, still show that people voted (with thumbs up)
     if (votesPerStory[storyId]) {
@@ -2686,11 +2643,9 @@ function updateUserList(users) {
     const reveal = votesRevealed[storyId];
     applyVotesToUI(votes, !reveal);
     
-    // If votes were revealed, also show statistics
+    // If votes were revealed, update UI visibility
     if (reveal) {
-      setTimeout(() => {
-        handleVotesRevealed(storyId, votes);
-      }, 200);
+      updateUIVisibilityState(storyId, 'stats');
     }
   }
   
@@ -3173,7 +3128,7 @@ function handleSocketMessage(message) {
           if (votesRevealed[storyId] && storyId === currentId) {
             const storyVotes = votesPerStory[storyId] || {};
             applyVotesToUI(storyVotes, false);
-            handleVotesRevealed(storyId, storyVotes);
+            updateUIVisibilityState(storyId);
           }
         }
       }
@@ -3309,14 +3264,7 @@ function handleSocketMessage(message) {
           // Update card interactions after DOM changes
           
           const currentId = getCurrentStoryId();
-          if (!votesRevealed[currentId]) {
-            setupPlanningCards();
-            let planningCardsSection = document.querySelector('.planning-cards-section');
-            if (planningCardsSection) {
-              planningCardsSection.style.display = 'block';
-            }
-          }
-
+          updateUIVisibilityState(currentId);
           setupStoryCardInteractions();
           
           // Ensure planning cards are visible for guests
@@ -3366,8 +3314,8 @@ function handleSocketMessage(message) {
         // This is where we display the actual vote values
         applyVotesToUI(votes, false);
         
-        // Show statistics  
-        handleVotesRevealed(storyId, votes);
+        // Use centralized function for UI visibility
+        updateUIVisibilityState(storyId, 'stats');
         
         // Trigger emoji burst for fun effect - ONLY ONCE
         triggerGlobalEmojiBurst();
@@ -3397,15 +3345,8 @@ function handleSocketMessage(message) {
         if (message.storyId === currentId) {
           resetAllVoteVisuals();
           
-          // ✅ Hide vote statistics and show planning cards again
-          let planningCardsSection = document.querySelector('.planning-cards-section');
-          const statsContainer = document.querySelector('.vote-statistics-container');
-          
-          if (planningCardsSection) planningCardsSection.style.display = 'block';
-          if (statsContainer) statsContainer.style.display = 'none';
-          
-          // Ensure planning cards are visible for guests
-          ensurePlanningCardsVisibleForGuests();
+          // Use centralized function for UI visibility
+          updateUIVisibilityState(currentId, 'cards');
         }
       }
       break;
@@ -3458,7 +3399,7 @@ function handleSocketMessage(message) {
           if (isRevealed) {
             votesRevealed[message.storyId] = true;
             applyVotesToUI(message.votes, false);
-            handleVotesRevealed(message.storyId, votesPerStory[message.storyId]);
+            updateUIVisibilityState(message.storyId, 'stats');
           } else {
             applyVotesToUI(message.votes, true);
           }
@@ -3545,14 +3486,6 @@ function handleSocketMessage(message) {
       updateConnectionStatus('connected');
       reconnectingInProgress = false;
 
-      // Don't immediately show planning cards section
-      const statsContainer = document.querySelector('.vote-statistics-container');
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      
-      // Hide both temporarily until we know the state
-      if (planningCardsSection) planningCardsSection.style.display = 'none';
-      if (statsContainer) statsContainer.style.display = 'none';
-
       // Request current state and story
       socket.emit('requestAllTickets');
       socket.emit('requestCurrentStory');
@@ -3566,32 +3499,16 @@ function handleSocketMessage(message) {
         if (currentId) {
           // Check local storage first, then fall back to memory
           const isRevealed = getPersistedRevealState(currentId) || votesRevealed[currentId];
+          votesRevealed[currentId] = isRevealed; // Make sure to update memory state
           
-          if (isRevealed && votesPerStory[currentId]) {
-            // If votes were revealed, restore the statistics view immediately
-            votesRevealed[currentId] = true;
-            
-            // Use a cleaner approach to show statistics
-            if (statsContainer && planningCardsSection) {
-              statsContainer.style.display = 'block';
-              planningCardsSection.style.display = 'none';
-              
-              // Rebuild statistics display
-              handleVotesRevealed(currentId, votesPerStory[currentId]);
-            }
-          } else {
-            // If votes were not revealed, show planning cards
-            if (statsContainer && planningCardsSection) {
-              statsContainer.style.display = 'none';
-              planningCardsSection.style.display = 'block';
-            }
-            
-            // Ensure planning cards are visible for guests
-            ensurePlanningCardsVisibleForGuests();
-          }
+          // Use centralized function to manage visibility
+          updateUIVisibilityState(currentId);
+          
+          // Request votes to ensure we have current data
+          socket.emit('requestStoryVotes', { storyId: currentId });
         } else {
-          // No story selected, ensure planning cards are visible for guests
-          ensurePlanningCardsVisibleForGuests();
+          // No current story selected, use centralized function for cards
+          updateUIVisibilityState(null, 'cards');
         }
     
         // Re-apply stored votes
