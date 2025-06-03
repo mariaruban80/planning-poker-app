@@ -2803,56 +2803,74 @@ function createVoteCardSpace(user, isCurrentUser) {
 
   if (isCurrentUser) {
     voteCard.addEventListener('dragover', (e) => e.preventDefault());
-    voteCard.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const vote = e.dataTransfer.getData('text/plain');
-      const storyId = getCurrentStoryId();
+
+voteCard.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const vote = e.dataTransfer.getData('text/plain');
+  const storyId = getCurrentStoryId();
+  
+  // Skip for deleted stories
+  if (storyId && deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Cannot cast vote for deleted story: ${storyId}`);
+    return;
+  }
+  
+  if (socket && vote && storyId) {
+    // Emit the vote to the server
+    socket.emit('castVote', { vote, targetUserId: user.id, storyId });
+    
+    // Update local state
+    if (!votesPerStory[storyId]) {
+      votesPerStory[storyId] = {};
+    }
+    
+    votesPerStory[storyId][user.id] = vote;
+    window.currentVotesPerStory = votesPerStory;
+    
+    // IMPORTANT: Immediate UI update for user feedback
+    voteCard.classList.add('has-vote');
+    voteBadge.textContent = '👍'; // Always show thumbs up if not revealed
+    voteBadge.style.color = '#673ab7';
+    voteBadge.style.opacity = '1';
+    voteBadge.style.visibility = 'visible'; // Add this line to ensure visibility
+    voteBadge.style.display = 'block'; // Add this line to ensure it's displayed
+    
+    // Update avatar with explicit styling to ensure visibility
+    const avatarContainer = document.querySelector(`#user-circle-${user.id}`);
+    if (avatarContainer) {
+      avatarContainer.classList.add('has-voted');
       
-      // Skip for deleted stories
-      if (storyId && deletedStoryIds.has(storyId)) {
-        console.log(`[VOTE] Cannot cast vote for deleted story: ${storyId}`);
-        return;
+      const avatar = avatarContainer.querySelector('.avatar-circle');
+      if (avatar) {
+        avatar.style.backgroundColor = '#c1e1c1';
       }
-      
-      if (socket && vote && storyId) {
-        // Emit the vote to the server
-        socket.emit('castVote', { vote, targetUserId: user.id, storyId });
-        
-        // Update local state
-        if (!votesPerStory[storyId]) {
-          votesPerStory[storyId] = {};
-        }
-        
-        votesPerStory[storyId][user.id] = vote;
-        
-        // IMPORTANT: Immediate UI update for user feedback
-        voteCard.classList.add('has-vote');
-        voteBadge.textContent = '👍'; // Always show thumbs up if not revealed
+    }
+    
+    // Update sidebar with explicit styling
+    const sidebarBadge = document.querySelector(`#user-${user.id} .vote-badge`);
+    if (sidebarBadge) {
+      sidebarBadge.textContent = '👍';
+      sidebarBadge.style.color = '#673ab7';
+      sidebarBadge.style.opacity = '1';
+      sidebarBadge.style.visibility = 'visible'; // Add this line
+    }
+    
+    // Use a small delay to ensure the UI update persists even if something else tries to change it
+    setTimeout(() => {
+      // Re-apply the same changes to ensure visibility
+      voteCard.classList.add('has-vote');
+      if (voteBadge) {
+        voteBadge.textContent = '👍';
         voteBadge.style.color = '#673ab7';
         voteBadge.style.opacity = '1';
-        
-        // Update avatar
-        const avatarContainer = document.querySelector(`#user-circle-${user.id}`);
-        if (avatarContainer) {
-          avatarContainer.classList.add('has-voted');
-          
-          const avatar = avatarContainer.querySelector('.avatar-circle');
-          if (avatar) {
-            avatar.style.backgroundColor = '#c1e1c1';
-          }
-        }
-        
-        // Update sidebar
-        const sidebarBadge = document.querySelector(`#user-${user.id} .vote-badge`);
-        if (sidebarBadge) {
-          sidebarBadge.textContent = '👍';
-          sidebarBadge.style.color = '#673ab7';
-          sidebarBadge.style.opacity = '1';
-        }
-        
-        console.log(`[VOTE] Vote ${vote} cast, displayed as 👍`);
+        voteBadge.style.visibility = 'visible';
+        voteBadge.style.display = 'block';
       }
-    });
+    }, 100);
+    
+    console.log(`[VOTE] Vote ${vote} cast, displayed as 👍`);
+  }
+});
   } else {
     voteCard.addEventListener('dragover', (e) => {
       e.preventDefault();
