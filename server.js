@@ -382,6 +382,9 @@ if (existingVote !== vote) {
     
     // Broadcast updated vote stats to ensure correct counting
     // But only if we removed old votes or restored new ones
+    cleanupRoomVotes(roomId);
+    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+
     if (removedOldVotes || Object.keys(userVotes).length > 0 || changesDetected) {
       io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
     }
@@ -478,7 +481,9 @@ if (existingVote !== vote) {
     }
 
     // Clean up old socket IDs and restore votes for this user
-    restoreUserVotesToCurrentSocket(roomId, socket);
+        restoreUserVotesToCurrentSocket(roomId, socket);
+    cleanupRoomVotes(roomId);
+    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
     cleanupRoomVotes(roomId);
     io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
 
@@ -540,7 +545,10 @@ if (existingVote !== vote) {
         const changesDetected = cleanupRoomVotes(roomId);
         
         // Broadcast updated counts for statistics if needed
-        if (removedOldVotes || Object.keys(userVotes).length > 0 || changesDetected) {
+        cleanupRoomVotes(roomId);
+    io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
+
+    if (removedOldVotes || Object.keys(userVotes).length > 0 || changesDetected) {
           io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
         }
       }
