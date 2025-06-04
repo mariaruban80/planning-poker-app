@@ -127,6 +127,10 @@ function loadDeletedStoriesFromStorage(roomId) {
 
 
 function refreshVoteDisplay() {
+  if (!window.hasInitializedVotes) {
+    console.log('[DEBUG] Skipping vote display – initialization not complete');
+    return;
+  }
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
 
@@ -207,6 +211,7 @@ let votesRevealed = {};     // Track which stories have revealed votes { storyIn
 let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 let reconnectingInProgress = false; // Flag for reconnection logic
+window.hasInitializedVotes = false;
 
 // Adding this function to main.js to be called whenever votes are revealed
 function fixRevealedVoteFontSizes() {
@@ -520,6 +525,7 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
   }
 
+  window.hasInitializedVotes = true;
   refreshVoteDisplay();
 });
 
@@ -658,6 +664,7 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   }
 
   window.currentVotesPerStory = votesPerStory;
+  window.hasInitializedVotes = true;
   refreshVoteDisplay();
 });
 
@@ -773,9 +780,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   setTimeout(() => {
     socket.emit('requestFullStateResync');
 
-    // Re-apply stored votes
-    if (typeof getUserVotes === 'function') {
-      const userVotes = getUserVotes();
+    // ⚠️ Removed client-side vote replay to avoid duplication
+    // Votes will be restored by the server
+    /*
       for (const [storyId, vote] of Object.entries(userVotes)) {
         if (deletedStoryIds.has(storyId)) continue;
 
@@ -790,7 +797,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
       }
 
       refreshVoteDisplay();
-    }
+    }*/
   }, 500);
 });
 
