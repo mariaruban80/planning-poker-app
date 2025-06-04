@@ -726,38 +726,54 @@ socket.on('storyVotes', ({ storyId, votes }) => {
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
+socket.on('votesRevealed', ({ storyId }) => {
+  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
 
-  socket.on('votesRevealed', ({ storyId }) => {
-    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
-    
-    // Check if this story is deleted
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-      return;
+  // Skip if this story is deleted
+  if (deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
+    return;
+  }
+
+  votesRevealed[storyId] = true;
+
+  // ✅ Step 1: Normalize votes by userName
+  const rawVotes = votesPerStory[storyId] || {};
+  const userIdToNameMap = getUserIdToNameMap();
+  const normalizedVotes = {};
+
+  for (const [socketId, vote] of Object.entries(rawVotes)) {
+    const nameKey = userIdToNameMap[socketId] || socketId;
+    if (!normalizedVotes[nameKey]) {
+      normalizedVotes[nameKey] = vote;
     }
-    
-    votesRevealed[storyId] = true;
-    const votes = votesPerStory[storyId] || {};
-    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
+  }
 
-    // Show votes on cards
-    applyVotesToUI(votes, false);
+  // ✅ Step 2: Overwrite original vote set to eliminate duplicates
+  votesPerStory[storyId] = normalizedVotes;
+  window.currentVotesPerStory = votesPerStory;
 
-    // Show statistics
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-    statsContainer.className = 'vote-statistics-container';
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(createFixedVoteDisplay(votes));
-    if (planningCardsSection && planningCardsSection.parentNode) {
-      planningCardsSection.style.display = 'none';
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-      statsContainer.style.display = 'block';
-    }
+  // ✅ Step 3: Apply normalized votes to UI
+  applyVotesToUI(normalizedVotes, false);
 
-    // Fix font sizes
-    setTimeout(fixRevealedVoteFontSizes, 100);
-  });
+  // ✅ Step 4: Show statistics using normalized votes
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.innerHTML = '';
+  statsContainer.appendChild(createFixedVoteDisplay(normalizedVotes));
+
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.style.display = 'none';
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    statsContainer.style.display = 'block';
+  }
+
+  // ✅ Step 5: Fix vote font sizes
+  setTimeout(fixRevealedVoteFontSizes, 100);
+});
+
+
 
   socket.on('votesReset', ({ storyId }) => {
     // Skip processing for deleted stories
