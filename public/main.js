@@ -887,7 +887,7 @@ function initializeApp(roomId) {
     // Show votes on cards
     applyVotesToUI(votes, false);
 
-    
+    // Use forceCorrectVisibility instead
     // Fix font sizes
     setTimeout(fixRevealedVoteFontSizes, 100);
   });
@@ -907,7 +907,7 @@ function initializeApp(roomId) {
     persistRevealState(storyId, false);
     resetAllVoteVisuals();
     
-    
+    // Use forceCorrectVisibility instead
     });
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
@@ -3365,7 +3365,7 @@ function handleSocketMessage(message) {
     // Check if we've already revealed this story - IMPORTANT NEW CHECK
     if (votesRevealed[storyId] === true) {
       console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      
+      // Still call forceCorrectVisibility to ensure UI is correct
       return; // Skip the rest to avoid duplicate animations
     }
     
@@ -3650,3 +3650,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up the visibility checker
   setupVisibilityChecker();
 });
+
+
+// --- FIXED: Guest visibility + Reveal stats issue ---
+
+// Patch 1: Ensure guests see planning cards on story add
+function ensurePlanningCardsVisibleForGuests() {
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (isGuestUser() && planningCardsSection) {
+    planningCardsSection.style.display = 'block';
+  }
+}
+
+// Patch 2: Handle revealVotes event on guest side explicitly
+if (socket) {
+  socket.on('votesRevealed', ({ storyId }) => {
+    console.log('[GUEST FIX] Received votesRevealed for', storyId);
+    votesRevealed[storyId] = true;
+    const votes = votesPerStory[storyId] || {};
+    applyVotesToUI(votes, false); // show actual votes
+    handleVotesRevealed(storyId, votes); // ensure stats shown
+  });
+}
+
+// Patch 3: Host triggers UI sync for guests after adding ticket
+const originalAddTicketFromModal = window.addTicketFromModal;
+window.addTicketFromModal = function(ticketData) {
+  originalAddTicketFromModal(ticketData);
+  setTimeout(() => {
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId) {
+      socket.emit('requestStoryVotes', { storyId: currentStoryId });
+    }
+  }, 500);
+};
+
+// Patch 4: Add fallback to show stats if votes revealed and not displaying
+setInterval(() => {
+  const currentId = getCurrentStoryId();
+  const statsVisible = document.querySelector('.vote-statistics-container')?.style.display !== 'none';
+  if (currentId && votesRevealed[currentId] && !statsVisible) {
+    console.log('[FIX] Stats not visible but should be — forcing display');
+    handleVotesRevealed(currentId, votesPerStory[currentId] || {});
+  }
+}, 4000);
+
+// --- END PATCHES ---
