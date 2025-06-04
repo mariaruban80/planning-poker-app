@@ -144,7 +144,35 @@ function refreshVoteDisplay() {
     updateVoteBadges(storyId, votes);
   }
 }
+function getUniqueVotes(votes) {
+  const seenUsers = new Set();
+  const uniqueVotes = [];
 
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userName = getUserNameBySocketId(socketId) || socketId;
+    if (!seenUsers.has(userName)) {
+      seenUsers.add(userName);
+      uniqueVotes.push(vote);
+    }
+  }
+
+  return uniqueVotes;
+}
+
+function getUniqueVotes(votes) {
+  const seenUsers = new Set();
+  const uniqueVotes = [];
+
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userName = getUserNameBySocketId(socketId) || socketId;
+    if (!seenUsers.has(userName)) {
+      seenUsers.add(userName);
+      uniqueVotes.push(vote);
+    }
+  }
+
+  return uniqueVotes;
+}
 
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
@@ -496,6 +524,8 @@ function appendRoomIdToURL(roomId) {
   }
 }
 
+
+
 /**
  * Initialize the application
  */
@@ -507,18 +537,18 @@ function initializeApp(roomId) {
 });
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  // ✅ Skip if vote already exists and is identical
-  if (
-    votesPerStory[storyId] &&
-    votesPerStory[storyId][userId] === vote
-  ) {
-    console.log(`[SKIP] Duplicate vote update ignored for ${userId} on story ${storyId}`);
+  const userName = getUserNameBySocketId(userId); // you may need to track this mapping
+  const voteKey = `${storyId}:${userName || userId}`;
+
+  if (restoredVotesCache.has(voteKey)) {
+    console.log(`[SKIP] Duplicate visual for ${voteKey}`);
     return;
   }
+  restoredVotesCache.add(voteKey);
 
-  // Proceed to merge the vote
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
   votesPerStory[storyId][userId] = vote;
+
   window.currentVotesPerStory = votesPerStory;
 
   const currentId = getCurrentStoryId();
@@ -526,9 +556,10 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
   }
 
-  window.hasInitializedVotes = true;
   refreshVoteDisplay();
 });
+
+
 
   
   socket.on('storyVotes', ({ storyId, votes }) => {
@@ -1375,7 +1406,8 @@ function createVoteStatisticsDisplay(votes) {
   container.className = 'vote-statistics-display';
   
   // Calculate statistics
-  const voteValues = Object.values(votes);
+  //const voteValues = Object.values(votes);
+  const voteValues = getUniqueVotes(votes);
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
@@ -1435,25 +1467,26 @@ function createVoteStatisticsDisplay(votes) {
 
 // Helper function to find most common vote
 function findMostCommonVote(votes) {
-  const voteValues = Object.values(votes);
+  const uniqueVotes = getUniqueVotes(votes); // use deduplicated votes
   const counts = {};
-  
-  voteValues.forEach(vote => {
+
+  uniqueVotes.forEach(vote => {
     counts[vote] = (counts[vote] || 0) + 1;
   });
-  
+
   let maxCount = 0;
   let mostCommon = '';
-  
+
   for (const vote in counts) {
     if (counts[vote] > maxCount) {
       maxCount = counts[vote];
       mostCommon = vote;
     }
   }
-  
+
   return mostCommon;
 }
+
 
 // Helper to get color based on agreement percentage
 function getAgreementColor(percentage) {
