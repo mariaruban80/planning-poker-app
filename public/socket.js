@@ -136,7 +136,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     handleMessage({ type: 'connect' });
 
     // Apply any saved votes from session storage
-    restoreVotesFromStorage(roomIdentifier);
+    // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
   });
 
 
@@ -168,7 +168,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
         
         // Apply any saved votes from session storage (with a delay to ensure proper timing)
         setTimeout(() => {
-          restoreVotesFromStorage(roomIdentifier);
+          // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
         }, 500);
       }
     }, 500);
@@ -545,7 +545,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     // Also restore any additional user votes after a short delay
     // to ensure the UI is ready
     setTimeout(() => {
-        restoreVotesFromStorage(roomIdentifier);
+        // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
     }, 600);
   });
 
@@ -595,11 +595,14 @@ function loadStateFromSessionStorage(roomIdentifier) {
  * Restore votes from session storage to server and other clients
  */
 
+/*
 function restoreVotesFromStorage(roomIdentifier) {
   if (!socket || !socket.connected) return;
   
   try {
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}`);
+    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}
+// This function is now disabled to prevent duplicate vote restoration.
+*/`);
     if (votesData) {
       const savedVotes = JSON.parse(votesData);
       const validVotes = {};
@@ -908,7 +911,7 @@ export function reconnect() {
         
         // Restore votes
         setTimeout(() => {
-          restoreVotesFromStorage(roomId);
+          // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
         }, 500);
       }
     }, 1000);
@@ -955,7 +958,7 @@ export function requestFullStateResync() {
     
     // Also restore votes after a delay
     setTimeout(() => {
-      restoreVotesFromStorage(roomId);
+      // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
     }, 500);
   }
 }
