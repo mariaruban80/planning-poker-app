@@ -3676,4 +3676,16 @@ setInterval(() => {
   }
 }, 4000);
 
+function forceGuestPlanningCardVisibility() {
+  if (isGuestUser()) {
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+      console.log('[FIX] Forced planning cards visible for guest after CSV load');
+    }
+  }
+}
+
+setTimeout(forceGuestPlanningCardVisibility, 1500);
+
 // --- END PATCHES ---
