@@ -596,7 +596,9 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
   // ✅ Ensure the vote is stored under this user's socket.id
-  votesPerStory[storyId][socket.id] = vote;
+ // votesPerStory[storyId][socket.id] = vote;
+  const userNameKey = userName || socket.id;
+  votesPerStory[storyId][userNameKey] = vote;
   window.currentVotesPerStory = votesPerStory;
 
   const currentStoryId = getCurrentStoryId();
@@ -679,7 +681,9 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
       if (deletedStoryIds.has(storyId)) continue;
 
       if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-      votesPerStory[storyId][socket.id] = vote;
+      //votesPerStory[storyId][socket.id] = vote;
+      const userNameKey = userName || socket.id;
+      votesPerStory[storyId][userNameKey] = vote;
 
       const currentId = getCurrentStoryId();
       if (storyId === currentId) {
@@ -806,25 +810,6 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   socket.emit('requestCurrentStory');
   setTimeout(() => {
     socket.emit('requestFullStateResync');
-
-    // ⚠️ Removed client-side vote replay to avoid duplication
-    // Votes will be restored by the server
-    /*
-      for (const [storyId, vote] of Object.entries(userVotes)) {
-        if (deletedStoryIds.has(storyId)) continue;
-
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-        votesPerStory[storyId][socket.id] = vote;
-        window.currentVotesPerStory = votesPerStory;
-
-        const currentId = getCurrentStoryId();
-        if (storyId === currentId) {
-          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-        }
-      }
-
-      refreshVoteDisplay();
-    }*/
   }, 500);
 });
 
