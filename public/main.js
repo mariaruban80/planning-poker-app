@@ -102,12 +102,6 @@ function updateUIVisibilityState(storyId, forceState = null) {
     }
 }
 
-/**
- * Ensure planning cards are visible for guests when stories are added
- */
-
-}
-
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
 // Flag to track manually added tickets that need to be preserved
