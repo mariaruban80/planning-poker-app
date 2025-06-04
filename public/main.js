@@ -22,6 +22,14 @@ function forceCorrectVisibility(storyId) {
   
   if (!planningCardsSection || !statsContainer) return;
   
+  // If no storyId provided or it's a brand new session, default to showing planning cards
+  if (!storyId || (!votesPerStory[storyId] && !votesRevealed[storyId])) {
+    planningCardsSection.style.cssText = 'display: block !important';
+    statsContainer.style.cssText = 'display: none !important';
+    console.log('[FIX] Forced planning cards visible (no story ID or votes)');
+    return;
+  }
+  
   // Determine if votes are revealed
   const isRevealed = storyId && votesRevealed[storyId] === true;
   
@@ -404,6 +412,16 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     const currentId = getCurrentStoryId();
     forceCorrectVisibility(currentId);
+    
+    // Extra check for host visibility
+    if (isCurrentUserHost()) {
+      const planningCardsSection = document.querySelector('.planning-cards-section');
+      if (planningCardsSection && planningCardsSection.style.display === 'none' && 
+          (!currentId || !votesRevealed[currentId])) {
+        planningCardsSection.style.display = 'block';
+        console.log('[FIX] Forced planning cards visible for host after initialization');
+      }
+    }
   }, 1000);
   
   // Set up the visibility checker
@@ -714,6 +732,23 @@ function initializeApp(roomId) {
   socket.on('userList', users => {
     window.latestUserList = users;
   });
+
+  // Ensure planning cards are initially visible for hosts
+  if (isCurrentUserHost()) {
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.style.display = 'block';
+    }
+    
+    // Give time for everything to initialize, then check current story
+    setTimeout(() => {
+      const currentId = getCurrentStoryId();
+      // Only force different visibility if votes are actually revealed
+      if (currentId && votesRevealed[currentId] === true) {
+        forceCorrectVisibility(currentId);
+      }
+    }, 300);
+  }
 
   socket.on('voteUpdate', ({ userId, vote, storyId }) => {
     // ✅ Skip if vote already exists and is identical
@@ -1676,7 +1711,7 @@ function findMostCommonVote(votes) {
   
   voteValues.forEach(vote => {
     counts[vote] = (counts[vote] || 0) + 1;
-  });
+      });
   
   let maxCount = 0;
   let mostCommon = '';
@@ -3371,12 +3406,12 @@ function handleSocketMessage(message) {
           delete votesPerStory[message.storyId];
           console.log(`[SOCKET] Removed votes for deleted story ${message.storyId}`);
         }
-        if (votesRevealed[message.storyId]) {
+               if (votesRevealed[message.storyId]) {
           delete votesRevealed[message.storyId];
         }
       }
       break;
-          case 'votesRevealed':
+    case 'votesRevealed':
       console.log('[DEBUG] Received votesRevealed event', message);
       
       // Skip processing for deleted story
@@ -3622,6 +3657,15 @@ function handleSocketMessage(message) {
       setTimeout(() => {
         const currentId = getCurrentStoryId();
         forceCorrectVisibility(currentId);
+        
+        // Explicitly check for host and ensure planning cards are visible if needed
+        if (isCurrentUserHost() && currentId && (!votesRevealed[currentId] || !votesPerStory[currentId])) {
+          const planningCardsSection = document.querySelector('.planning-cards-section');
+          if (planningCardsSection && planningCardsSection.style.display === 'none') {
+            planningCardsSection.style.display = 'block';
+            console.log('[FIX] Forced planning cards visible for host after reconnection');
+          }
+        }
       }, 2000);
       break;
       
@@ -3661,11 +3705,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     const currentId = getCurrentStoryId();
     forceCorrectVisibility(currentId);
+    
+    // Extra check for host visibility
+    if (isCurrentUserHost()) {
+      const planningCardsSection = document.querySelector('.planning-cards-section');
+      if (planningCardsSection && planningCardsSection.style.display === 'none' && 
+         (!currentId || !votesRevealed[currentId])) {
+        planningCardsSection.style.display = 'block';
+        console.log('[FIX] Forced planning cards visible for host after initialization');
+      }
+    }
   }, 1000);
   
   // Set up the visibility checker
   setupVisibilityChecker();
 });
- 
-
-
