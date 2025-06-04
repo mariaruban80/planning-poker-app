@@ -13,7 +13,7 @@ let processingCSVData = false;
 // Import socket functionality
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
 
-// Add this function to force the correct visibility state
+
 function forceCorrectVisibility(storyId) {
   console.log(`[FIX] Forcing correct visibility for story ${storyId}`);
   
@@ -33,26 +33,34 @@ function forceCorrectVisibility(storyId) {
   // Determine if votes are revealed
   const isRevealed = storyId && votesRevealed[storyId] === true;
   
+  console.log(`[FIX] Story ${storyId} revealed state: ${isRevealed}`);
+  
   // Set display properties directly with !important flag
   if (isRevealed) {
     // If votes are revealed, show stats and hide planning cards
-    planningCardsSection.style.cssText = 'display: none !important';
-    statsContainer.style.cssText = 'display: block !important';
+    planningCardsSection.style.cssText = 'display: none !important; visibility: hidden !important;';
+    statsContainer.style.cssText = 'display: block !important; visibility: visible !important;';
     
-    // Ensure stats has content
+    // Ensure stats has content - this is the key part that needs fixing
     if (storyId && votesPerStory[storyId]) {
       // Clear and update the stats container
       statsContainer.innerHTML = '';
       addFixedVoteStatisticsStyles();
-      statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
+      const statsDisplay = createFixedVoteDisplay(votesPerStory[storyId]);
+      statsContainer.appendChild(statsDisplay);
+      
+      // Double-check visibility after content is added
+      statsContainer.style.cssText = 'display: block !important; visibility: visible !important;';
+      planningCardsSection.style.cssText = 'display: none !important; visibility: hidden !important;';
+      
       setTimeout(fixRevealedVoteFontSizes, 50);
     }
     
     console.log('[FIX] Forced stats visible, planning cards hidden');
   } else {
     // If votes are not revealed, show planning cards and hide stats
-    statsContainer.style.cssText = 'display: none !important';
-    planningCardsSection.style.cssText = 'display: block !important';
+    statsContainer.style.cssText = 'display: none !important; visibility: hidden !important;';
+    planningCardsSection.style.cssText = 'display: block !important; visibility: visible !important;';
     console.log('[FIX] Forced planning cards visible, stats hidden');
   }
 }
@@ -2696,8 +2704,6 @@ revealBtn.onclick = () => {
   
   if (socket && storyId) {
     console.log('[UI] Revealing votes for story:', storyId);
-    // Send the storyId parameter with the event
-    socket.emit('revealVotes', { storyId });
     
     // Update local state
     votesRevealed[storyId] = true;
@@ -2707,23 +2713,16 @@ revealBtn.onclick = () => {
     if (votesPerStory[storyId]) {
       applyVotesToUI(votesPerStory[storyId], false);
       
-      // IMPORTANT: Explicitly make the transition to stats view
+      // Force correct visibility immediately and then again after delay
+      forceCorrectVisibility(storyId);
+      
       setTimeout(() => {
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        const statsContainer = document.querySelector('.vote-statistics-container');
-        
-        if (planningCardsSection) planningCardsSection.style.cssText = 'display: none !important';
-        if (statsContainer) {
-          // Clear and regenerate stats
-          statsContainer.innerHTML = '';
-          addFixedVoteStatisticsStyles();
-          statsContainer.appendChild(createFixedVoteDisplay(votesPerStory[storyId]));
-          statsContainer.style.cssText = 'display: block !important';
-        }
-        
-        console.log('[FIX] Explicitly forced stats visible after host clicked reveal');
-      }, 100);
+        forceCorrectVisibility(storyId);
+      }, 200);
     }
+    
+    // Send the storyId parameter with the event
+    socket.emit('revealVotes', { storyId });
   } else {
     console.warn('[UI] Cannot reveal votes: No story selected');
   }
@@ -3449,6 +3448,14 @@ function handleSocketMessage(message) {
   const storyId = message.storyId;
   
   if (storyId) {
+    // Check if we've already revealed this story - IMPORTANT NEW CHECK
+    if (votesRevealed[storyId] === true) {
+      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
+      // Still call forceCorrectVisibility to ensure UI is correct
+      forceCorrectVisibility(storyId);
+      return; // Skip the rest to avoid duplicate animations
+    }
+    
     // Store the revealed state
     votesRevealed[storyId] = true;
     persistRevealState(storyId, true);
@@ -3461,25 +3468,13 @@ function handleSocketMessage(message) {
     // This is where we display the actual vote values
     applyVotesToUI(votes, false);
     
-    // IMPORTANT: Force correct visibility with slight delay to ensure DOM updates
+    // Force correct visibility immediately
+    forceCorrectVisibility(storyId);
+    
+    // Also force it again after a short delay to handle any race conditions
     setTimeout(() => {
-      // Explicitly hide planning cards and show stats
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      const statsContainer = document.querySelector('.vote-statistics-container');
-      
-      if (planningCardsSection) planningCardsSection.style.cssText = 'display: none !important';
-      if (statsContainer) {
-        statsContainer.innerHTML = ''; // Clear existing content
-        addFixedVoteStatisticsStyles();
-        statsContainer.appendChild(createFixedVoteDisplay(votes));
-        statsContainer.style.cssText = 'display: block !important';
-      }
-      
-      console.log('[FIX] Explicitly forced stats visible after vote reveal');
-      
-      // Fix font sizes
-      setTimeout(fixRevealedVoteFontSizes, 50);
-    }, 100);
+      forceCorrectVisibility(storyId);
+    }, 200);
     
     // Trigger emoji burst for fun effect - ONLY ONCE
     triggerGlobalEmojiBurst();
