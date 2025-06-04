@@ -14,56 +14,7 @@ let processingCSVData = false;
 import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
 
 
-function forceCorrectVisibility(storyId) {
-  console.log(`[FIX] Forcing correct visibility for story ${storyId}`);
-  
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const statsContainer = document.querySelector('.vote-statistics-container');
-  
-  if (!planningCardsSection || !statsContainer) return;
-  
-  // If no storyId provided or it's a brand new session, default to showing planning cards
-  if (!storyId || (!votesPerStory[storyId] && !votesRevealed[storyId])) {
-    planningCardsSection.style.cssText = 'display: block !important';
-    statsContainer.style.cssText = 'display: none !important';
-    console.log('[FIX] Forced planning cards visible (no story ID or votes)');
-    return;
-  }
-  
-  // Determine if votes are revealed
-  const isRevealed = storyId && votesRevealed[storyId] === true;
-  
-  console.log(`[FIX] Story ${storyId} revealed state: ${isRevealed}`);
-  
-  // Set display properties directly with !important flag
-  if (isRevealed) {
-    // If votes are revealed, show stats and hide planning cards
-    planningCardsSection.style.cssText = 'display: none !important; visibility: hidden !important;';
-    statsContainer.style.cssText = 'display: block !important; visibility: visible !important;';
-    
-    // Ensure stats has content - this is the key part that needs fixing
-    if (storyId && votesPerStory[storyId]) {
-      // Clear and update the stats container
-      statsContainer.innerHTML = '';
-      addFixedVoteStatisticsStyles();
-      const statsDisplay = createFixedVoteDisplay(votesPerStory[storyId]);
-      statsContainer.appendChild(statsDisplay);
-      
-      // Double-check visibility after content is added
-      statsContainer.style.cssText = 'display: block !important; visibility: visible !important;';
-      planningCardsSection.style.cssText = 'display: none !important; visibility: hidden !important;';
-      
-      setTimeout(fixRevealedVoteFontSizes, 50);
-    }
-    
-    console.log('[FIX] Forced stats visible, planning cards hidden');
-  } else {
-    // If votes are not revealed, show planning cards and hide stats
-    statsContainer.style.cssText = 'display: none !important; visibility: hidden !important;';
-    planningCardsSection.style.cssText = 'display: block !important; visibility: visible !important;';
-    console.log('[FIX] Forced planning cards visible, stats hidden');
-  }
-}
+
 
 // Add this function to periodically check and fix visibility issues
 function setupVisibilityChecker() {
@@ -83,8 +34,7 @@ function setupVisibilityChecker() {
       // If both are visible or both are hidden, we have an issue
       if ((statsVisible && cardsVisible) || (!statsVisible && !cardsVisible)) {
         console.log('[CHECKER] Found visibility issue, fixing...');
-        forceCorrectVisibility(currentId);
-      }
+        }
     }
   }, 5000);
 }
@@ -144,15 +94,12 @@ function updateUIVisibilityState(storyId, forceState = null) {
   if (forceState === 'stats') {
     // Force stats to be visible
     votesRevealed[storyId] = true;
-    forceCorrectVisibility(storyId);
-  } else if (forceState === 'cards') {
+    } else if (forceState === 'cards') {
     // Force cards to be visible
     if (storyId) votesRevealed[storyId] = false;
-    forceCorrectVisibility(storyId);
-  } else {
+    } else {
     // Use current state
-    forceCorrectVisibility(storyId);
-  }
+    }
 }
 
 /**
@@ -308,8 +255,6 @@ window.initializeSocketWithName = function(roomId, name) {
       
       // Update state and UI using force correct visibility
       votesRevealed[currentId] = isRevealed;
-      forceCorrectVisibility(currentId);
-      
       // Request votes for this story
       if (socket && socket.connected) {
         socket.emit('requestStoryVotes', { storyId: currentId });
@@ -317,8 +262,7 @@ window.initializeSocketWithName = function(roomId, name) {
       }
     } else {
       // No current story, just ensure planning cards
-      forceCorrectVisibility(null);
-    }
+      }
   }, 800); // Slightly longer delay to ensure DOM stability
   
   // Set up the visibility checker
@@ -419,8 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add a final check to ensure correct visibility
   setTimeout(() => {
     const currentId = getCurrentStoryId();
-    forceCorrectVisibility(currentId);
-    
     // Extra check for host visibility
     if (isCurrentUserHost()) {
       const planningCardsSection = document.querySelector('.planning-cards-section');
@@ -753,8 +695,7 @@ function initializeApp(roomId) {
       const currentId = getCurrentStoryId();
       // Only force different visibility if votes are actually revealed
       if (currentId && votesRevealed[currentId] === true) {
-        forceCorrectVisibility(currentId);
-      }
+        }
     }, 300);
   }
 
@@ -905,8 +846,7 @@ function initializeApp(roomId) {
     
     // Ensure correct visibility
     const currentId = getCurrentStoryId();
-    forceCorrectVisibility(currentId);
-  });
+    });
 
   // Updated deleteStory event handler to track deletions locally
   socket.on('deleteStory', ({ storyId }) => {
@@ -947,9 +887,7 @@ function initializeApp(roomId) {
     // Show votes on cards
     applyVotesToUI(votes, false);
 
-    // Use forceCorrectVisibility instead
-    forceCorrectVisibility(storyId);
-
+    
     // Fix font sizes
     setTimeout(fixRevealedVoteFontSizes, 100);
   });
@@ -969,9 +907,8 @@ function initializeApp(roomId) {
     persistRevealState(storyId, false);
     resetAllVoteVisuals();
     
-    // Use forceCorrectVisibility instead
-    forceCorrectVisibility(storyId);
-  });
+    
+    });
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
     console.log('[SOCKET] storySelected received:', storyIndex, storyId);
@@ -995,8 +932,7 @@ function initializeApp(roomId) {
     selectStory(storyIndex, false);
     
     // Force the correct visibility after selection
-    forceCorrectVisibility(storyId);
-  });
+    });
 
   // Add reconnection handlers for socket
   if (socket) {
@@ -1034,21 +970,17 @@ function initializeApp(roomId) {
           votesRevealed[currentId] = isRevealed;
           
           // Force correct visibility
-          forceCorrectVisibility(currentId);
-          
           // Request votes for this story
           socket.emit('requestStoryVotes', { storyId: currentId });
         } else {
           // No current story, explicitly force planning cards
-          forceCorrectVisibility(null);
-        }
+          }
       }, 500);
       
       // Double check visibility after everything is loaded
       setTimeout(() => {
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-      }, 2000);
+        }, 2000);
     });
   }
   
@@ -1075,8 +1007,6 @@ function initializeApp(roomId) {
   
   const storyId = getCurrentStoryId();
   // Force correct visibility for initial UI state
-  forceCorrectVisibility(storyId);
-
   setupRevealResetButtons();
   setupAddTicketButton();
   setupGuestModeRestrictions(); // Add guest mode restrictions
@@ -1104,12 +1034,10 @@ function initializeApp(roomId) {
       }
     } else {
       // Force planning cards visibility
-      forceCorrectVisibility(currentId);
-    }
+      }
   } else {
     // No current story selected yet
-    forceCorrectVisibility(null);
-  }
+    }
 
   setupStoryCardInteractions();
   
@@ -1786,9 +1714,20 @@ function handleVotesRevealed(storyId, votes) {
     console.log('[FIX] Explicitly set stats container to display:block in handleVotesRevealed');
   }
   
+  
   // Make sure the font sizes are correct
   setTimeout(fixRevealedVoteFontSizes, 100);
   setTimeout(fixRevealedVoteFontSizes, 300);
+
+  // Force stats container to be visible (host fix)
+  setTimeout(() => {
+    const statsContainer = document.querySelector('.vote-statistics-container');
+    if (statsContainer) {
+      statsContainer.style.display = 'block';
+      statsContainer.style.visibility = 'visible';
+    }
+  }, 200);
+
 }
 
 /**
@@ -1828,8 +1767,7 @@ function setupAddTicketButton() {
         
         // Ensure correct visibility
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-      }
+        }
     }
   });
 }
@@ -1933,8 +1871,7 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
   
   // Force correct visibility after adding ticket
   const currentId = getCurrentStoryId();
-  forceCorrectVisibility(currentId);
-}
+  }
 
 /**
  * Set up a mutation observer to catch any newly added story cards
@@ -1960,8 +1897,7 @@ function setupStoryCardObserver() {
       
       // Force correct visibility after DOM changes
       const currentId = getCurrentStoryId();
-      forceCorrectVisibility(currentId);
-    }
+      }
   });
   
   // Start observing
@@ -1994,8 +1930,7 @@ function applyGuestRestrictions() {
   
   // Force correct visibility after applying restrictions
   const currentId = getCurrentStoryId();
-  forceCorrectVisibility(currentId);
-}
+  }
 
 /**
  * Process multiple tickets at once (used when receiving all tickets from server)
@@ -2028,8 +1963,7 @@ function processAllTickets(tickets) {
     
     // Force correct visibility after processing tickets
     const currentId = getCurrentStoryId();
-    forceCorrectVisibility(currentId);
-  }
+    }
 
   if (isGuestUser()) {
     applyGuestRestrictions();
@@ -2074,8 +2008,7 @@ function setupRevealResetButtons() {
         resetAllVoteVisuals();
         
         // Force planning cards visibility after reset
-        forceCorrectVisibility(storyId);
-      }
+        }
     });
   }
 }
@@ -2149,8 +2082,7 @@ function setupCSVUploader() {
       
       // Force correct visibility after CSV upload
       const currentId = getCurrentStoryId();
-      forceCorrectVisibility(currentId);
-    };
+      };
     reader.readAsText(file);
   });
 }
@@ -2364,8 +2296,6 @@ function displayCSVData(data) {
     
     const currentId = getCurrentStoryId();
     // Force correct visibility
-    forceCorrectVisibility(currentId);
-
     setupStoryCardInteractions();
     
     // Always release the processing flag
@@ -2410,8 +2340,6 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         }
 
         // Force correct visibility
-        forceCorrectVisibility(storyId);
-
         renderCurrentStory();
 
         // Reset or restore vote badges for the current story
@@ -2466,8 +2394,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                             resetOrRestoreVotes(storyId);
                             
                             // Force correct visibility
-                            forceCorrectVisibility(storyId);
-                        }
+                            }
                     }
                 });
 
@@ -2517,16 +2444,14 @@ function resetOrRestoreVotes(storyId) {
     applyVotesToUI(votesPerStory[storyId], false);
     
     // Force correct visibility
-    forceCorrectVisibility(storyId);
-  } else {
+    } else {
     // If we have votes but they're not revealed, still show that people voted (with thumbs up)
     if (votesPerStory[storyId]) {
       applyVotesToUI(votesPerStory[storyId], true);
     }
     
     // Force planning cards visibility
-    forceCorrectVisibility(storyId);
-  }
+    }
 }
 
 /**
@@ -2714,11 +2639,8 @@ revealBtn.onclick = () => {
       applyVotesToUI(votesPerStory[storyId], false);
       
       // Force correct visibility immediately and then again after delay
-      forceCorrectVisibility(storyId);
-      
       setTimeout(() => {
-        forceCorrectVisibility(storyId);
-      }, 200);
+        }, 200);
     }
     
     // Send the storyId parameter with the event
@@ -2786,8 +2708,7 @@ revealBtn.onclick = () => {
     applyVotesToUI(votes, !reveal);
     
     // Force correct visibility
-    forceCorrectVisibility(storyId);
-  }
+    }
   
   // Request the latest votes for current story to ensure we're in sync
   if (storyId && socket && socket.connected) {
@@ -3041,8 +2962,7 @@ function setupStoryNavigation() {
     
     // Force correct visibility after navigation
     const storyId = getCurrentStoryId();
-    forceCorrectVisibility(storyId);
-  });
+    });
 
   newPrevButton.addEventListener('click', () => {
     const cards = getOrderedCards();
@@ -3056,8 +2976,7 @@ function setupStoryNavigation() {
     
     // Force correct visibility after navigation
     const storyId = getCurrentStoryId();
-    forceCorrectVisibility(storyId);
-  });
+    });
 }
 
 /**
@@ -3119,8 +3038,7 @@ function setupStoryCardInteractions() {
   
   // Force correct visibility after setup
   const currentId = getCurrentStoryId();
-  forceCorrectVisibility(currentId);
-}
+  }
 
 /**
  * Generate avatar URL
@@ -3227,8 +3145,7 @@ function handleSocketMessage(message) {
         
         // Force correct visibility after adding ticket
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-      }
+        }
       break;
       
     case 'votingSystemUpdate':
@@ -3296,7 +3213,6 @@ function handleSocketMessage(message) {
       
       // Force correct visibility after state update
       const currentId = getCurrentStoryId();
-      forceCorrectVisibility(currentId);
       break;
 
     case 'restoreUserVote':
@@ -3344,8 +3260,7 @@ function handleSocketMessage(message) {
         
         // Force correct visibility after processing tickets
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-      }
+        }
       break;
       
     case 'userJoined':
@@ -3417,8 +3332,7 @@ function handleSocketMessage(message) {
               
               // Force correct visibility after selection
               const currentId = getCurrentStoryId();
-              forceCorrectVisibility(currentId);
-            }
+              }
           }
           // Update card interactions after DOM changes
           setupStoryCardInteractions();
@@ -3451,8 +3365,7 @@ function handleSocketMessage(message) {
     // Check if we've already revealed this story - IMPORTANT NEW CHECK
     if (votesRevealed[storyId] === true) {
       console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      // Still call forceCorrectVisibility to ensure UI is correct
-      forceCorrectVisibility(storyId);
+      
       return; // Skip the rest to avoid duplicate animations
     }
     
@@ -3469,12 +3382,9 @@ function handleSocketMessage(message) {
     applyVotesToUI(votes, false);
     
     // Force correct visibility immediately
-    forceCorrectVisibility(storyId);
-    
     // Also force it again after a short delay to handle any race conditions
     setTimeout(() => {
-      forceCorrectVisibility(storyId);
-    }, 200);
+      }, 200);
     
     // Trigger emoji burst for fun effect - ONLY ONCE
     triggerGlobalEmojiBurst();
@@ -3505,8 +3415,7 @@ function handleSocketMessage(message) {
           resetAllVoteVisuals();
           
           // Force planning cards visibility
-          forceCorrectVisibility(currentId);
-        }
+          }
       }
       break;
 
@@ -3528,8 +3437,7 @@ function handleSocketMessage(message) {
         
         // Force correct visibility after story selection
         const storyId = getCurrentStoryId();
-        forceCorrectVisibility(storyId);
-      }
+        }
       break;
 
     case 'storyVotes':
@@ -3561,13 +3469,11 @@ function handleSocketMessage(message) {
             applyVotesToUI(message.votes, false);
             
             // Force stats visibility
-            forceCorrectVisibility(message.storyId);
-          } else {
+            } else {
             applyVotesToUI(message.votes, true);
             
             // Force planning cards visibility
-            forceCorrectVisibility(message.storyId);
-          }
+            }
         }
       }
       break;
@@ -3615,8 +3521,7 @@ function handleSocketMessage(message) {
         
         // Force correct visibility after CSV sync
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-      }
+        }
       break;
 
     case 'connect':
@@ -3675,21 +3580,16 @@ function handleSocketMessage(message) {
           votesRevealed[currentId] = isRevealed;
           
           // Force correct visibility
-          forceCorrectVisibility(currentId);
-          
           // Request votes for this story
           socket.emit('requestStoryVotes', { storyId: currentId });
         } else {
           // No current story, explicitly force planning cards
-          forceCorrectVisibility(null);
-        }
+          }
       }, 500);
       
       // Double check visibility after everything is loaded
       setTimeout(() => {
         const currentId = getCurrentStoryId();
-        forceCorrectVisibility(currentId);
-        
         // Explicitly check for host and ensure planning cards are visible if needed
         if (isCurrentUserHost() && currentId && (!votesRevealed[currentId] || !votesPerStory[currentId])) {
           const planningCardsSection = document.querySelector('.planning-cards-section');
@@ -3736,8 +3636,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add a final check to ensure correct visibility
   setTimeout(() => {
     const currentId = getCurrentStoryId();
-    forceCorrectVisibility(currentId);
-    
     // Extra check for host visibility
     if (isCurrentUserHost()) {
       const planningCardsSection = document.querySelector('.planning-cards-section');
