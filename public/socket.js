@@ -596,23 +596,8 @@ function loadStateFromSessionStorage(roomIdentifier) {
  */
 
 /*
-function restoreVotesFromStorage(roomIdentifier) {
-  if (!socket || !socket.connected) return;
-  
-  try {
-    const votesData = sessionStorage.getItem(`votes_${roomIdentifier}
-// This function is now disabled to prevent duplicate vote restoration.
-*/`);
-    if (votesData) {
-      const savedVotes = JSON.parse(votesData);
-      const validVotes = {};
-      
-      // First collect all valid votes (not deleted stories)
-      for (const [storyId, vote] of Object.entries(savedVotes)) {
-        if (!lastKnownRoomState.deletedStoryIds.includes(storyId)) {
-          validVotes[storyId] = vote;
-        }
-      }
+// restoreVotesFromStorage function has been fully removed to prevent duplicate vote restoration.
+*/
       
       // Then emit them all at once if possible, or in sequence with short delay
       if (Object.keys(validVotes).length > 0) {
