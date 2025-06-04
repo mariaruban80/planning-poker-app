@@ -314,6 +314,13 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   });
 
   socket.on('storyVotes', ({ storyId, votes }) => {
+    const existingVotes = lastKnownRoomState.votesPerStory?.[storyId] || {};
+const isSame = Object.entries(votes).every(([uid, v]) => existingVotes[uid] === v);
+if (isSame) {
+  console.log(`[SOCKET] Skipping storyVotes update for ${storyId} - no change`);
+  return;
+}
+
     // Check if we should ignore this because the story is deleted
     if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
       console.log(`[SOCKET] Ignoring votes for deleted story: ${storyId}`);
@@ -333,6 +340,10 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
   // New handler for restoring user votes
   socket.on('restoreUserVote', ({ storyId, vote }) => {
     // Check if we should ignore this because the story is deleted
+    if (lastKnownRoomState.userVotes?.[storyId] === vote) {
+  console.log(`[SOCKET] Skipping redundant restore for ${storyId} = ${vote}`);
+  return;
+}
     if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
       console.log(`[SOCKET] Ignoring vote restoration for deleted story: ${storyId}`);
       return;
@@ -364,6 +375,10 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 
   socket.on('votesRevealed', ({ storyId }) => {
     // Check if we should ignore this because the story is deleted
+    if (lastKnownRoomState.votesRevealed?.[storyId]) {
+  console.log(`[SOCKET] Skipping votesRevealed - already applied for ${storyId}`);
+  return;
+}
     if (lastKnownRoomState.deletedStoryIds.includes(storyId)) {
       console.log(`[SOCKET] Ignoring vote reveal for deleted story: ${storyId}`);
       return;
@@ -430,7 +445,7 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
       // Update sessionStorage
       try {
         const votesData = JSON.stringify(lastKnownRoomState.userVotes);
-       // sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
+      // sessionStorage.setItem(`votes_${roomIdentifier}`, votesData);
       } catch (err) {
         console.warn('[SOCKET] Could not update session storage after vote reset:', err);
       }
