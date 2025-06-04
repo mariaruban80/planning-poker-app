@@ -591,41 +591,6 @@ function loadStateFromSessionStorage(roomIdentifier) {
   }
 }
 
-/**
- * Restore votes from session storage to server and other clients
- */
-
-/*
-// restoreVotesFromStorage function has been fully removed to prevent duplicate vote restoration.
-*/
-      
-      // Then emit them all at once if possible, or in sequence with short delay
-      if (Object.keys(validVotes).length > 0) {
-        console.log(`[SOCKET] Restoring ${Object.keys(validVotes).length} votes from storage`);
-        
-        // Option 1: Emit a bulk restore event if your server supports it
-        if (socket.connected) {
-          socket.emit('restoreMultipleUserVotes', { 
-            votes: validVotes, 
-            userName: userName 
-          });
-        }
-        
-        // Option 2: If bulk restore not implemented, use a sequence with delay
-        let delay = 0;
-        for (const [storyId, vote] of Object.entries(validVotes)) {
-          setTimeout(() => {
-            if (socket.connected) {
-              socket.emit('restoreUserVoteByUsername', { 
-                storyId, 
-                vote, 
-                userName: userName
-              });
-            }
-          }, delay);
-          delay += 50; // Small staggered delay to reduce UI thrashing
-        }
-      }  
 
 
 /**
