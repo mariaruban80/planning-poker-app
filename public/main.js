@@ -144,6 +144,11 @@ function refreshVoteDisplay() {
     updateVoteBadges(storyId, votes);
   }
 }
+function getUserNameBySocketId(socketId) {
+  const list = window.latestUserList || [];
+  const match = list.find(u => u.id === socketId);
+  return match ? match.name : null;
+}
 function getUniqueVotes(votes) {
   const seenUsers = new Set();
   const uniqueVotes = [];
@@ -158,22 +163,6 @@ function getUniqueVotes(votes) {
 
   return uniqueVotes;
 }
-
-function getUniqueVotes(votes) {
-  const seenUsers = new Set();
-  const uniqueVotes = [];
-
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userName = getUserNameBySocketId(socketId) || socketId;
-    if (!seenUsers.has(userName)) {
-      seenUsers.add(userName);
-      uniqueVotes.push(vote);
-    }
-  }
-
-  return uniqueVotes;
-}
-
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
   const voteCount = Object.keys(votes).length;
