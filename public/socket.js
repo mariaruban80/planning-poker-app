@@ -625,12 +625,8 @@ function loadStateFromSessionStorage(roomIdentifier) {
           }, delay);
           delay += 50; // Small staggered delay to reduce UI thrashing
         }
-      }
-    }
-  } catch (err) {
-    console.warn('[SOCKET] Error restoring votes from storage:', err);
-  }
-}
+      }  
+
 
 /**
  * Delete a story and sync with other users
