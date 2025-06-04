@@ -536,7 +536,9 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   restoredVotesCache.add(voteKey);
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  votesPerStory[storyId][userId] = vote;
+ // votesPerStory[storyId][userId] = vote;
+  const nameKey = getUserNameBySocketId(userId) || userId;
+  votesPerStory[storyId][nameKey] = vote;
 
   window.currentVotesPerStory = votesPerStory;
 
