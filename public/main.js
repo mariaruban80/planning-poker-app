@@ -212,6 +212,7 @@ let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 let reconnectingInProgress = false; // Flag for reconnection logic
 window.hasInitializedVotes = false;
+const restoredVotesCache = new Set();
 
 // Adding this function to main.js to be called whenever votes are revealed
 function fixRevealedVoteFontSizes() {
@@ -561,6 +562,12 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   
   // Updated handler for restored user votes
 socket.on('restoreUserVote', ({ storyId, vote }) => {
+  const voteKey = `${storyId}:${socket.id}`;
+  if (restoredVotesCache.has(voteKey)) {
+    console.log(`[SKIP] Already restored vote for ${voteKey}`);
+    return;
+  }
+  restoredVotesCache.add(voteKey);
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
