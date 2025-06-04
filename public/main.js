@@ -105,19 +105,7 @@ function updateUIVisibilityState(storyId, forceState = null) {
 /**
  * Ensure planning cards are visible for guests when stories are added
  */
-function ensurePlanningCardsVisibleForGuests() {
-  if (!isGuestUser()) return;
-  
-  const storyList = document.getElementById('storyList');
-  if (storyList && storyList.children.length > 0) {
-    const currentStoryId = getCurrentStoryId();
-    
-    // Check if votes are revealed for current story
-    const isRevealed = currentStoryId && votesRevealed[currentStoryId] === true;
-    
-    // Use the centralized function with appropriate state
-    updateUIVisibilityState(currentStoryId, isRevealed ? 'stats' : 'cards');
-  }
+
 }
 
 // Track deleted stories client-side
@@ -3650,7 +3638,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up the visibility checker
   setupVisibilityChecker();
 });
-
 
 // --- FIXED: Guest visibility + Reveal stats issue ---
 
