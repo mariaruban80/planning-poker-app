@@ -851,46 +851,38 @@ function initializeApp(roomId) {
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
+socket.on('votesRevealed', ({ storyId }) => {
+  console.log('[FIX] Handling votesRevealed (sync for all roles):', storyId);
+  votesRevealed[storyId] = true;
+  persistRevealState(storyId, true);
+  const votes = votesPerStory[storyId] || {};
+  handleVotesRevealed(storyId, votes);
+});
 
-  socket.on('votesRevealed', ({ storyId }) => {
-    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
-    
-    // Check if this story is deleted
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-      return;
-    }
-    
-    votesRevealed[storyId] = true;
-    persistRevealState(storyId, true);
-    const votes = votesPerStory[storyId] || {};
-    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
-    // Show votes on cards
-    applyVotesToUI(votes, false);
 
-    // Use forceCorrectVisibility instead
-    // Fix font sizes
-    setTimeout(fixRevealedVoteFontSizes, 100);
-  });
+socket.on('votesReset', ({ storyId }) => {
+  console.log('[RESET] votesReset received for story:', storyId);
+  votesRevealed[storyId] = false;
+  persistRevealState(storyId, false);
+  if (votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+  }
 
-  socket.on('votesReset', ({ storyId }) => {
-    // Skip processing for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      return;
-    }
-    
-    // Clear vote data for this story
-    if (votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    votesRevealed[storyId] = false;
-    persistRevealState(storyId, false);
-    resetAllVoteVisuals();
-    
-    // Use forceCorrectVisibility instead
-    });
+  const statsContainer = document.querySelector('.vote-statistics-container');
+  if (statsContainer) {
+    statsContainer.style.display = 'none';
+    statsContainer.innerHTML = '';
+  }
+
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.style.display = 'block';
+  }
+
+  resetAllVoteVisuals();
+});
+
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
     console.log('[SOCKET] storySelected received:', storyIndex, storyId);
@@ -2464,13 +2456,16 @@ function applyVotesToUI(votes, hideValues) {
       // Add vote class
       voteSpace.classList.add('has-vote');
       
-      // Update badge
-      const voteBadge = voteSpace.querySelector('.vote-badge');
-      if (voteBadge) {
-        voteBadge.textContent = displayVote;
-        voteBadge.style.color = '#673ab7';
-        voteBadge.style.opacity = '1';
-      }
+    let voteBadge = voteSpace.querySelector('.vote-badge');
+if (!voteBadge) {
+  voteBadge = document.createElement('div');
+  voteBadge.className = 'vote-badge';
+  voteSpace.appendChild(voteBadge);
+}
+voteBadge.textContent = displayVote;
+voteBadge.style.color = '#673ab7';
+voteBadge.style.opacity = '1';
+voteBadge.style.display = 'block';
     }
     
     // Update avatar display
