@@ -366,6 +366,7 @@ function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
+  // Step 1: Normalize votes by userName
   const userIdToNameMap = getUserIdToNameMap();
   const userNameVoteMap = new Map();
 
@@ -376,8 +377,10 @@ function createFixedVoteDisplay(votes) {
     }
   }
 
+  // Step 2: Extract unique vote values
   const voteValues = Array.from(userNameVoteMap.values());
 
+  // Step 3: Calculate numeric stats
   const numericVotes = voteValues
     .map(v => parseFloat(v))
     .filter(v => !isNaN(v));
@@ -386,6 +389,7 @@ function createFixedVoteDisplay(votes) {
     ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 10) / 10
     : 0;
 
+  // Step 4: Find most common vote
   let mostCommonVote = voteValues[0] || '0';
   const freq = {};
   voteValues.forEach(v => {
@@ -395,6 +399,7 @@ function createFixedVoteDisplay(votes) {
     }
   });
 
+  // Step 5: Build UI
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
@@ -416,6 +421,7 @@ function createFixedVoteDisplay(votes) {
 
   return container;
 }
+
 
 
 /**
