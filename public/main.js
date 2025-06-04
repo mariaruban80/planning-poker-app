@@ -526,70 +526,68 @@ function initializeApp(roomId) {
 });
 
 socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  const userName = getUserNameBySocketId(userId); // you may need to track this mapping
-  const voteKey = `${storyId}:${userName || userId}`;
+  const userNameKey = getUserNameBySocketId(userId) || userId;
 
-  if (restoredVotesCache.has(voteKey)) {
-    console.log(`[SKIP] Duplicate visual for ${voteKey}`);
-    return;
+  // Remove any old votes for the same user name (in case they reconnected)
+  for (const id in votesPerStory[storyId]) {
+    if (getUserNameBySocketId(id) === userNameKey && id !== userNameKey) {
+      delete votesPerStory[storyId][id];
+    }
   }
-  restoredVotesCache.add(voteKey);
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
- // votesPerStory[storyId][userId] = vote;
-  const nameKey = getUserNameBySocketId(userId) || userId;
-  votesPerStory[storyId][nameKey] = vote;
+  votesPerStory[storyId][userNameKey] = vote;
 
   window.currentVotesPerStory = votesPerStory;
 
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    updateVoteVisuals(userId, votesRevealed[storyId] ? vote : '👍', true);
+  // Update UI for current story
+  if (storyId === getCurrentStoryId()) {
+    updateVoteVisuals(userNameKey, votesRevealed[storyId] ? vote : '👍', true);
   }
 
   refreshVoteDisplay();
 });
+socket.on('storyVotes', ({ storyId, votes }) => {
+  if (deletedStoryIds.has(storyId)) {
+    console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
+    return;
+  }
 
+  if (!votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+  }
 
+  const normalizedVotes = {};
 
-  
-  socket.on('storyVotes', ({ storyId, votes }) => {
-    // Don't process votes for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
-      return;
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const nameKey = getUserNameBySocketId(socketId) || socketId;
+    normalizedVotes[nameKey] = vote;
+  }
+
+  votesPerStory[storyId] = normalizedVotes;
+  window.currentVotesPerStory = votesPerStory;
+
+  const currentStoryId = getCurrentStoryId();
+  if (currentStoryId === storyId) {
+    if (votesRevealed[storyId]) {
+      applyVotesToUI(normalizedVotes, false);
+    } else {
+      applyVotesToUI(normalizedVotes, true);
     }
-    
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Store the votes
+  }
+});
 
-      votesPerStory[storyId] = { ...votes };
-    window.currentVotesPerStory = votesPerStory;
-    
-    // Update UI immediately if this is the current story
-    const currentStoryId = getCurrentStoryId();
-    if (currentStoryId === storyId) {
-      if (votesRevealed[storyId]) {
-        // Show actual votes if revealed
-        applyVotesToUI(votes, false);
-      } else {
-        // Show thumbs up if not revealed
-        applyVotesToUI(votes, true);
-      }
-    }
-  });
-  
   // Updated handler for restored user votes
-socket.on('restoreUserVote', ({ storyId, vote }) => {
-  const voteKey = `${storyId}:${socket.id}`;
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+  const nameKey = userName || socket.id;
+  const voteKey = `${storyId}:${nameKey}`;
+
   if (restoredVotesCache.has(voteKey)) {
     console.log(`[SKIP] Already restored vote for ${voteKey}`);
     return;
   }
   restoredVotesCache.add(voteKey);
+
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
     return;
@@ -597,31 +595,30 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
-  // ✅ Ensure the vote is stored under this user's socket.id
- // votesPerStory[storyId][socket.id] = vote;
-  const userNameKey = userName || socket.id;
-  votesPerStory[storyId][userNameKey] = vote;
+  // 🧹 Remove old socket-id-based votes for this user if present
+  for (const key in votesPerStory[storyId]) {
+    if (getUserNameBySocketId(key) === nameKey && key !== nameKey) {
+      delete votesPerStory[storyId][key];
+    }
+  }
+
+  votesPerStory[storyId][nameKey] = vote;
   window.currentVotesPerStory = votesPerStory;
 
   const currentStoryId = getCurrentStoryId();
   const isRevealed = votesRevealed[storyId];
 
-  // ✅ Apply vote visuals
   if (storyId === currentStoryId) {
-    updateVoteVisuals(socket.id, isRevealed ? vote : '👍', true);
+    updateVoteVisuals(nameKey, isRevealed ? vote : '👍', true);
 
     if (isRevealed) {
-      // Also regenerate statistics if this is the current story
       handleVotesRevealed(storyId, votesPerStory[storyId]);
     }
   }
 
-  refreshVoteDisplay(); // Refresh UI and badges
+  refreshVoteDisplay();
 });
 
-
-
-  
 
   
   // Updated resyncState handler to restore votes
