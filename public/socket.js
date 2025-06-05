@@ -227,7 +227,11 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
     handleMessage({ type: 'disconnect', reason });
   });
 
+  
   socket.on('userList', (users) => {
+    window.userMap = {};
+    users.forEach(u => window.userMap[u.id] = u.name);
+
     handleMessage({ type: 'userList', users });
   });
   
