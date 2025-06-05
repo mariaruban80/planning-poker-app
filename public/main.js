@@ -586,27 +586,31 @@ if (serverVotes) {
   for (const [storyId, votes] of Object.entries(serverVotes)) {
     if (deletedStoryIds.has(storyId)) continue;
 
-    // Ensure votesPerStory entry
     if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
     for (const [userId, vote] of Object.entries(votes)) {
       mergeVote(storyId, userId, vote);
     }
 
-    window.currentVotesPerStory = votesPerStory;
+    const isRevealed = serverRevealed && serverRevealed[storyId];
+    votesRevealed[storyId] = isRevealed;
 
     // UI update for current story
     const currentId = getCurrentStoryId();
     if (storyId === currentId) {
-      if (serverRevealed && serverRevealed[storyId]) {
+      if (isRevealed) {
         applyVotesToUI(votes, false);
-        handleVotesRevealed(storyId, votes);
+        handleVotesRevealed(storyId, votes);  // ✅ Render stats layout
       } else {
         applyVotesToUI(votes, true);
       }
+    } else if (isRevealed) {
+      // ✅ ALSO render stats layout for other stories if needed
+      handleVotesRevealed(storyId, votes);
     }
   }
 }
+
 
 // Restore saved personal votes from session storage
   try {
@@ -1434,7 +1438,9 @@ function handleVotesRevealed(storyId, votes) {
 
   // ✅ Deduplicate by userName
   const uniqueVotes = new Map();
-  for (const [userName, vote] of Object.entries(votes)) {
+  const userMap = window.userMap || {};
+  for (const [socketId, vote] of Object.entries(votes)) {
+    const userName = userMap[socketId] || socketId;
     if (!uniqueVotes.has(userName)) {
       uniqueVotes.set(userName, vote);
     }
@@ -1443,19 +1449,18 @@ function handleVotesRevealed(storyId, votes) {
   const voteValues = Array.from(uniqueVotes.values());
 
   // ✅ Parse numeric vote values
- function parseNumericVote(vote) {
-  if (typeof vote !== 'string') return NaN;
+  function parseNumericVote(vote) {
+    if (typeof vote !== 'string') return NaN;
+    if (vote === '½') return 0.5;
+    if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
 
-  if (vote === '½') return 0.5;
-  if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
+    const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
+    if (match) return parseFloat(match[1]);
 
-  // Support formats like "XS (1)", "L (5)"
-  const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);  // ✅ fixed regex
-  if (match) return parseFloat(match[1]);
+    const parsed = parseFloat(vote);
+    return isNaN(parsed) ? NaN : parsed;
+  }
 
-  const parsed = parseFloat(vote);
-  return isNaN(parsed) ? NaN : parsed;
-}
   const numericValues = voteValues
     .map(parseNumericVote)
     .filter(v => !isNaN(v));
@@ -1482,9 +1487,14 @@ function handleVotesRevealed(storyId, votes) {
     }
   }
 
+  // Remove any existing stats container for this story
+  const existing = document.querySelector(`.vote-statistics-container[data-story-id="${storyId}"]`);
+  if (existing) existing.remove();
+
   // 🎨 Render UI
-  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
+  statsContainer.setAttribute('data-story-id', storyId);
   statsContainer.innerHTML = `
     <div class="fixed-vote-display">
       <div class="fixed-vote-card">
@@ -1512,11 +1522,15 @@ function handleVotesRevealed(storyId, votes) {
   if (planningCardsSection && planningCardsSection.parentNode) {
     planningCardsSection.classList.add('hidden-until-init');
     planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    statsContainer.style.display = 'block';
+  } else {
+    // Fallback in case planning cards aren't loaded (e.g., guest user or reconnect)
+    document.body.appendChild(statsContainer);
   }
 
+  statsContainer.style.display = 'block';
   setTimeout(fixRevealedVoteFontSizes, 100);
 }
+
 
 
 
