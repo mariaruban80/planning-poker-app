@@ -1415,12 +1415,10 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
-
-// Simplified main.js (core structure for patch)
 function handleVotesRevealed(storyId, votes) {
   if (!votes || typeof votes !== 'object') return;
 
-  applyVotesToUI(votes, false); // ensure vote badges are shown
+  applyVotesToUI(votes, false);
 
   const uniqueVotes = new Map();
   const userMap = window.userMap || {};
@@ -1437,10 +1435,10 @@ function handleVotesRevealed(storyId, votes) {
     if (typeof vote !== 'string') return NaN;
     if (vote === '½') return 0.5;
     if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
-   // const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
-    const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
 
+    const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
     if (match) return parseFloat(match[1]);
+
     const parsed = parseFloat(vote);
     return isNaN(parsed) ? NaN : parsed;
   }
@@ -1474,18 +1472,18 @@ function handleVotesRevealed(storyId, votes) {
   const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.setAttribute('data-story-id', storyId);
-  statsContainer.innerHTML = \`
+  statsContainer.innerHTML = `
     <div class="fixed-vote-display">
       <div class="fixed-vote-card">
-        \${mostCommonVote}
-        <div class="fixed-vote-count">\${voteValues.length} Vote\${voteValues.length !== 1 ? 's' : ''}</div>
+        ${mostCommonVote}
+        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="fixed-vote-stats">
-        \${averageValue !== null ? \`
+        ${averageValue !== null ? `
           <div class="fixed-stat-group">
             <div class="fixed-stat-label">Average:</div>
-            <div class="fixed-stat-value">\${averageValue}</div>
-          </div>\` : ''}
+            <div class="fixed-stat-value">${averageValue}</div>
+          </div>` : ''}
         <div class="fixed-stat-group">
           <div class="fixed-stat-label">Agreement:</div>
           <div class="fixed-agreement-circle">
@@ -1494,7 +1492,7 @@ function handleVotesRevealed(storyId, votes) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const currentStoryCard = document.querySelector('.story-card.selected');
@@ -1510,8 +1508,6 @@ function handleVotesRevealed(storyId, votes) {
 
   statsContainer.style.display = 'block';
 }
-
-
 
 
 
