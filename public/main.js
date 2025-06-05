@@ -1437,7 +1437,9 @@ function handleVotesRevealed(storyId, votes) {
     if (typeof vote !== 'string') return NaN;
     if (vote === '½') return 0.5;
     if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
+   // const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
     const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
+
     if (match) return parseFloat(match[1]);
     const parsed = parseFloat(vote);
     return isNaN(parsed) ? NaN : parsed;
