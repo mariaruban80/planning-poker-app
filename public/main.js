@@ -685,6 +685,12 @@ socket.on('votesRevealed', ({ storyId }) => {
     
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
+    // ✅ Unhide the planning cards section after reset (for all users)
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.remove('hidden-until-init');
+    }
+    
   });
 socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
@@ -1779,6 +1785,11 @@ function setupRevealResetButtons() {
         
         votesRevealed[storyId] = false;
         resetAllVoteVisuals();
+        // ✅ Unhide the planning cards section after reset
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        if (planningCardsSection) {
+          planningCardsSection.classList.remove('hidden-until-init');
+        }
       }
     });
   }
