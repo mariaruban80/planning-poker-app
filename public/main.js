@@ -1443,20 +1443,19 @@ function handleVotesRevealed(storyId, votes) {
   const voteValues = Array.from(uniqueVotes.values());
 
   // ✅ Parse numeric vote values
-  function parseNumericVote(vote) {
-    if (typeof vote !== 'string') return NaN;
+ function parseNumericVote(vote) {
+  if (typeof vote !== 'string') return NaN;
 
-    if (vote === '½') return 0.5;
-    if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
+  if (vote === '½') return 0.5;
+  if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
 
-    // Support formats like "XS (1)", "L (5)"
-    const match = vote.match(/\((\\d+(\\.\\d+)?)\\)$/);
-    if (match) return parseFloat(match[1]);
+  // Support formats like "XS (1)", "L (5)"
+  const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);  // ✅ fixed regex
+  if (match) return parseFloat(match[1]);
 
-    const parsed = parseFloat(vote);
-    return isNaN(parsed) ? NaN : parsed;
-  }
-
+  const parsed = parseFloat(vote);
+  return isNaN(parsed) ? NaN : parsed;
+}
   const numericValues = voteValues
     .map(parseNumericVote)
     .filter(v => !isNaN(v));
