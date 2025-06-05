@@ -1445,7 +1445,7 @@ white-space: nowrap;
   border-top: 1px solid #e0e0e0;
   padding: 10px 0;
   box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1666,8 +1666,8 @@ body.votes-revealed .vote-card-space .vote-badge,
 </div>
 </div>
 
-<!-- NEW: Fixed Planning Cards at bottom -->
-<div class="planning-cards-fixed-bottom" id="fixedPlanningCards">
+<!-- NEW CORRECTED STRUCTURE -->
+<div class="planning-cards-fixed-bottom" id="fixedPlanningPanel">
   <div class="panel-handle" id="panelHandle"></div>
   <div class="planning-cards-header">Planning Cards</div>
   <div class="cards" id="fixedPlanningCards">
@@ -1878,6 +1878,7 @@ function setupMobileLayout() {
 }
 
 // Setup fixed planning cards functionality
+// Fix in setupFixedPlanningCards function
 function setupFixedPlanningCards() {
   const originalCardsContainer = document.getElementById('planningCards');
   const fixedCardsContainer = document.getElementById('fixedPlanningCards');
@@ -1892,8 +1893,7 @@ function setupFixedPlanningCards() {
   // Clone the cards from the original container to the fixed one
   function cloneCards() {
     // Clear existing cards in fixed container
-    const cardsDiv = fixedCardsContainer.querySelector('.cards') || fixedCardsContainer;
-    cardsDiv.innerHTML = '';
+    fixedCardsContainer.innerHTML = '';
     
     // Clone all cards from original container
     const originalCards = originalCardsContainer.querySelectorAll('.card');
@@ -1924,50 +1924,37 @@ function setupFixedPlanningCards() {
           c.classList.remove('selected-card');
         });
         this.classList.add('selected-card');
+        
+        // IMPORTANT: Also update selection in the original cards container
+        originalCardsContainer.querySelectorAll('.card').forEach(c => {
+          if (c.getAttribute('data-value') === value) {
+            c.classList.add('selected-card');
+          } else {
+            c.classList.remove('selected-card');
+          }
+        });
       });
       
-      cardsDiv.appendChild(clone);
+      fixedCardsContainer.appendChild(clone);
     });
   }
   
   // Initial clone
   cloneCards();
   
-  // Hide the original planning cards section
+  // IMPORTANT: Hide the original planning cards section immediately
   const originalSection = document.querySelector('.planning-cards-section');
   if (originalSection) {
     originalSection.style.display = 'none';
+    console.log('Original planning cards section hidden');
   }
-  
-  // Toggle collapsed state on handle click
-  handle.addEventListener('click', function() {
-    panel.classList.toggle('collapsed');
-  });
-  
-  // Auto-collapse on mobile by default
-  if (window.innerWidth <= 768 && !panel.classList.contains('collapsed')) {
-    panel.classList.add('collapsed');
-  }
-  
-  // Add event listeners for toggling the fixed panel
-  document.addEventListener('revealsVotes', function(event) {
-    hideFixedPlanningCards();
-  });
-  
-  document.addEventListener('resetVotes', function(event) {
-    showFixedPlanningCards();
-  });
-  
-  // When planning cards change, update the fixed panel
-  const observer = new MutationObserver(function(mutations) {
-    cloneCards();
-  });
-  
-  observer.observe(originalCardsContainer, { 
-    childList: true, 
-    subtree: true 
-  });
 }
+
+// Make sure this function is called early in the DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+  setupFixedPlanningCards();
+  // other initialization...
+});
 
 function toggleMobileSection(element) {
   element.classList.toggle('active');
