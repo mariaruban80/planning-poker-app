@@ -124,13 +124,19 @@ function loadDeletedStoriesFromStorage(roomId) {
   }
 }
 
+/**
+ * Safely merge a vote for a story by replacing older votes with the same value.
+ * This avoids duplicate votes when a user refreshes and gets a new socket ID.
+ */
+function mergeVote(storyId, userName, vote) {
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  votesPerStory[storyId][userName] = vote;
+  window.currentVotesPerStory = votesPerStory;
+}
+
 
 
 function refreshVoteDisplay() {
-  if (!window.hasInitializedVotes) {
-    console.log('[DEBUG] Skipping vote display – initialization not complete');
-    return;
-  }
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
 
@@ -144,25 +150,8 @@ function refreshVoteDisplay() {
     updateVoteBadges(storyId, votes);
   }
 }
-function getUserNameBySocketId(socketId) {
-  const list = window.latestUserList || [];
-  const match = list.find(u => u.id === socketId);
-  return match ? match.name : null;
-}
-function getUniqueVotes(votes) {
-  const seenUsers = new Set();
-  const uniqueVotes = [];
 
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userName = getUserNameBySocketId(socketId) || socketId;
-    if (!seenUsers.has(userName)) {
-      seenUsers.add(userName);
-      uniqueVotes.push(vote);
-    }
-  }
 
-  return uniqueVotes;
-}
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
   const voteCount = Object.keys(votes).length;
@@ -228,8 +217,6 @@ let votesRevealed = {};     // Track which stories have revealed votes { storyIn
 let manuallyAddedTickets = []; // Track tickets added manually
 let hasRequestedTickets = false; // Flag to track if we've already requested tickets
 let reconnectingInProgress = false; // Flag for reconnection logic
-window.hasInitializedVotes = false;
-const restoredVotesCache = new Set();
 
 // Adding this function to main.js to be called whenever votes are revealed
 function fixRevealedVoteFontSizes() {
@@ -355,60 +342,60 @@ function addFixedVoteStatisticsStyles() {
 
 // Create a new function to generate the stats layout
 
-
-function getUserIdToNameMap() {
-  const map = {};
-  (window.latestUserList || []).forEach(u => {
-    map[u.id] = u.name;  });
-  return map;
-}
 function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Step 1: Normalize votes by userName
-  const userIdToNameMap = getUserIdToNameMap();
-  const userNameVoteMap = new Map();
+  const userMap = window.userMap || {};
+  const uniqueVotes = new Map();
 
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const userName = userIdToNameMap[socketId] || socketId;
-    if (!userNameVoteMap.has(userName)) {
-      userNameVoteMap.set(userName, vote);
+  for (const [id, vote] of Object.entries(votes)) {
+    const name = userMap[id] || id;
+    if (!uniqueVotes.has(name)) {
+      uniqueVotes.set(name, vote);
     }
   }
 
-  // Step 2: Extract unique vote values
-  const voteValues = Array.from(userNameVoteMap.values());
+  const voteValues = Array.from(uniqueVotes.values());
 
-  // Step 3: Calculate numeric stats
-  const numericVotes = voteValues
-    .map(v => parseFloat(v))
-    .filter(v => !isNaN(v));
 
-  let average = numericVotes.length
-    ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 10) / 10
-    : 0;
+  // Extract numeric values only
+  const numericValues = voteValues
+    .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
+    .map(v => parseFloat(v));
 
-  // Step 4: Find most common vote
-  let mostCommonVote = voteValues[0] || '0';
-  const freq = {};
-  voteValues.forEach(v => {
-    freq[v] = (freq[v] || 0) + 1;
-    if (freq[v] > (freq[mostCommonVote] || 0)) {
-      mostCommonVote = v;
-    }
-  });
+  // Default values
+  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  let voteCount = voteValues.length;
+  let averageValue = 0;
 
-  // Step 5: Build UI
+  // Calculate statistics
+  if (numericValues.length > 0) {
+    const voteFrequency = {};
+    let maxCount = 0;
+
+    voteValues.forEach(vote => {
+      voteFrequency[vote] = (voteFrequency[vote] || 0) + 1;
+      if (voteFrequency[vote] > maxCount) {
+        maxCount = voteFrequency[vote];
+        mostCommonVote = vote;
+      }
+    });
+
+    averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+    averageValue = Math.round(averageValue * 10) / 10;
+  }
+
+  // Create HTML that shows the stats
   container.innerHTML = `
     <div class="fixed-vote-card">
       ${mostCommonVote}
-      <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
+      <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
     </div>
     <div class="fixed-vote-stats">
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Average:</div>
-        <div class="fixed-stat-value">${average}</div>
+        <div class="fixed-stat-value">${averageValue}</div>
       </div>
       <div class="fixed-stat-group">
         <div class="fixed-stat-label">Agreement:</div>
@@ -519,112 +506,62 @@ function appendRoomIdToURL(roomId) {
   }
 }
 
-
-
 /**
  * Initialize the application
  */
 function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
-  socket.on('userList', users => {
-  window.latestUserList = users;
-});
 
-socket.on('voteUpdate', ({ userId, vote, storyId }) => {
-  const userNameKey = getUserNameBySocketId(userId) || userId;
+socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
+  const name = userName || userId;
+  mergeVote(storyId, name, vote);
 
-  // Remove any old votes for the same user name (in case they reconnected)
-  for (const id in votesPerStory[storyId]) {
-    if (getUserNameBySocketId(id) === userNameKey && id !== userNameKey) {
-      delete votesPerStory[storyId][id];
-    }
-  }
-
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  votesPerStory[storyId][userNameKey] = vote;
-
-  window.currentVotesPerStory = votesPerStory;
-
-  // Update UI for current story
-  if (storyId === getCurrentStoryId()) {
-    updateVoteVisuals(userNameKey, votesRevealed[storyId] ? vote : '👍', true);
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId) {
+    updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
   }
 
   refreshVoteDisplay();
 });
-socket.on('storyVotes', ({ storyId, votes }) => {
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
-    return;
-  }
 
-  if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
-  }
 
-  const normalizedVotes = {};
-
-  for (const [socketId, vote] of Object.entries(votes)) {
-    const nameKey = getUserNameBySocketId(socketId) || socketId;
-    normalizedVotes[nameKey] = vote;
-  }
-
-  votesPerStory[storyId] = normalizedVotes;
-  window.currentVotesPerStory = votesPerStory;
-
-  const currentStoryId = getCurrentStoryId();
-  if (currentStoryId === storyId) {
-    if (votesRevealed[storyId]) {
-      applyVotesToUI(normalizedVotes, false);
-    } else {
-      applyVotesToUI(normalizedVotes, true);
+  
+  socket.on('storyVotes', ({ storyId, votes }) => {
+    // Don't process votes for deleted stories
+    if (deletedStoryIds.has(storyId)) {
+      console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
+      return;
     }
-  }
-});
+    
+    if (!votesPerStory[storyId]) {
+      votesPerStory[storyId] = {};
+    }
+    
+    // Store the votes
 
+      votesPerStory[storyId] = { ...votes };
+    window.currentVotesPerStory = votesPerStory;
+    
+    // Update UI immediately if this is the current story
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId) {
+      if (votesRevealed[storyId]) {
+        // Show actual votes if revealed
+        applyVotesToUI(votes, false);
+      } else {
+        // Show thumbs up if not revealed
+        applyVotesToUI(votes, true);
+      }
+    }
+  });
+  
   // Updated handler for restored user votes
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
-  const nameKey = userName || socket.id;
-  const voteKey = `${storyId}:${nameKey}`;
-
-  if (restoredVotesCache.has(voteKey)) {
-    console.log(`[SKIP] Already restored vote for ${voteKey}`);
-    return;
-  }
-  restoredVotesCache.add(voteKey);
-
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring vote restoration for deleted story: ${storyId}`);
-    return;
-  }
-
-  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-
-  // 🧹 Remove old socket-id-based votes for this user if present
-  for (const key in votesPerStory[storyId]) {
-    if (getUserNameBySocketId(key) === nameKey && key !== nameKey) {
-      delete votesPerStory[storyId][key];
-    }
-  }
-
-  votesPerStory[storyId][nameKey] = vote;
-  window.currentVotesPerStory = votesPerStory;
-
-  const currentStoryId = getCurrentStoryId();
-  const isRevealed = votesRevealed[storyId];
-
-  if (storyId === currentStoryId) {
-    updateVoteVisuals(nameKey, isRevealed ? vote : '👍', true);
-
-    if (isRevealed) {
-      handleVotesRevealed(storyId, votesPerStory[storyId]);
-    }
-  }
-
+socket.on('restoreUserVote', ({ storyId, vote }) => {
+  const name = sessionStorage.getItem('userName') || socket.id;
+  mergeVote(storyId, name, vote);
   refreshVoteDisplay();
 });
-
 
   
   // Updated resyncState handler to restore votes
@@ -644,41 +581,34 @@ socket.on('storyVotes', ({ storyId, votes }) => {
   }
 
   // Update local vote state for non-deleted stories
-  if (serverVotes) {
-    for (const [storyId, votes] of Object.entries(serverVotes)) {
-      if (deletedStoryIds.has(storyId)) continue;
 
-      if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-      votesPerStory[storyId] = { ...votes };
-      window.currentVotesPerStory = votesPerStory;
+if (serverVotes) {
+  for (const [storyId, votes] of Object.entries(serverVotes)) {
+    if (deletedStoryIds.has(storyId)) continue;
 
- if (serverRevealed && serverRevealed[storyId]) {
-  votesRevealed[storyId] = true;
+    // Ensure votesPerStory entry
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
-  // Merge in local vote from session storage if available
-  const allVotes = { ...(votes || {}) };
+    for (const [userId, vote] of Object.entries(votes)) {
+      mergeVote(storyId, userId, vote);
+    }
 
-  if (socket && socket.id && votesPerStory[storyId]?.[socket.id]) {
-    allVotes[socket.id] = votesPerStory[storyId][socket.id];
-  }
+    window.currentVotesPerStory = votesPerStory;
 
-  // Save the merged result
-  votesPerStory[storyId] = allVotes;
-  window.currentVotesPerStory = votesPerStory;
-
-  // Apply to UI if current story
-  const currentId = getCurrentStoryId();
-  if (storyId === currentId) {
-    applyVotesToUI(allVotes, false);
-  }
-
-  // Always regenerate vote stats with full vote list
-  handleVotesRevealed(storyId, allVotes);
-}
+    // UI update for current story
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId) {
+      if (serverRevealed && serverRevealed[storyId]) {
+        applyVotesToUI(votes, false);
+        handleVotesRevealed(storyId, votes);
+      } else {
+        applyVotesToUI(votes, true);
+      }
     }
   }
+}
 
-  // Restore saved personal votes from session storage
+// Restore saved personal votes from session storage
   try {
     const savedUserVotes = getUserVotes ? getUserVotes() : {};
 
@@ -686,9 +616,7 @@ socket.on('storyVotes', ({ storyId, votes }) => {
       if (deletedStoryIds.has(storyId)) continue;
 
       if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-      //votesPerStory[storyId][socket.id] = vote;
-      const userNameKey = userName || socket.id;
-      votesPerStory[storyId][userNameKey] = vote;
+      votesPerStory[storyId][socket.id] = vote;
 
       const currentId = getCurrentStoryId();
       if (storyId === currentId) {
@@ -700,7 +628,6 @@ socket.on('storyVotes', ({ storyId, votes }) => {
   }
 
   window.currentVotesPerStory = votesPerStory;
-  window.hasInitializedVotes = true;
   refreshVoteDisplay();
 });
 
@@ -726,54 +653,38 @@ socket.on('storyVotes', ({ storyId, votes }) => {
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
-socket.on('votesRevealed', ({ storyId }) => {
-  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
 
-  // Skip if this story is deleted
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-    return;
-  }
-
-  votesRevealed[storyId] = true;
-
-  // ✅ Step 1: Normalize votes by userName
-  const rawVotes = votesPerStory[storyId] || {};
-  const userIdToNameMap = getUserIdToNameMap();
-  const normalizedVotes = {};
-
-  for (const [socketId, vote] of Object.entries(rawVotes)) {
-    const nameKey = userIdToNameMap[socketId] || socketId;
-    if (!normalizedVotes[nameKey]) {
-      normalizedVotes[nameKey] = vote;
+  socket.on('votesRevealed', ({ storyId }) => {
+    console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
+    
+    // Check if this story is deleted
+    if (deletedStoryIds.has(storyId)) {
+      console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
+      return;
     }
-  }
+    
+    votesRevealed[storyId] = true;
+    const votes = votesPerStory[storyId] || {};
+    console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
 
-  // ✅ Step 2: Overwrite original vote set to eliminate duplicates
-  votesPerStory[storyId] = normalizedVotes;
-  window.currentVotesPerStory = votesPerStory;
+    // Show votes on cards
+    applyVotesToUI(votes, false);
 
-  // ✅ Step 3: Apply normalized votes to UI
-  applyVotesToUI(normalizedVotes, false);
+    // Show statistics
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+    statsContainer.className = 'vote-statistics-container';
+    statsContainer.innerHTML = '';
+    statsContainer.appendChild(createFixedVoteDisplay(votes));
+    if (planningCardsSection && planningCardsSection.parentNode) {
+      planningCardsSection.classList.add('hidden-until-init');
+      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+      statsContainer.style.display = 'block';
+    }
 
-  // ✅ Step 4: Show statistics using normalized votes
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-  statsContainer.className = 'vote-statistics-container';
-  statsContainer.innerHTML = '';
-  statsContainer.appendChild(createFixedVoteDisplay(normalizedVotes));
-
-  if (planningCardsSection && planningCardsSection.parentNode) {
-    planningCardsSection.style.display = 'none';
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    statsContainer.style.display = 'block';
-  }
-
-  // ✅ Step 5: Fix vote font sizes
-  setTimeout(fixRevealedVoteFontSizes, 100);
-});
-
-
+    // Fix font sizes
+    setTimeout(fixRevealedVoteFontSizes, 100);
+  });
 
   socket.on('votesReset', ({ storyId }) => {
     // Skip processing for deleted stories
@@ -831,6 +742,25 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   socket.emit('requestCurrentStory');
   setTimeout(() => {
     socket.emit('requestFullStateResync');
+
+    // Re-apply stored votes
+    if (typeof getUserVotes === 'function') {
+      const userVotes = getUserVotes();
+      for (const [storyId, vote] of Object.entries(userVotes)) {
+        if (deletedStoryIds.has(storyId)) continue;
+
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        votesPerStory[storyId][socket.id] = vote;
+        window.currentVotesPerStory = votesPerStory;
+
+        const currentId = getCurrentStoryId();
+        if (storyId === currentId) {
+          updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+        }
+      }
+
+      refreshVoteDisplay();
+    }
   }, 500);
 });
 
@@ -1401,8 +1331,7 @@ function createVoteStatisticsDisplay(votes) {
   container.className = 'vote-statistics-display';
   
   // Calculate statistics
-  //const voteValues = Object.values(votes);
-  const voteValues = getUniqueVotes(votes);
+  const voteValues = Object.values(votes);
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
@@ -1462,26 +1391,25 @@ function createVoteStatisticsDisplay(votes) {
 
 // Helper function to find most common vote
 function findMostCommonVote(votes) {
-  const uniqueVotes = getUniqueVotes(votes); // use deduplicated votes
+  const voteValues = Object.values(votes);
   const counts = {};
-
-  uniqueVotes.forEach(vote => {
+  
+  voteValues.forEach(vote => {
     counts[vote] = (counts[vote] || 0) + 1;
   });
-
+  
   let maxCount = 0;
   let mostCommon = '';
-
+  
   for (const vote in counts) {
     if (counts[vote] > maxCount) {
       maxCount = counts[vote];
       mostCommon = vote;
     }
   }
-
+  
   return mostCommon;
 }
-
 
 // Helper to get color based on agreement percentage
 function getAgreementColor(percentage) {
@@ -1502,53 +1430,93 @@ function addVoteStatisticsStyles() {
  * @param {Object} votes - Vote data
  */
 function handleVotesRevealed(storyId, votes) {
-  console.log('[VOTES] Handling votes revealed for story:', storyId);
+  if (!votes || typeof votes !== 'object') return;
 
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Not revealing votes for deleted story: ${storyId}`);
-    return;
-  }
-
-  let statsContainer = document.querySelector('.vote-statistics-container'); // ⬅️ CHANGED FROM const to let
-  const statsAlreadyVisible = statsContainer && statsContainer.style.display === 'block';
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const planningCardsHidden = planningCardsSection && planningCardsSection.style.display === 'none';
-
-  if (statsAlreadyVisible && planningCardsHidden) {
-    console.log('[VOTES] Statistics already shown, skipping duplicate reveal');
-    return;
-  }
-
-  votesRevealed[storyId] = true;
-
-  if (!votesPerStory[storyId]) {
-    votesPerStory[storyId] = {};
-  }
-
-  votesPerStory[storyId] = { ...votes };
-  window.currentVotesPerStory = votesPerStory;
-
-  addFixedVoteStatisticsStyles();
-
-  const voteStats = createFixedVoteDisplay(votes);
-
-  if (planningCardsSection) {
-    if (!statsContainer) {
-      statsContainer = document.createElement('div'); // ✅ Safe now
-      statsContainer.className = 'vote-statistics-container';
-      planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+  // ✅ Deduplicate by userName
+  const uniqueVotes = new Map();
+  for (const [userName, vote] of Object.entries(votes)) {
+    if (!uniqueVotes.has(userName)) {
+      uniqueVotes.set(userName, vote);
     }
+  }
 
-    statsContainer.innerHTML = '';
-    statsContainer.appendChild(voteStats);
+  const voteValues = Array.from(uniqueVotes.values());
 
-    planningCardsSection.style.display = 'none';
+  // ✅ Parse numeric vote values
+  function parseNumericVote(vote) {
+    if (typeof vote !== 'string') return NaN;
+
+    if (vote === '½') return 0.5;
+    if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
+
+    // Support formats like "XS (1)", "L (5)"
+    const match = vote.match(/\((\\d+(\\.\\d+)?)\\)$/);
+    if (match) return parseFloat(match[1]);
+
+    const parsed = parseFloat(vote);
+    return isNaN(parsed) ? NaN : parsed;
+  }
+
+  const numericValues = voteValues
+    .map(parseNumericVote)
+    .filter(v => !isNaN(v));
+
+  // 🔢 Calculate most common vote and average
+  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  let averageValue = null;
+
+  if (voteValues.length > 0) {
+    const frequency = {};
+    let maxFreq = 0;
+
+    voteValues.forEach(vote => {
+      frequency[vote] = (frequency[vote] || 0) + 1;
+      if (frequency[vote] > maxFreq) {
+        maxFreq = frequency[vote];
+        mostCommonVote = vote;
+      }
+    });
+
+    if (numericValues.length > 0) {
+      averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+      averageValue = Math.round(averageValue * 10) / 10;
+    }
+  }
+
+  // 🎨 Render UI
+  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
+  statsContainer.className = 'vote-statistics-container';
+  statsContainer.innerHTML = `
+    <div class="fixed-vote-display">
+      <div class="fixed-vote-card">
+        ${mostCommonVote}
+        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="fixed-vote-stats">
+        ${averageValue !== null ? `
+          <div class="fixed-stat-group">
+            <div class="fixed-stat-label">Average:</div>
+            <div class="fixed-stat-value">${averageValue}</div>
+          </div>` : ''
+        }
+        <div class="fixed-stat-group">
+          <div class="fixed-stat-label">Agreement:</div>
+          <div class="fixed-agreement-circle">
+            <div class="agreement-icon">👍</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.classList.add('hidden-until-init');
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
     statsContainer.style.display = 'block';
   }
 
-  applyVotesToUI(votes, false);
   setTimeout(fixRevealedVoteFontSizes, 100);
-  setTimeout(fixRevealedVoteFontSizes, 300);
 }
 
 
@@ -2865,7 +2833,6 @@ function handleSocketMessage(message) {
       // Update the user list when server sends an updated list
       if (Array.isArray(message.users)) {
         updateUserList(message.users);
-            window.latestUserList = message.users;
       }
       break;
 
@@ -3320,3 +3287,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   initializeApp(roomId);
 });
+
+const styleExtra = document.createElement('style');
+styleExtra.textContent = `.hidden-until-init { display: none !important; }`;
+document.head.appendChild(styleExtra);
