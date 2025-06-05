@@ -672,26 +672,30 @@ socket.on('votesRevealed', ({ storyId }) => {
 
 
 
-  socket.on('votesReset', ({ storyId }) => {
-    // Skip processing for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      return;
-    }
-    
-    // Clear vote data for this story
-    if (votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    votesRevealed[storyId] = false;
-    resetAllVoteVisuals();
-    // ✅ Unhide the planning cards section after reset (for all users)
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.classList.remove('hidden-until-init');
-    }
-    
-  });
+socket.on('votesReset', ({ storyId }) => {
+  if (deletedStoryIds.has(storyId)) return;
+
+  if (votesPerStory[storyId]) {
+    votesPerStory[storyId] = {};
+  }
+
+  votesRevealed[storyId] = false;
+  resetAllVoteVisuals();
+
+  // ✅ Unhide cards for guest
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.classList.remove('hidden-until-init');
+    planningCardsSection.style.display = 'block';
+  }
+
+  // ✅ Hide stats if shown
+  const statsContainer = document.querySelector(`.vote-statistics-container[data-story-id="${storyId}"]`);
+  if (statsContainer) {
+    statsContainer.style.display = 'none';
+  }
+});
+  
 socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
   hasReceivedStorySelection = true;
@@ -1773,25 +1777,33 @@ function setupRevealResetButtons() {
 
   const resetVotesBtn = document.getElementById('resetVotesBtn');
   if (resetVotesBtn) {
-    resetVotesBtn.addEventListener('click', () => {
-      const storyId = getCurrentStoryId();
-      if (socket && storyId) {
-        socket.emit('resetVotes', { storyId });
-        
-        // Clear vote data for this story
-        if (votesPerStory[storyId]) {
-          votesPerStory[storyId] = {};
-        }
-        
-        votesRevealed[storyId] = false;
-        resetAllVoteVisuals();
-        // ✅ Unhide the planning cards section after reset
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        if (planningCardsSection) {
-          planningCardsSection.classList.remove('hidden-until-init');
-        }
-      }
-    });
+  resetVotesBtn.addEventListener('click', () => {
+  const storyId = getCurrentStoryId();
+  if (socket && storyId) {
+    socket.emit('resetVotes', { storyId });
+
+    // Clear local vote data
+    if (votesPerStory[storyId]) {
+      votesPerStory[storyId] = {};
+    }
+
+    votesRevealed[storyId] = false;
+    resetAllVoteVisuals();
+
+    // ✅ Unhide the planning cards
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.remove('hidden-until-init');
+      planningCardsSection.style.display = 'block'; // Also force display in case it's been hidden
+    }
+
+    // ✅ Hide stats container if previously shown
+    const statsContainer = document.querySelector(`.vote-statistics-container[data-story-id="${storyId}"]`);
+    if (statsContainer) {
+      statsContainer.style.display = 'none';
+    }
+  }
+});
   }
 }
 
