@@ -14,6 +14,8 @@ let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
 let heartbeatInterval; // Store interval reference for cleanup
+let userActivityTimeout; // Track user activity timeout
+let lastActivityTime = Date.now(); // Track user activity
 
 // Initialize user map for tracking users across sessions
 if (!window.userMap) window.userMap = {};
@@ -109,6 +111,9 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Setup heartbeat to prevent idle timeouts
   setupHeartbeat();
+  
+  // Setup activity tracking
+  setupActivityTracking();
 
   // Update user map with current name
   if (!window.userMap) window.userMap = {};
@@ -124,6 +129,76 @@ function emitUserMapUpdate() {
     console.log('[USER-MAP] Emitting user map update to server');
     socket.emit('updateUserMap', { userMap: window.userMap });
   }
+}
+
+/**
+ * Set up activity tracking to prevent disconnections during idle time
+ */
+function setupActivityTracking() {
+  // Track user activity
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(eventType => {
+    document.addEventListener(eventType, () => {
+      lastActivityTime = Date.now();
+    });
+  });
+  
+  // Clear any existing timeout
+  if (userActivityTimeout) {
+    clearInterval(userActivityTimeout);
+  }
+  
+  // Check activity and send heartbeats if idle but still connected
+  userActivityTimeout = setInterval(() => {
+    const idleTime = Date.now() - lastActivityTime;
+    if (idleTime > 30000) { // 30 seconds of inactivity
+      console.log('[ACTIVITY] User idle for', Math.round(idleTime/1000), 'seconds, sending keep-alive');
+      
+      // Send a special keep-alive heartbeat
+      if (socket && socket.connected) {
+        socket.emit('keepAlive', { 
+          roomId: getRoomIdFromURL(),
+          idleTime: idleTime
+        });
+      }
+    }
+  }, 30000); // Check every 30 seconds
+  
+  // Clear on page unload
+  window.addEventListener('beforeunload', () => {
+    clearInterval(userActivityTimeout);
+  });
+}
+
+/**
+ * Recovery function for when stories disappear or connection is lost
+ */
+function recoverFromDisconnection() {
+  console.log('[RECOVERY] Attempting to recover state after disconnection');
+  
+  const roomId = getRoomIdFromURL();
+  if (!roomId) return;
+  
+  // First check if we still have our socket
+  if (!socket || !socket.connected) {
+    console.log('[RECOVERY] Socket disconnected, reinitializing...');
+    socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  }
+  
+  // Request all tickets from server
+  setTimeout(() => {
+    if (socket && socket.connected) {
+      console.log('[RECOVERY] Requesting all tickets and state...');
+      socket.emit('requestAllTickets');
+      socket.emit('requestFullStateResync');
+      
+      // Re-emit user map to ensure server has latest mapping
+      emitUserMapUpdate();
+      
+      // Make sure the connection stays alive
+      setupHeartbeat();
+      setupActivityTracking();
+    }
+  }, 1000);
 }
 
 /**
@@ -161,10 +236,10 @@ function setupHeartbeat() {
     clearInterval(heartbeatInterval);
   }
   
-  // Send heartbeat every 20 seconds to keep the connection alive
+  // Send heartbeat more frequently - every 10 seconds instead of 20
   heartbeatInterval = setInterval(() => {
     if (socket && socket.connected) {
-      socket.emit('heartbeat');
+      socket.emit('heartbeat', { roomId: getRoomIdFromURL() });
       console.log('[SOCKET] Heartbeat sent');
     } else if (reconnectingInProgress) {
       console.log('[SOCKET] Skipping heartbeat during reconnection');
@@ -176,10 +251,18 @@ function setupHeartbeat() {
         const roomId = getRoomIdFromURL();
         if (roomId) {
           socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+          
+          // Request a full state resync after reconnection
+          setTimeout(() => {
+            if (socket && socket.connected) {
+              socket.emit('requestFullStateResync');
+              socket.emit('requestAllTickets');
+            }
+          }, 1000);
         }
       }
     }
-  }, 20000); // 20 seconds interval
+  }, 10000); // 10 seconds interval - more frequent to prevent timeouts
 
   // Clear interval on page unload
   window.addEventListener('beforeunload', () => {
@@ -225,9 +308,12 @@ function mergeVote(storyId, userName, vote) {
   window.currentVotesPerStory = votesPerStory;
 }
 
+/**
+ * Refresh the vote display by resetting and reapplying all votes
+ */
 function refreshVoteDisplay() {
-  // Clear existing vote visuals
-  clearAllVoteVisuals();
+  // Use resetAllVoteVisuals instead of clearAllVoteVisuals
+  resetAllVoteVisuals();
 
   // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
@@ -607,6 +693,8 @@ function initializeApp(roomId) {
     socket.io.reconnectionAttempts = 10;
     socket.io.timeout = 20000;
     socket.io.reconnectionDelay = 2000;
+    // Add ping timeout to prevent disconnections
+    socket.io.pingTimeout = 60000; // 60 seconds
   }
 
   // Initialize user map if needed
@@ -617,8 +705,46 @@ function initializeApp(roomId) {
     }
   }
 
-  // Setup heartbeat mechanism to prevent timeouts
+  // Setup heartbeat and activity tracking to prevent timeouts
   setupHeartbeat();
+  setupActivityTracking();
+  
+  // Add recovery check - periodically check if we have stories
+  setInterval(() => {
+    const storyList = document.getElementById('storyList');
+    if (storyList && storyList.children.length === 0 && hasRequestedTickets) {
+      console.log('[CHECK] No stories found but should have them - attempting recovery');
+      recoverFromDisconnection();
+    }
+  }, 60000); // Check every minute
+
+  // Add handling for socket errors and disconnects
+  socket.on('connect_error', (error) => {
+    console.error('[SOCKET] Connection error:', error);
+    updateConnectionStatus('error');
+    
+    // Attempt recovery after brief delay
+    setTimeout(() => {
+      recoverFromDisconnection();
+    }, 5000);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.warn('[SOCKET] Disconnected:', reason);
+    
+    // Different handling based on disconnect reason
+    if (reason === 'io server disconnect') {
+      // Server disconnected us, we need to reconnect manually
+      console.log('[SOCKET] Server disconnected us, reconnecting...');
+      socket.connect();
+    } else if (reason === 'transport close' || reason === 'ping timeout') {
+      // Network issue, attempt recovery
+      console.log('[SOCKET] Network issue detected, attempting recovery...');
+      setTimeout(() => {
+        recoverFromDisconnection();
+      }, 3000);
+    }
+  });
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     // Store this mapping
@@ -706,7 +832,7 @@ function initializeApp(roomId) {
     // Update local vote state for non-deleted stories
     if (serverVotes) {
       for (const [storyId, votes] of Object.entries(serverVotes)) {
-        if (deletedStoryIds.has(storyId)) continue;
+               if (deletedStoryIds.has(storyId)) continue;
 
         if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
@@ -1713,7 +1839,7 @@ function handleVotesRevealed(storyId, votes) {
     planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
   } else if (currentStoryCard && currentStoryCard.parentNode) {
     currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
-      } else {
+  } else {
     document.body.appendChild(statsContainer);
   }
 
@@ -1917,6 +2043,18 @@ function applyGuestRestrictions() {
 function processAllTickets(tickets) {
   const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
   console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
+
+  // Special check for empty ticket lists when we expect data
+  if (filtered.length === 0 && tickets.length === 0) {
+    // Check if we've already seen tickets before - if so, this might be a server error
+    if (hasRequestedTickets) {
+      console.warn('[SOCKET] Received empty ticket list but already had tickets. Attempting recovery...');
+      setTimeout(() => {
+        recoverFromDisconnection();
+      }, 2000);
+      return;
+    }
+  }
 
   const storyList = document.getElementById('storyList');
   if (storyList) {
@@ -2417,7 +2555,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                         found = true;
 
                         let storyId = card.id;
-                        if (storyId && !deletedStoryIds.has(storyId)) {
+                                               if (storyId && !deletedStoryIds.has(storyId)) {
                             if (typeof votesRevealed[storyId] === 'undefined') {
                                 votesRevealed[storyId] = false;
                             }
@@ -3243,6 +3381,19 @@ function handleSocketMessage(message) {
         // Filter out any deleted tickets
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
+        
+        // Special check for empty ticket lists when we expect data
+        if (filteredTickets.length === 0 && message.tickets.length === 0) {
+          // Check if we've already seen tickets before - if so, this might be a server error
+          if (hasRequestedTickets) {
+            console.warn('[SOCKET] Received empty ticket list but already had tickets. Attempting recovery...');
+            setTimeout(() => {
+              recoverFromDisconnection();
+            }, 2000);
+            return;
+          }
+        }
+        
         processAllTickets(filteredTickets);
         applyGuestRestrictions();
       }
@@ -3391,7 +3542,7 @@ function handleSocketMessage(message) {
     case 'votesReset':
       // Skip processing for deleted story
       if (message.storyId && deletedStoryIds.has(message.storyId)) {
-                console.log(`[VOTE] Ignoring vote reset for deleted story: ${message.storyId}`);
+        console.log(`[VOTE] Ignoring vote reset for deleted story: ${message.storyId}`);
         return;
       }
       
@@ -3632,6 +3783,16 @@ function handleSocketMessage(message) {
     case 'heartbeatResponse':
       console.log('[SOCKET] Received heartbeat response from server');
       break;
+      
+    case 'keepAliveResponse':
+      console.log('[SOCKET] Received keep-alive response from server');
+      // Check if we need to refresh our state
+      const storyList = document.getElementById('storyList');
+      if (storyList && storyList.children.length === 0 && hasRequestedTickets) {
+        console.log('[SOCKET] No stories found during keep-alive, attempting recovery');
+        recoverFromDisconnection();
+      }
+      break;
   }
 }
 
@@ -3659,5 +3820,7 @@ window.addEventListener('beforeunload', () => {
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
   }
+  if (userActivityTimeout) {
+    clearInterval(userActivityTimeout);
+  }
 });
-        
