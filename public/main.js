@@ -662,55 +662,19 @@ if (serverVotes) {
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
-socket.on('votesRevealed', ({ storyId }) => {
-  if (deletedStoryIds.has(storyId)) return;
-
-  votesRevealed[storyId] = true;
-  const votes = votesPerStory[storyId] || {};
-  console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
-
-  handleVotesRevealed(storyId, votes);
-  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
   
+socket.on('votesRevealed', ({ storyId }) => {
   if (deletedStoryIds.has(storyId)) {
     console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
     return;
   }
-  
+
   votesRevealed[storyId] = true;
-  const votes = votesPerStory[storyId] || {};
-  console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
+  const revealedVotes = votesPerStory[storyId] || {};
+  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
+  console.log('[DEBUG] Votes to reveal:', JSON.stringify(revealedVotes));
 
-  // Show votes on cards
-  applyVotesToUI(votes, false);
-
-  // Build statistics UI
-  const statsContainer = document.querySelector('.vote-statistics-container') || document.createElement('div');
-  statsContainer.className = 'vote-statistics-container';
-  statsContainer.setAttribute('data-story-id', storyId);
-  statsContainer.innerHTML = '';
-  statsContainer.appendChild(createFixedVoteDisplay(votes));
-
-  // 🔁 Robust DOM insert logic
-  const planningCardsSection = document.querySelector('.planning-cards-section');
-  const currentStoryCard = document.querySelector('.story-card.selected');
-
-  if (planningCardsSection && planningCardsSection.parentNode) {
-    planningCardsSection.classList.add('hidden-until-init');
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    console.log('[DEBUG] Inserted statsContainer after planningCardsSection');
-  } else if (currentStoryCard && currentStoryCard.parentNode) {
-    currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
-    console.log('[DEBUG] Inserted statsContainer after currentStoryCard');
-  } else {
-    document.body.appendChild(statsContainer);
-    console.warn('[FALLBACK] Appended statsContainer to body — no anchor element found');
-  }
-
-  statsContainer.style.display = 'block';
-
-  // Fix font sizes
-  setTimeout(fixRevealedVoteFontSizes, 100);
+  handleVotesRevealed(storyId, revealedVotes); // ✅ Does all UI work
 });
 
 
@@ -1458,8 +1422,11 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
-function handleVotesRevealed(storyId, allVotes) {
- if (!allVotes || typeof allVotes !== 'object') return;
+function handleVotesRevealed(storyId, votes) {
+  if (!votes || typeof votes !== 'object') return;
+
+  // 🧠 Apply vote badges to user cards
+  applyVotesToUI(votes, false);
 
   // ✅ Deduplicate by userName
   const uniqueVotes = new Map();
@@ -1473,7 +1440,6 @@ function handleVotesRevealed(storyId, allVotes) {
 
   const voteValues = Array.from(uniqueVotes.values());
 
-  // ✅ Parse numeric vote values
   function parseNumericVote(vote) {
     if (typeof vote !== 'string') return NaN;
     if (vote === '½') return 0.5;
@@ -1490,7 +1456,6 @@ function handleVotesRevealed(storyId, allVotes) {
     .map(parseNumericVote)
     .filter(v => !isNaN(v));
 
-  // 🔢 Calculate most common vote and average
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
   let averageValue = null;
 
@@ -1515,7 +1480,6 @@ function handleVotesRevealed(storyId, allVotes) {
   // Remove any existing stats container for this story
   const existingStatsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
   existingStatsContainers.forEach(el => el.remove());
-  if (existing) existing.remove();
 
   // 🎨 Render UI
   const statsContainer = document.createElement('div');
@@ -1544,24 +1508,24 @@ function handleVotesRevealed(storyId, allVotes) {
     </div>
   `;
 
-const planningCardsSection = document.querySelector('.planning-cards-section');
-const currentStoryCard = document.querySelector(`.story-card.selected`);
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  const currentStoryCard = document.querySelector(`.story-card.selected`);
 
-if (planningCardsSection && planningCardsSection.parentNode) {
-  planningCardsSection.classList.add('hidden-until-init');
-  planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-  console.log('[DEBUG] Inserted statsContainer after planningCardsSection');
-} else if (currentStoryCard && currentStoryCard.parentNode) {
-  currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
-  console.log('[DEBUG] Inserted statsContainer after currentStoryCard');
-} else {
-  document.body.appendChild(statsContainer);
-  console.warn('[FALLBACK] Appended statsContainer to body — no anchor element found');
+  if (planningCardsSection && planningCardsSection.parentNode) {
+    planningCardsSection.classList.add('hidden-until-init');
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
+    console.log('[DEBUG] Inserted statsContainer after planningCardsSection');
+  } else if (currentStoryCard && currentStoryCard.parentNode) {
+    currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
+    console.log('[DEBUG] Inserted statsContainer after currentStoryCard');
+  } else {
+    document.body.appendChild(statsContainer);
+    console.warn('[FALLBACK] Appended statsContainer to body — no anchor element found');
+  }
+
+  statsContainer.style.display = 'block';
 }
 
-statsContainer.style.display = 'block';
-
-}
 
 
 
