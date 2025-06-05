@@ -14,11 +14,6 @@ let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
 let heartbeatInterval; // Store interval reference for cleanup
-let userActivityTimeout; // Track user activity timeout
-let lastActivityTime = Date.now(); // Track user activity
-
-// Initialize user map for tracking users across sessions
-if (!window.userMap) window.userMap = {};
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -111,121 +106,7 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Setup heartbeat to prevent idle timeouts
   setupHeartbeat();
-  
-  // Setup activity tracking
-  setupActivityTracking();
-
-  // Update user map with current name
-  if (!window.userMap) window.userMap = {};
-  window.userMap[socket.id] = name;
-  emitUserMapUpdate();
 };
-
-/**
- * Emit the user mapping data to server
- */
-function emitUserMapUpdate() {
-  if (socket && socket.connected && window.userMap) {
-    console.log('[USER-MAP] Emitting user map update to server');
-    socket.emit('updateUserMap', { userMap: window.userMap });
-  }
-}
-
-/**
- * Set up activity tracking to prevent disconnections during idle time
- */
-function setupActivityTracking() {
-  // Track user activity
-  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(eventType => {
-    document.addEventListener(eventType, () => {
-      lastActivityTime = Date.now();
-    });
-  });
-  
-  // Clear any existing timeout
-  if (userActivityTimeout) {
-    clearInterval(userActivityTimeout);
-  }
-  
-  // Check activity and send heartbeats if idle but still connected
-  userActivityTimeout = setInterval(() => {
-    const idleTime = Date.now() - lastActivityTime;
-    if (idleTime > 30000) { // 30 seconds of inactivity
-      console.log('[ACTIVITY] User idle for', Math.round(idleTime/1000), 'seconds, sending keep-alive');
-      
-      // Send a special keep-alive heartbeat
-      if (socket && socket.connected) {
-        socket.emit('keepAlive', { 
-          roomId: getRoomIdFromURL(),
-          idleTime: idleTime
-        });
-      }
-    }
-  }, 30000); // Check every 30 seconds
-  
-  // Clear on page unload
-  window.addEventListener('beforeunload', () => {
-    clearInterval(userActivityTimeout);
-  });
-}
-
-/**
- * Recovery function for when stories disappear or connection is lost
- */
-function recoverFromDisconnection() {
-  console.log('[RECOVERY] Attempting to recover state after disconnection');
-  
-  const roomId = getRoomIdFromURL();
-  if (!roomId) return;
-  
-  // First check if we still have our socket
-  if (!socket || !socket.connected) {
-    console.log('[RECOVERY] Socket disconnected, reinitializing...');
-    socket = initializeWebSocket(roomId, userName, handleSocketMessage);
-  }
-  
-  // Request all tickets from server
-  setTimeout(() => {
-    if (socket && socket.connected) {
-      console.log('[RECOVERY] Requesting all tickets and state...');
-      socket.emit('requestAllTickets');
-      socket.emit('requestFullStateResync');
-      
-      // Re-emit user map to ensure server has latest mapping
-      emitUserMapUpdate();
-      
-      // Make sure the connection stays alive
-      setupHeartbeat();
-      setupActivityTracking();
-    }
-  }, 1000);
-}
-
-/**
- * Deduplicate votes by username to prevent double-counting
- * @param {Object} votes - Object mapping user IDs to votes
- * @returns {Object} Deduplicated votes
- */
-function deduplicateVotesByUser(votes) {
-  const userMap = window.userMap || {};
-  const uniqueVotes = {};
-  const processedUsers = new Set();
-  
-  // First pass: identify all usernames
-  for (const [id, vote] of Object.entries(votes)) {
-    // Get username, defaulting to the ID if not found
-    const userName = userMap[id] || id;
-    const normalizedUser = userName.toLowerCase().trim();
-    
-    // Only keep the most recent vote per normalized username
-    if (!processedUsers.has(normalizedUser)) {
-      uniqueVotes[id] = vote;
-      processedUsers.add(normalizedUser);
-    }
-  }
-  
-  return uniqueVotes;
-}
 
 /**
  * Set up heartbeat mechanism to prevent connection timeouts
@@ -236,10 +117,10 @@ function setupHeartbeat() {
     clearInterval(heartbeatInterval);
   }
   
-  // Send heartbeat more frequently - every 10 seconds instead of 20
+  // Send heartbeat every 20 seconds to keep the connection alive
   heartbeatInterval = setInterval(() => {
     if (socket && socket.connected) {
-      socket.emit('heartbeat', { roomId: getRoomIdFromURL() });
+      socket.emit('heartbeat');
       console.log('[SOCKET] Heartbeat sent');
     } else if (reconnectingInProgress) {
       console.log('[SOCKET] Skipping heartbeat during reconnection');
@@ -251,18 +132,10 @@ function setupHeartbeat() {
         const roomId = getRoomIdFromURL();
         if (roomId) {
           socket = initializeWebSocket(roomId, userName, handleSocketMessage);
-          
-          // Request a full state resync after reconnection
-          setTimeout(() => {
-            if (socket && socket.connected) {
-              socket.emit('requestFullStateResync');
-              socket.emit('requestAllTickets');
-            }
-          }, 1000);
         }
       }
     }
-  }, 10000); // 10 seconds interval - more frequent to prevent timeouts
+  }, 20000); // 20 seconds interval
 
   // Clear interval on page unload
   window.addEventListener('beforeunload', () => {
@@ -295,49 +168,32 @@ function loadDeletedStoriesFromStorage(roomId) {
  */
 function mergeVote(storyId, userName, vote) {
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-  
-  // Create a user map if it doesn't exist
-  if (!window.userMap) window.userMap = {};
-  
-  // Store the mapping between socketId and userName
-  window.userMap[userName] = userName;
-  
-  // Use the provided userName for the vote
   votesPerStory[storyId][userName] = vote;
-  
   window.currentVotesPerStory = votesPerStory;
 }
 
-/**
- * Refresh the vote display by resetting and reapplying all votes
- */
 function refreshVoteDisplay() {
-  // Use resetAllVoteVisuals instead of clearAllVoteVisuals
-  resetAllVoteVisuals();
+  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
+  clearAllVoteVisuals();
 
   // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
-    // Deduplicate votes before displaying
-    const deduplicatedVotes = deduplicateVotesByUser(votes);
-    
-    for (const [userId, vote] of Object.entries(deduplicatedVotes)) {
+    for (const [userId, vote] of Object.entries(votes)) {
       // Update UI for each user vote on each story
       updateVoteVisuals(userId, vote, storyId);
+          
     }
-    
-    updateVoteBadges(storyId, deduplicatedVotes);
+    updateVoteBadges(storyId, votes);
   }
 }
 
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
-  // Use deduplicated votes
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-  const voteCount = Object.keys(deduplicatedVotes).length;
+  const voteCount = Object.keys(votes).length;
 
   console.log(`Story ${storyId} has ${voteCount} votes`);
 
-  // Find the vote badge element for the story
+  // Find the vote badge element for the story (adjust selector as per your HTML)
   const voteBadge = document.querySelector(`#vote-badge-${storyId}`);
 
   if (voteBadge) {
@@ -519,17 +375,15 @@ function addFixedVoteStatisticsStyles() {
 }
 
 // Create a new function to generate the stats layout
+
 function createFixedVoteDisplay(votes) {
   const container = document.createElement('div');
   container.className = 'fixed-vote-display';
 
-  // Use deduplicated votes
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-
   const userMap = window.userMap || {};
   const uniqueVotes = new Map();
 
-  for (const [id, vote] of Object.entries(deduplicatedVotes)) {
+  for (const [id, vote] of Object.entries(votes)) {
     const name = userMap[id] || id;
     if (!uniqueVotes.has(name)) {
       uniqueVotes.set(name, vote);
@@ -537,6 +391,7 @@ function createFixedVoteDisplay(votes) {
   }
 
   const voteValues = Array.from(uniqueVotes.values());
+
 
   // Extract numeric values only
   const numericValues = voteValues
@@ -693,64 +548,12 @@ function initializeApp(roomId) {
     socket.io.reconnectionAttempts = 10;
     socket.io.timeout = 20000;
     socket.io.reconnectionDelay = 2000;
-    // Add ping timeout to prevent disconnections
-    socket.io.pingTimeout = 60000; // 60 seconds
   }
 
-  // Initialize user map if needed
-  if (!window.userMap) {
-    window.userMap = {};
-    if (userName) {
-      window.userMap[socket.id] = userName;
-    }
-  }
-
-  // Setup heartbeat and activity tracking to prevent timeouts
+  // Setup heartbeat mechanism to prevent timeouts
   setupHeartbeat();
-  setupActivityTracking();
-  
-  // Add recovery check - periodically check if we have stories
-  setInterval(() => {
-    const storyList = document.getElementById('storyList');
-    if (storyList && storyList.children.length === 0 && hasRequestedTickets) {
-      console.log('[CHECK] No stories found but should have them - attempting recovery');
-      recoverFromDisconnection();
-    }
-  }, 60000); // Check every minute
-
-  // Add handling for socket errors and disconnects
-  socket.on('connect_error', (error) => {
-    console.error('[SOCKET] Connection error:', error);
-    updateConnectionStatus('error');
-    
-    // Attempt recovery after brief delay
-    setTimeout(() => {
-      recoverFromDisconnection();
-    }, 5000);
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.warn('[SOCKET] Disconnected:', reason);
-    
-    // Different handling based on disconnect reason
-    if (reason === 'io server disconnect') {
-      // Server disconnected us, we need to reconnect manually
-      console.log('[SOCKET] Server disconnected us, reconnecting...');
-      socket.connect();
-    } else if (reason === 'transport close' || reason === 'ping timeout') {
-      // Network issue, attempt recovery
-      console.log('[SOCKET] Network issue detected, attempting recovery...');
-      setTimeout(() => {
-        recoverFromDisconnection();
-      }, 3000);
-    }
-  });
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
-    // Store this mapping
-    if (!window.userMap) window.userMap = {};
-    window.userMap[userId] = userName || userId;
-    
     const name = userName || userId;
     mergeVote(storyId, name, vote);
 
@@ -760,11 +563,6 @@ function initializeApp(roomId) {
     }
 
     refreshVoteDisplay();
-    
-    // If votes are already revealed for this story, update the stats
-    if (votesRevealed[storyId] && storyId === currentId) {
-      handleVotesRevealed(storyId, votesPerStory[storyId]);
-    }
   });
   
   socket.on('storyVotes', ({ storyId, votes }) => {
@@ -797,25 +595,14 @@ function initializeApp(roomId) {
   
   // Updated handler for restored user votes
   socket.on('restoreUserVote', ({ storyId, vote }) => {
-    const socketId = socket.id;
-    const name = sessionStorage.getItem('userName') || socketId;
-    
-    // Store this mapping
-    if (!window.userMap) window.userMap = {};
-    window.userMap[socketId] = name;
-    
+    const name = sessionStorage.getItem('userName') || socket.id;
     mergeVote(storyId, name, vote);
     refreshVoteDisplay();
   });
   
   // Updated resyncState handler to restore votes
-  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, userMap: serverUserMap }) => {
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
     console.log('[SOCKET] Received resyncState from server');
-
-    // Update userMap with server's version if provided
-    if (serverUserMap) {
-      window.userMap = { ...window.userMap || {}, ...serverUserMap };
-    }
 
     // Update local deleted stories tracking
     if (Array.isArray(serverDeletedIds)) {
@@ -832,7 +619,7 @@ function initializeApp(roomId) {
     // Update local vote state for non-deleted stories
     if (serverVotes) {
       for (const [storyId, votes] of Object.entries(serverVotes)) {
-               if (deletedStoryIds.has(storyId)) continue;
+        if (deletedStoryIds.has(storyId)) continue;
 
         if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
 
@@ -868,7 +655,6 @@ function initializeApp(roomId) {
 
         if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
         votesPerStory[storyId][socket.id] = vote;
-        window.currentVotesPerStory = votesPerStory;
 
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
@@ -928,7 +714,7 @@ function initializeApp(roomId) {
     
     // Log action for debugging
     console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
-  });
+  })
 
   socket.on('votesReset', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
@@ -1026,12 +812,6 @@ function initializeApp(roomId) {
       // Update UI to show connected status
       updateConnectionStatus('connected');
 
-      // Update user mapping with current socket ID
-      if (window.userMap && userName) {
-        window.userMap[socket.id] = userName;
-        emitUserMapUpdate();
-      }
-
       // Request current state and story
       socket.emit('requestAllTickets');
       socket.emit('requestCurrentStory');
@@ -1059,15 +839,6 @@ function initializeApp(roomId) {
       }, 500);
     });
   }
-
-  // Emit user mapping after connection
-  socket.on('connect', () => {
-    // Update user mapping with current socket ID
-    if (window.userMap && userName) {
-      window.userMap[socket.id] = userName;
-      emitUserMapUpdate();
-    }
-  });
   
   // Guest: Listen for host's voting system
   socket.on('votingSystemUpdate', ({ votingSystem }) => {
@@ -1627,16 +1398,14 @@ function deleteStory(storyId) {
   console.log('[DELETE] Deletion complete for story:', storyId);
 }
 
+
 function createVoteStatisticsDisplay(votes) {
   // Create container
   const container = document.createElement('div');
   container.className = 'vote-statistics-display';
   
-  // Use deduplicated votes for statistics
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-  
   // Calculate statistics
-  const voteValues = Object.values(deduplicatedVotes);
+  const voteValues = Object.values(votes);
   const numericValues = voteValues
     .filter(v => !isNaN(parseFloat(v)) && v !== null && v !== undefined)
     .map(v => parseFloat(v));
@@ -1696,9 +1465,7 @@ function createVoteStatisticsDisplay(votes) {
 
 // Helper function to find most common vote
 function findMostCommonVote(votes) {
-  // Use deduplicated votes
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-  const voteValues = Object.values(deduplicatedVotes);
+  const voteValues = Object.values(votes);
   const counts = {};
   
   voteValues.forEach(vote => {
@@ -1737,27 +1504,21 @@ function addVoteStatisticsStyles() {
  * @param {Object} votes - Vote data
  */
 function handleVotesRevealed(storyId, votes) {
+ 
   if (!votes || typeof votes !== 'object') return;
-  
+   // 🧩 Ensure style block is added for vote statistics
   if (typeof addFixedVoteStatisticsStyles === 'function') {
     addFixedVoteStatisticsStyles();
   }
 
-  // Deduplicate votes before displaying
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-  
-  // Apply the deduplicated votes to UI
-  applyVotesToUI(deduplicatedVotes, false);
+  applyVotesToUI(votes, false);
 
   const uniqueVotes = new Map();
   const userMap = window.userMap || {};
-  
-  for (const [socketId, vote] of Object.entries(deduplicatedVotes)) {
+  for (const [socketId, vote] of Object.entries(votes)) {
     const userName = userMap[socketId] || socketId;
-    const normalizedUser = userName.toLowerCase().trim();
-    
-    if (!uniqueVotes.has(normalizedUser)) {
-      uniqueVotes.set(normalizedUser, vote);
+    if (!uniqueVotes.has(userName)) {
+      uniqueVotes.set(userName, vote);
     }
   }
 
@@ -1804,15 +1565,11 @@ function handleVotesRevealed(storyId, votes) {
   const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.setAttribute('data-story-id', storyId);
-  
-  // Use voteValues.length for vote count (for deduplicated votes)
-  const voteCount = voteValues.length;
-  
   statsContainer.innerHTML = `
     <div class="fixed-vote-display">
       <div class="fixed-vote-card">
         ${mostCommonVote}
-        <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
+        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="fixed-vote-stats">
         ${averageValue !== null ? `
@@ -1963,8 +1720,7 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
       selectStory(newIndex);
     });
   }
-  
-  // Select the new story if requested (only for hosts)
+    // Select the new story if requested (only for hosts)
   if (selectAfterAdd && !isGuestUser()) {
     selectStory(newIndex);
   }
@@ -2043,18 +1799,6 @@ function applyGuestRestrictions() {
 function processAllTickets(tickets) {
   const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
   console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
-
-  // Special check for empty ticket lists when we expect data
-  if (filtered.length === 0 && tickets.length === 0) {
-    // Check if we've already seen tickets before - if so, this might be a server error
-    if (hasRequestedTickets) {
-      console.warn('[SOCKET] Received empty ticket list but already had tickets. Attempting recovery...');
-      setTimeout(() => {
-        recoverFromDisconnection();
-      }, 2000);
-      return;
-    }
-  }
 
   const storyList = document.getElementById('storyList');
   if (storyList) {
@@ -2555,7 +2299,7 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
                         found = true;
 
                         let storyId = card.id;
-                                               if (storyId && !deletedStoryIds.has(storyId)) {
+                        if (storyId && !deletedStoryIds.has(storyId)) {
                             if (typeof votesRevealed[storyId] === 'undefined') {
                                 votesRevealed[storyId] = false;
                             }
@@ -2626,10 +2370,7 @@ function applyVotesToUI(votes, hideValues) {
   console.log('[DEBUG] applyVotesToUI called with:', 
     { votes: JSON.stringify(votes), hideValues });
   
-  // Use deduplicated votes
-  const deduplicatedVotes = deduplicateVotesByUser(votes);
-  
-  Object.entries(deduplicatedVotes).forEach(([userId, vote]) => {
+  Object.entries(votes).forEach(([userId, vote]) => {
     console.log(`[DEBUG] Updating vote for ${userId}: ${hideValues ? '👍' : vote}`);
     updateVoteVisuals(userId, hideValues ? '👍' : vote, true);
   });
@@ -2699,10 +2440,6 @@ function updateUserList(users) {
       <span class="vote-badge"></span>
     `;
     userListContainer.appendChild(userEntry);
-    
-    // Update userMap with this user
-    if (!window.userMap) window.userMap = {};
-    window.userMap[user.id] = user.name;
   });
 
   // Create new grid layout for center area
@@ -3268,11 +3005,6 @@ function handleSocketMessage(message) {
       break;
 
     case 'resyncState':
-      // Update userMap with server's version if provided
-      if (message.userMap) {
-        window.userMap = { ...window.userMap || {}, ...message.userMap };
-      }
-      
       // Update local deletedStoryIds with array from server
       if (Array.isArray(message.deletedStoryIds)) {
         message.deletedStoryIds.forEach(id => {
@@ -3346,11 +3078,6 @@ function handleSocketMessage(message) {
         
         // Get the current user's ID
         const currentUserId = socket.id;
-        const name = sessionStorage.getItem('userName') || currentUserId;
-        
-        // Store this mapping
-        if (!window.userMap) window.userMap = {};
-        window.userMap[currentUserId] = name;
         
         // Update local state
         if (!votesPerStory[message.storyId]) {
@@ -3381,19 +3108,6 @@ function handleSocketMessage(message) {
         // Filter out any deleted tickets
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
-        
-        // Special check for empty ticket lists when we expect data
-        if (filteredTickets.length === 0 && message.tickets.length === 0) {
-          // Check if we've already seen tickets before - if so, this might be a server error
-          if (hasRequestedTickets) {
-            console.warn('[SOCKET] Received empty ticket list but already had tickets. Attempting recovery...');
-            setTimeout(() => {
-              recoverFromDisconnection();
-            }, 2000);
-            return;
-          }
-        }
-        
         processAllTickets(filteredTickets);
         applyGuestRestrictions();
       }
@@ -3401,11 +3115,6 @@ function handleSocketMessage(message) {
       
     case 'userJoined':
       // Individual user joined - could update existing list
-      if (message.user) {
-        // Store user mapping
-        if (!window.userMap) window.userMap = {};
-        window.userMap[message.user.id] = message.user.name;
-      }
       break;
       
     case 'userLeft':
@@ -3422,12 +3131,6 @@ function handleSocketMessage(message) {
       
       // Handle vote received
       if (message.userId && message.vote) {
-        // Store user mapping if available
-        if (message.userName) {
-          if (!window.userMap) window.userMap = {};
-          window.userMap[message.userId] = message.userName;
-        }
-        
         if (!votesPerStory[message.storyId]) {
           votesPerStory[message.storyId] = {};
         }
@@ -3518,7 +3221,7 @@ function handleSocketMessage(message) {
         const votes = votesPerStory[storyId] || {};
         console.log(`[DEBUG] Votes for story ${storyId}:`, JSON.stringify(votes));
         
-        // Display the actual vote values
+        // This is where we display the actual vote values
         applyVotesToUI(votes, false);
         
         // Hide planning cards for this story
@@ -3675,7 +3378,7 @@ function handleSocketMessage(message) {
             const title = card.querySelector('.story-title');
             if (title) {
               manualTickets.push({
-                id: card.id,
+                                id: card.id,
                 text: title.textContent
               });
             }
@@ -3712,9 +3415,6 @@ function handleSocketMessage(message) {
           if (currentId && !deletedStoryIds.has(currentId)) {
             socket.emit('requestStoryVotes', { storyId: currentId });
           }
-          
-          // Send user mapping data
-          emitUserMapUpdate();
         }
       }, 500);
       break;
@@ -3729,12 +3429,6 @@ function handleSocketMessage(message) {
       // Handle successful reconnection
       updateConnectionStatus('connected');
       reconnectingInProgress = false;
-      
-      // Update user mapping with current socket ID
-      if (window.userMap && userName) {
-        window.userMap[socket.id] = userName;
-        emitUserMapUpdate();
-      }
       
       // Request current state after reconnection
       setTimeout(() => {
@@ -3762,36 +3456,9 @@ function handleSocketMessage(message) {
       updateConnectionStatus('error');
       break;
       
-    // Handle userMap update from server
-    case 'userMapUpdate':
-      if (message.userMap) {
-        window.userMap = { ...window.userMap || {}, ...message.userMap };
-        console.log('[SOCKET] Updated userMap from server');
-        
-        // Refresh the vote display to show correct names
-        refreshVoteDisplay();
-        
-        // If votes are revealed for current story, update the stats
-        const currentId = getCurrentStoryId();
-        if (currentId && votesRevealed[currentId] && votesPerStory[currentId]) {
-          handleVotesRevealed(currentId, votesPerStory[currentId]);
-        }
-      }
-      break;
-      
     // Handle heartbeat responses
     case 'heartbeatResponse':
       console.log('[SOCKET] Received heartbeat response from server');
-      break;
-      
-    case 'keepAliveResponse':
-      console.log('[SOCKET] Received keep-alive response from server');
-      // Check if we need to refresh our state
-      const storyList = document.getElementById('storyList');
-      if (storyList && storyList.children.length === 0 && hasRequestedTickets) {
-        console.log('[SOCKET] No stories found during keep-alive, attempting recovery');
-        recoverFromDisconnection();
-      }
       break;
   }
 }
@@ -3819,8 +3486,5 @@ document.head.appendChild(styleExtra);
 window.addEventListener('beforeunload', () => {
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
-  }
-  if (userActivityTimeout) {
-    clearInterval(userActivityTimeout);
   }
 });
