@@ -664,18 +664,11 @@ if (serverVotes) {
   });
   
 socket.on('votesRevealed', ({ storyId }) => {
-  if (deletedStoryIds.has(storyId)) {
-    console.log(`[VOTE] Ignoring vote reveal for deleted story: ${storyId}`);
-    return;
-  }
-
+  if (deletedStoryIds.has(storyId)) return;
   votesRevealed[storyId] = true;
-  const revealedVotes = votesPerStory[storyId] || {};
-  console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
-  console.log('[DEBUG] Votes to reveal:', JSON.stringify(revealedVotes));
-
-  handleVotesRevealed(storyId, revealedVotes); // ✅ Does all UI work
-});
+  const votes = votesPerStory[storyId] || {};
+  handleVotesRevealed(storyId, votes);
+})
 
 
 
@@ -1422,13 +1415,13 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
+
+// Simplified main.js (core structure for patch)
 function handleVotesRevealed(storyId, votes) {
   if (!votes || typeof votes !== 'object') return;
 
-  // 🧠 Apply vote badges to user cards
-  applyVotesToUI(votes, false);
+  applyVotesToUI(votes, false); // ensure vote badges are shown
 
-  // ✅ Deduplicate by userName
   const uniqueVotes = new Map();
   const userMap = window.userMap || {};
   for (const [socketId, vote] of Object.entries(votes)) {
@@ -1444,17 +1437,13 @@ function handleVotesRevealed(storyId, votes) {
     if (typeof vote !== 'string') return NaN;
     if (vote === '½') return 0.5;
     if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
-
     const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
     if (match) return parseFloat(match[1]);
-
     const parsed = parseFloat(vote);
     return isNaN(parsed) ? NaN : parsed;
   }
 
-  const numericValues = voteValues
-    .map(parseNumericVote)
-    .filter(v => !isNaN(v));
+  const numericValues = voteValues.map(parseNumericVote).filter(v => !isNaN(v));
 
   let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
   let averageValue = null;
@@ -1477,27 +1466,24 @@ function handleVotesRevealed(storyId, votes) {
     }
   }
 
-  // Remove any existing stats container for this story
   const existingStatsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
   existingStatsContainers.forEach(el => el.remove());
 
-  // 🎨 Render UI
   const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.setAttribute('data-story-id', storyId);
-  statsContainer.innerHTML = `
+  statsContainer.innerHTML = \`
     <div class="fixed-vote-display">
       <div class="fixed-vote-card">
-        ${mostCommonVote}
-        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
+        \${mostCommonVote}
+        <div class="fixed-vote-count">\${voteValues.length} Vote\${voteValues.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="fixed-vote-stats">
-        ${averageValue !== null ? `
+        \${averageValue !== null ? \`
           <div class="fixed-stat-group">
             <div class="fixed-stat-label">Average:</div>
-            <div class="fixed-stat-value">${averageValue}</div>
-          </div>` : ''
-        }
+            <div class="fixed-stat-value">\${averageValue}</div>
+          </div>\` : ''}
         <div class="fixed-stat-group">
           <div class="fixed-stat-label">Agreement:</div>
           <div class="fixed-agreement-circle">
@@ -1506,21 +1492,18 @@ function handleVotesRevealed(storyId, votes) {
         </div>
       </div>
     </div>
-  `;
+  \`;
 
   const planningCardsSection = document.querySelector('.planning-cards-section');
-  const currentStoryCard = document.querySelector(`.story-card.selected`);
+  const currentStoryCard = document.querySelector('.story-card.selected');
 
   if (planningCardsSection && planningCardsSection.parentNode) {
     planningCardsSection.classList.add('hidden-until-init');
     planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-    console.log('[DEBUG] Inserted statsContainer after planningCardsSection');
   } else if (currentStoryCard && currentStoryCard.parentNode) {
     currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
-    console.log('[DEBUG] Inserted statsContainer after currentStoryCard');
   } else {
     document.body.appendChild(statsContainer);
-    console.warn('[FALLBACK] Appended statsContainer to body — no anchor element found');
   }
 
   statsContainer.style.display = 'block';
