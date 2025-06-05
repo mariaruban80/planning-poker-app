@@ -1603,8 +1603,6 @@ function handleVotesRevealed(storyId, votes) {
   statsContainer.style.display = 'block';
 }
 
-
-
 /**
  * Setup Add Ticket button
  */
@@ -1719,11 +1717,10 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
   } else {
     // Add click event listener only for hosts
     storyCard.addEventListener('click', () => {
-            selectStory(newIndex);
+      selectStory(newIndex);
     });
   }
-  
-  // Select the new story if requested (only for hosts)
+    // Select the new story if requested (only for hosts)
   if (selectAfterAdd && !isGuestUser()) {
     selectStory(newIndex);
   }
@@ -1799,7 +1796,6 @@ function applyGuestRestrictions() {
  * Process multiple tickets at once (used when receiving all tickets from server)
  * @param {Array} tickets - Array of ticket data objects
  */
-
 function processAllTickets(tickets) {
   const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
   console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
@@ -1832,7 +1828,6 @@ function processAllTickets(tickets) {
   }
 }
 
-
 // Get storyId from selected card
 function getCurrentStoryId() {
   const selectedCard = document.querySelector('.story-card.selected');
@@ -1849,6 +1844,30 @@ function setupRevealResetButtons() {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
         console.log('[UI] Revealing votes for story:', storyId);
+        
+        // IMPORTANT FIX: Update local state BEFORE emitting to server
+        votesRevealed[storyId] = true;
+        
+        // Get the votes for this story
+        const votes = votesPerStory[storyId] || {};
+        
+        // Update UI immediately for host without waiting for server response
+        applyVotesToUI(votes, false);
+        
+        // Hide planning cards
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        if (planningCardsSection) {
+          planningCardsSection.classList.add('hidden-until-init');
+          planningCardsSection.style.display = 'none';
+        }
+        
+        // Show statistics immediately for host
+        handleVotesRevealed(storyId, votes);
+        
+        // Trigger emoji effect
+        triggerGlobalEmojiBurst();
+        
+        // Then emit to server for other users
         socket.emit('revealVotes', { storyId });
       }
     });
@@ -1859,28 +1878,30 @@ function setupRevealResetButtons() {
     resetVotesBtn.addEventListener('click', () => {
       const storyId = getCurrentStoryId();
       if (socket && storyId) {
-        socket.emit('resetVotes', { storyId });
-
-        // Clear local vote data
+        // IMPORTANT: Update local state BEFORE emitting to server
         if (votesPerStory[storyId]) {
           votesPerStory[storyId] = {};
         }
-
         votesRevealed[storyId] = false;
+        
+        // Update UI immediately
         resetAllVoteVisuals();
-
-        // ✅ Unhide the planning cards
+        
+        // Show planning cards
         const planningCardsSection = document.querySelector('.planning-cards-section');
         if (planningCardsSection) {
           planningCardsSection.classList.remove('hidden-until-init');
-          planningCardsSection.style.display = 'block'; // Also force display in case it's been hidden
+          planningCardsSection.style.display = 'block';
         }
-
-        // ✅ Hide stats container if previously shown
+        
+        // Hide stats container
         const statsContainer = document.querySelector(`.vote-statistics-container[data-story-id="${storyId}"]`);
         if (statsContainer) {
           statsContainer.style.display = 'none';
         }
+        
+        // Then emit to server
+        socket.emit('resetVotes', { storyId });
       }
     });
   }
@@ -2204,18 +2225,35 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
             votesRevealed[storyId] = false;
         }
 
-        // IMPORTANT FIX #1: Always ensure planning cards are visible when changing stories
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        if (planningCardsSection) {
-            planningCardsSection.classList.remove('hidden-until-init');
-            planningCardsSection.style.display = 'block';
-        }
+        // Check if votes are revealed for this story
+        const areVotesRevealed = storyId && votesRevealed[storyId] === true;
         
-        // Hide all vote statistics containers when changing stories
-        const allStatsContainers = document.querySelectorAll('.vote-statistics-container');
-        allStatsContainers.forEach(container => {
-            container.style.display = 'none';
-        });
+        if (areVotesRevealed) {
+            // If votes are revealed, hide planning cards and show stats
+            const planningCardsSection = document.querySelector('.planning-cards-section');
+            if (planningCardsSection) {
+                planningCardsSection.classList.add('hidden-until-init');
+                planningCardsSection.style.display = 'none';
+            }
+            
+            // Show statistics for this story
+            setTimeout(() => {
+                handleVotesRevealed(storyId, votesPerStory[storyId] || {});
+            }, 100);
+        } else {
+            // Otherwise, ensure planning cards are visible and stats are hidden
+            const planningCardsSection = document.querySelector('.planning-cards-section');
+            if (planningCardsSection) {
+                planningCardsSection.classList.remove('hidden-until-init');
+                planningCardsSection.style.display = 'block';
+            }
+            
+            // Hide all vote statistics containers
+            const allStatsContainers = document.querySelectorAll('.vote-statistics-container');
+            allStatsContainers.forEach(container => {
+                container.style.display = 'none';
+            });
+        }
 
         renderCurrentStory();
         resetOrRestoreVotes(storyId);
@@ -2455,16 +2493,29 @@ function updateUserList(users) {
       
       if (socket && storyId) {
         console.log('[UI] Revealing votes for story:', storyId);
-        // Send the storyId parameter with the event
-        socket.emit('revealVotes', { storyId });
         
-        // Update local state
+        // IMPORTANT: Update local state BEFORE emitting to server
         votesRevealed[storyId] = true;
         
-        // Update UI if we have votes for this story
-        if (votesPerStory[storyId]) {
-          applyVotesToUI(votesPerStory[storyId], false);
+        // Get the votes for this story and apply them
+        const votes = votesPerStory[storyId] || {};
+        applyVotesToUI(votes, false);
+        
+        // Hide planning cards
+        const planningCardsSection = document.querySelector('.planning-cards-section');
+        if (planningCardsSection) {
+          planningCardsSection.classList.add('hidden-until-init');
+          planningCardsSection.style.display = 'none';
         }
+        
+        // Show statistics immediately for host
+        handleVotesRevealed(storyId, votes);
+        
+        // Trigger emoji effect
+        triggerGlobalEmojiBurst();
+        
+        // Then emit to server for other users
+        socket.emit('revealVotes', { storyId });
       } else {
         console.warn('[UI] Cannot reveal votes: No story selected');
       }
@@ -3327,7 +3378,7 @@ function handleSocketMessage(message) {
             const title = card.querySelector('.story-title');
             if (title) {
               manualTickets.push({
-                id: card.id,
+                                id: card.id,
                 text: title.textContent
               });
             }
@@ -3390,7 +3441,7 @@ function handleSocketMessage(message) {
           
           // Request all tickets if we don't have them
           if (!hasRequestedTickets) {
-                     socket.emit('requestAllTickets');
+            socket.emit('requestAllTickets');
             hasRequestedTickets = true;
           }
           
@@ -3437,4 +3488,3 @@ window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
   }
 });
-      
