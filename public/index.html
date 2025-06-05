@@ -32,7 +32,6 @@
       display: flex; 
       background: white;
       min-height: calc(100vh - 140px);
-      padding-bottom: 120px; /* Add padding for fixed card panel */
     }
     
     .sidebar, .rightbar { 
@@ -1435,111 +1434,6 @@ white-space: nowrap;
     }
   }
 
-/* NEW: Fixed Bottom Planning Cards */
-.planning-cards-fixed-bottom {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: white;
-  border-top: 1px solid #e0e0e0;
-  padding: 10px 0;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: transform 0.3s ease;
-}
-
-/* Header for the fixed panel */
-.planning-cards-header {
-  width: 100%;
-  text-align: center;
-  color: #673ab7;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-}
-
-/* Improve card styling for fixed panel */
-.planning-cards-fixed-bottom .cards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 10px;
-}
-
-/* Add a handle to allow collapsing on mobile */
-.panel-handle {
-  width: 40px;
-  height: 5px;
-  background-color: #e0e0e0;
-  border-radius: 3px;
-  margin: 0 auto 10px;
-  cursor: pointer;
-}
-
-/* Collapsed state */
-.planning-cards-fixed-bottom.collapsed {
-  transform: translateY(calc(100% - 30px));
-}
-
-.planning-cards-fixed-bottom.collapsed .panel-handle {
-  margin-bottom: 20px;
-}
-
-/* Hidden state (when votes are revealed) */
-.planning-cards-fixed-bottom.hidden {
-  transform: translateY(100%);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .planning-cards-fixed-bottom .cards {
-    gap: 5px;
-  }
-  
-  .planning-cards-fixed-bottom .card {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
-  }
-}
-
-/* Standard font sizes for revealed votes */
-body.votes-revealed .vote-card-space .vote-badge,
-.vote-card-space.has-vote .vote-badge {
-  font-size: 18px !important;
-  font-weight: 600 !important;
-  max-width: 80% !important;
-  text-align: center !important;
-  display: block !important;
-  margin: auto !important;
-  line-height: 1.2 !important;
-}
-
-/* Adjust sizes based on content */
-.vote-badge[data-value="XXS"],
-.vote-badge[data-value="XXL"],
-.vote-badge:contains("XX") {
-  font-size: 14px !important;
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  body.votes-revealed .vote-card-space .vote-badge {
-    font-size: 16px !important;
-  }
-  
-  .vote-badge[data-value="XXS"],
-  .vote-badge[data-value="XXL"],
-  .vote-badge:contains("XX") {
-    font-size: 12px !important;
-  }
-}
   </style>
 </head>
 <body>
@@ -1635,7 +1529,7 @@ body.votes-revealed .vote-card-space .vote-badge,
 <div class="no-stories-message" id="noStoriesMessage">
         No stories available. Please upload or add stories to start voting.
       </div> 
-<!-- Planning cards - Original location, will be hidden when using fixed bottom panel -->
+<!-- Planning cards -->
 <div class="planning-cards-section">     
 <h3>Planning Cards</h3>
      <div class="card-panel">
@@ -1665,16 +1559,6 @@ body.votes-revealed .vote-card-space .vote-badge,
 </div>
 </div>
 </div>
-
-<!-- NEW CORRECTED STRUCTURE -->
-<div class="planning-cards-fixed-bottom" id="fixedPlanningPanel">
-  <div class="panel-handle" id="panelHandle"></div>
-  <div class="planning-cards-header">Planning Cards</div>
-  <div class="cards" id="fixedPlanningCards">
-    <!-- Cards will be dynamically generated/cloned from the original -->
-  </div>
-</div>
-
 <!-- Scripts -->
 <script src="main.js" type="module"></script>
 <script>
@@ -1837,9 +1721,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Setup mobile layout features
   setupMobileLayout();
-
-  // Setup the fixed planning cards panel
-  setupFixedPlanningCards();
 });
 
 // Setup mobile-specific features
@@ -1876,85 +1757,6 @@ function setupMobileLayout() {
     setupMobileCardSelection();
   }
 }
-
-// Setup fixed planning cards functionality
-// Fix in setupFixedPlanningCards function
-function setupFixedPlanningCards() {
-  const originalCardsContainer = document.getElementById('planningCards');
-  const fixedCardsContainer = document.getElementById('fixedPlanningCards');
-  const panel = document.querySelector('.planning-cards-fixed-bottom');
-  const handle = document.getElementById('panelHandle');
-  
-  if (!originalCardsContainer || !fixedCardsContainer || !panel || !handle) {
-    console.warn('Missing elements for fixed planning cards setup');
-    return;
-  }
-  
-  // Clone the cards from the original container to the fixed one
-  function cloneCards() {
-    // Clear existing cards in fixed container
-    fixedCardsContainer.innerHTML = '';
-    
-    // Clone all cards from original container
-    const originalCards = originalCardsContainer.querySelectorAll('.card');
-    originalCards.forEach(card => {
-      const clone = card.cloneNode(true);
-      
-      // Add drag functionality to clone
-      clone.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', clone.getAttribute('data-value'));
-      });
-
-      // Also add click event for mobile
-      clone.addEventListener('click', function() {
-        const value = this.getAttribute('data-value');
-        const userName = sessionStorage.getItem('userName');
-        
-        if (userName && window.emitVote) {
-          window.emitVote(value, userName);
-        } else if (window.socket) {
-          window.socket.emit('castVote', { 
-            vote: value, 
-            targetUserId: userName 
-          });
-        }
-        
-        // Visual feedback
-        fixedCardsContainer.querySelectorAll('.card').forEach(c => {
-          c.classList.remove('selected-card');
-        });
-        this.classList.add('selected-card');
-        
-        // IMPORTANT: Also update selection in the original cards container
-        originalCardsContainer.querySelectorAll('.card').forEach(c => {
-          if (c.getAttribute('data-value') === value) {
-            c.classList.add('selected-card');
-          } else {
-            c.classList.remove('selected-card');
-          }
-        });
-      });
-      
-      fixedCardsContainer.appendChild(clone);
-    });
-  }
-  
-  // Initial clone
-  cloneCards();
-  
-  // IMPORTANT: Hide the original planning cards section immediately
-  const originalSection = document.querySelector('.planning-cards-section');
-  if (originalSection) {
-    originalSection.style.display = 'none';
-    console.log('Original planning cards section hidden');
-  }
-}
-
-// Make sure this function is called early in the DOMContentLoaded event
-document.addEventListener('DOMContentLoaded', function() {
-  setupFixedPlanningCards();
-  // other initialization...
-});
 
 function toggleMobileSection(element) {
   element.classList.toggle('active');
@@ -2001,25 +1803,6 @@ function setupMobileCardSelection() {
       }
     });
   });
-}
-
-// Functions for hiding/showing the fixed planning cards
-function hideFixedPlanningCards() {
-  const panel = document.querySelector('.planning-cards-fixed-bottom');
-  if (panel) panel.classList.add('hidden');
-}
-
-function showFixedPlanningCards() {
-  const panel = document.querySelector('.planning-cards-fixed-bottom');
-  if (panel) {
-    panel.classList.remove('hidden');
-    // Auto-collapse on mobile
-    if (window.innerWidth <= 768) {
-      panel.classList.add('collapsed');
-    } else {
-      panel.classList.remove('collapsed');
-    }
-  }
 }
 
 // Listen for orientation changes to fix layout
@@ -2584,36 +2367,7 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       // Setup reveal button click handler
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
-        revealBtn.addEventListener('click', function() {
-          // Reveal votes in UI
-          revealVotes();
-          
-          // Hide fixed planning cards panel
-          hideFixedPlanningCards();
-          
-          // Trigger custom event for other components
-          document.dispatchEvent(new CustomEvent('revealsVotes'));
-          
-          // Fix font sizes for revealed votes
-          if (typeof window.fixRevealedVoteFontSizes === 'function') {
-            setTimeout(window.fixRevealedVoteFontSizes, 100);
-          }
-        });
-      }
-      
-      // Setup reset button
-      const resetBtn = document.getElementById('resetVotesBtn');
-      if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-          // Remove votes-revealed class
-          document.body.classList.remove('votes-revealed');
-          
-          // Show fixed planning cards panel
-          showFixedPlanningCards();
-          
-          // Trigger custom event
-          document.dispatchEvent(new CustomEvent('resetVotes'));
-        });
+        revealBtn.addEventListener('click', revealVotes);
       }
       
       // Setup export button with direct onclick handler
@@ -2931,49 +2685,6 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     });
   }
 
-  // Add function to fix font sizes for revealed votes
-  window.fixRevealedVoteFontSizes = function() {
-    console.log('[UI] Fixing revealed vote font sizes');
-    
-    // Target all vote badges in revealed state
-    const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
-    
-    voteCards.forEach(badge => {
-      // Get the text content
-      const text = badge.textContent || '';
-      
-      // Set base size
-      let fontSize = '18px';
-      
-      // Use smaller font for longer text
-      if (text.length >= 2) {
-        fontSize = '16px';
-      }
-      
-      // Even smaller for special cases
-      if (text.includes('XX')) {
-        fontSize = '14px';
-      }
-      
-      // Apply the styles directly
-      badge.style.fontSize = fontSize;
-      badge.style.fontWeight = '600';
-      badge.style.maxWidth = '80%';
-      badge.style.textAlign = 'center';
-      badge.style.display = 'block';
-    });
-    
-    // Also fix sidebar vote badges
-    const sidebarBadges = document.querySelectorAll('.user-entry .vote-badge');
-    sidebarBadges.forEach(badge => {
-      const text = badge.textContent || '';
-      if (text) {
-        badge.style.fontSize = text.length >= 3 ? '13px' : '14px';
-        badge.style.fontWeight = '600';
-      }
-    });
-  };
-
   // Mobile-specific card functions
   window.fixRevealedVoteFontSizes = function() {
     const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
@@ -3005,7 +2716,7 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       window.socket.emit('castVote', { vote, targetUserId });
       
       // Show selection feedback
-      const cards = document.querySelectorAll('#planningCards .card, #fixedPlanningCards .card');
+      const cards = document.querySelectorAll('#planningCards .card');
       cards.forEach(card => {
         card.classList.remove('selected-card');
         if (card.getAttribute('data-value') === vote) {
@@ -3121,6 +2832,64 @@ document.addEventListener('DOMContentLoaded', function() {
         padding: 10px 20px !important;
       }
       
+      /* Fixed card panel at bottom */
+      .card-panel {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        background: white !important;
+        border-top: 1px solid #e0e0e0 !important;
+        padding: 10px 5px !important;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1) !important;
+        display: flex !important;
+        justify-content: center !important;
+        z-index: 1000 !important;
+      }
+      
+      /* Planning cards styling to match design */
+      .cards {
+        display: flex !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 8px 0 !important;
+      }
+      
+      .card {
+        width: 50px !important;
+        height: 50px !important;
+        background-color: #e1d4f9 !important;
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+      }
+      
+      /* Add exact colors from reference */
+      .button, #revealVotesBtn, #resetVotesBtn {
+        color: #673ab7 !important;
+        border-color: #673ab7 !important;
+        border-radius: 30px !important;
+      }
+      
+      /* Make invite and upload buttons match design */
+      .invite-button, .file-button {
+        border-radius: 30px !important;
+        min-width: 120px !important;
+      }
+      
+      /* Exact alignment for navigation buttons */
+      .navigation-buttons {
+        display: flex !important;
+        justify-content: space-between !important;
+        padding: 0 10px !important;
+        margin: 15px 0 !important;
+      }
+      
       /* Enhance add ticket button */
       .add-ticket-btn {
         border-radius: 30px !important;
@@ -3131,6 +2900,85 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     `;
     document.head.appendChild(mobileStyle);
+    
+    // Move the planning cards to the bottom in a fixed panel
+    const planningCards = document.querySelector('#planningCards');
+    if (planningCards && !document.querySelector('.mobile-card-panel')) {
+      const cardPanel = document.createElement('div');
+      cardPanel.className = 'card-panel mobile-card-panel';
+      
+      // Add PLANNING CARDS heading above the cards
+      const cardsHeading = document.createElement('div');
+      cardsHeading.textContent = 'PLANNING CARDS';
+      cardsHeading.style.cssText = 'color:#673ab7; font-size:14px; font-weight:600; margin-bottom:5px; text-align:center; width:100%; text-transform:uppercase;';
+      
+      // Move cards to the panel
+      cardPanel.appendChild(cardsHeading);
+      cardPanel.appendChild(planningCards);
+      document.body.appendChild(cardPanel);
+    }
+    
+    // Add Upload Ticket and Invite Others buttons at the top
+    const header = document.querySelector('header');
+    if (header && !document.querySelector('.mobile-action-buttons')) {
+      const actionButtons = document.createElement('div');
+      actionButtons.className = 'mobile-action-buttons';
+      actionButtons.style.cssText = 'display:flex; gap:10px; justify-content:flex-end; padding:10px 20px; border-bottom:1px solid #f0f0f0;';
+      
+      const uploadButton = document.createElement('button');
+      uploadButton.textContent = 'Upload Ticket';
+      uploadButton.className = 'invite-button';
+      uploadButton.onclick = function() {
+        document.getElementById('csvInput').click();
+      };
+      
+      const inviteButton = document.createElement('button');
+      inviteButton.textContent = 'Invite Others';
+      inviteButton.className = 'invite-button';
+      inviteButton.onclick = function() {
+        window.showInviteModalCustom();
+      };
+      
+      actionButtons.appendChild(uploadButton);
+      actionButtons.appendChild(inviteButton);
+      
+      header.insertAdjacentElement('afterend', actionButtons);
+    }
+    
+    // Enhance user voting area
+    setupMobileCardSelection();
+  }
+  
+  function setupMobileCardSelection() {
+    document.querySelectorAll('#planningCards .card').forEach(card => {
+      card.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        
+        // Get current user's vote space
+        const userName = sessionStorage.getItem('userName');
+        if (!userName) return;
+        
+        const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+        const voteSpace = document.getElementById(`vote-space-${safeId}`);
+        
+        if (voteSpace) {
+          const vote = this.getAttribute('data-value');
+          
+          // Clear selections and add to this card
+          document.querySelectorAll('#planningCards .card').forEach(c => {
+            c.classList.remove('selected-card');
+          });
+          this.classList.add('selected-card');
+          
+          // Use the emitVote function if available
+          if (typeof window.emitVote === 'function') {
+            window.emitVote(vote, userName);
+          } else if (typeof window.socket !== 'undefined') {
+            window.socket.emit('castVote', { vote, targetUserId: userName });
+          }
+        }
+      });
+    });
   }
 });
 
@@ -3165,8 +3013,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.socket.on('reconnecting', () => updateConnectionStatus('connecting'));
   }
 });
-</script>
 
+        
+</script>
 <!-- Add this just before the closing </body> tag in index.html -->
 <script>
 // Mobile layout to match desktop view
@@ -3321,6 +3170,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('loginModalCustom').style.display = 'none';
   });
 </script>
+
+  
+     
 </body>
 </html>
-  
+        
+             
