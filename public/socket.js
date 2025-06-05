@@ -62,29 +62,22 @@ export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage
 // Reconnection behavior tuning
 socket.on('reconnect', () => {
   console.log('[SOCKET] Reconnected to server');
-  
-  // Rejoin room
-  socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
-
-  // Re-request all server-side state
+  socket.emit('joinRoom', { roomId, userName });
   socket.emit('requestAllTickets');
   socket.emit('requestCurrentStory');
-
   setTimeout(() => {
     socket.emit('requestFullStateResync');
   }, 500);
-
-  // Optional: refresh personal votes if stored locally
-  if (typeof getUserVotes === 'function') {
-    const userVotes = getUserVotes();
-    for (const [storyId, vote] of Object.entries(userVotes)) {
-      socket.emit('submitVote', { storyId, vote });
-    }
-  }
-
-  // Notify UI
-  handleMessage({ type: 'reconnected' });
 });
+
+socket.on('disconnect', (reason) => {
+  console.warn('[SOCKET] Disconnected. Reason:', reason);
+});
+
+socket.on('connect_error', (error) => {
+  console.error('[SOCKET] Connection error:', error);
+});
+
 
 socket.on('disconnect', (reason) => {
   console.warn('[SOCKET] Disconnected from server. Reason:', reason);
