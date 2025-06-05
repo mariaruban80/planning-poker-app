@@ -1416,7 +1416,12 @@ function addVoteStatisticsStyles() {
  * @param {Object} votes - Vote data
  */
 function handleVotesRevealed(storyId, votes) {
+ 
   if (!votes || typeof votes !== 'object') return;
+   // 🧩 Ensure style block is added for vote statistics
+  if (typeof addFixedVoteStatisticsStyles === 'function') {
+    addFixedVoteStatisticsStyles();
+  }
 
   applyVotesToUI(votes, false);
 
