@@ -1458,8 +1458,8 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
-function handleVotesRevealed(storyId, votes) {
-  if (!votes || typeof votes !== 'object') return;
+function handleVotesRevealed(storyId, allVotes) {
+ if (!allVotes || typeof allVotes !== 'object') return;
 
   // ✅ Deduplicate by userName
   const uniqueVotes = new Map();
