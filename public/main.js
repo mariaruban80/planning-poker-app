@@ -512,6 +512,11 @@ function appendRoomIdToURL(roomId) {
 function initializeApp(roomId) {
   // Initialize socket with userName from sessionStorage
   socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  if (socket && socket.io) {
+    socket.io.reconnectionAttempts = 10;
+    socket.io.timeout = 20000;
+    socket.io.reconnectionDelay = 2000;
+  }
 
 socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
   const name = userName || userId;
@@ -658,6 +663,13 @@ if (serverVotes) {
     delete votesRevealed[storyId];
   });
 socket.on('votesRevealed', ({ storyId }) => {
+  if (deletedStoryIds.has(storyId)) return;
+
+  votesRevealed[storyId] = true;
+  const votes = votesPerStory[storyId] || {};
+  console.log('[DEBUG] Votes to reveal:', JSON.stringify(votes));
+
+  handleVotesRevealed(storyId, votes);
   console.log('[DEBUG] Socket received votesRevealed for story:', storyId);
   
   if (deletedStoryIds.has(storyId)) {
@@ -1501,7 +1513,8 @@ function handleVotesRevealed(storyId, votes) {
   }
 
   // Remove any existing stats container for this story
-  const existing = document.querySelector(`.vote-statistics-container[data-story-id="${storyId}"]`);
+  const existingStatsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
+  existingStatsContainers.forEach(el => el.remove());
   if (existing) existing.remove();
 
   // 🎨 Render UI
