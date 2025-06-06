@@ -5,996 +5,1010 @@
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>Planning Poker Interactive</title>
 <style>
-    /* Base reset and body styles */
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+     body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
     }
-    
-    body {
-        background-color: #f9f9f9;
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-        color: #333;
-    }
-    
+
     header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px 20px;
-        background: white;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        z-index: 100;
-        position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
     }
     
-    /* Main container layout */
-    .app-container {
-        display: flex;
-        flex: 1;
-        height: calc(100vh - 60px);
-        position: relative;
+    .container { 
+      display: flex; 
+      background: white;
+      min-height: calc(100vh - 140px);
     }
     
-    /* Left sidebar for participants */
-    .participants-sidebar {
-        width: 250px;
-        background: white;
-        border-right: 1px solid #eaeaea;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
+    .sidebar, .rightbar { 
+      width: 20%; 
+      background: white; 
+      padding: 20px; 
+      overflow-y: auto;
+      border-right: white;
+      border-left-color: white;
     }
     
-    .participants-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
+    .rightbar {
+      border-right: none;
+      border-left: 1px solid white;
     }
     
-    .participants-header h3 {
-        font-size: 16px;
-        font-weight: 600;
-        color: #555;
-        margin-left: 10px;
+    .main { 
+      flex: 1; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      background: white;
+      border-right: white;
+      border-left-color: white;
+      box-shadow: none;
     }
     
-    .participants-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
+    .story-card { 
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin-bottom: 10px; 
+      padding: 14px 16px; 
+      background-color: white; 
+      color: #333;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer; 
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: normal;
+      text-align: left;
+      height: auto;
+      min-height: 42px;
+      width: 100%;
+      box-sizing: border-box;
+      white-space: normal;
+      line-height: 1.4;
     }
     
-    .participant-item {
-        display: flex;
-        align-items: center;
-        padding: 8px 12px;
-        background: #f5f5f5;
-        border-radius: 50px;
-        position: relative;
+    .story-card:hover {
+      background-color: #f5f5f5;
+      border-color: #d0d0d0;
     }
     
-    .participant-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: #7b68ee;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        margin-right: 10px;
-        position: relative;
+    .story-card.selected { 
+      background-color: #e8f0fe;
+      border-color: #4285f4;
+      color: #333;
     }
     
-    .participant-avatar.has-voted::after {
-        content: '';
-        position: absolute;
-        right: -2px;
-        top: -2px;
-        width: 12px;
-        height: 12px;
-        background: #4caf50;
-        border-radius: 50%;
-        border: 2px solid #f5f5f5;
+    .story-card.active { 
+      background-color: #e8f0fe;
+      border-color: #4285f4;
+      color: #333;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
-    .participant-name {
-        font-size: 14px;
-        font-weight: 500;
+    .button { 
+      margin: 10px 0; 
+      padding: 12px 20px; 
+      background-color: white; 
+      color: #673ab7; 
+      border: 1px solid #673ab7; 
+      border-radius: 25px;
+      cursor: pointer; 
+      width: 100%;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      height: 42px;
+      min-width: 140px;
+      box-shadow: none;
+    }
+
+    .connection-status {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #4CAF50;
+      transition: background-color 0.3s;
+      z-index: 1000;
+    }
+
+    .connection-status.connecting {
+      background-color: #FFC107;
+      animation: pulse 1.5s infinite;
+    }
+
+    .connection-status.disconnected {
+      background-color: #F44336;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
     }
     
-    .participant-vote {
-        position: absolute;
-        right: 15px;
-        background: white;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 13px;
-        color: #7b68ee;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .button:hover { 
+      background-color: #f0e6ff;
+      color: #673ab7;
     }
     
-    /* Main voting area */
-    .voting-area {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: space-between;
-        padding: 20px 0;
-        position: relative;
+    .controls-section {
+      display: flex;
+      flex-direction: column;
+      margin-top: 15px;
     }
     
-    .voting-header {
-        text-align: center;
-        padding: 15px;
-        width: 100%;
-        max-width: 600px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+    .controls-section .button {
+      margin: 5px 0;
     }
     
-    .voting-count {
-        font-size: 18px;
-        font-weight: 600;
-        color: #7b68ee;
+    .navigation-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      width: 100%;
     }
     
-    .voters-circle {
-        position: relative;
-        height: 250px;
-        width: 250px;
-        margin: 0 auto;
+    .navigation-buttons .button {
+      flex: 1;
+      margin: 0;
     }
     
-    .voter-marker {
-        position: absolute;
-        transform: translate(-50%, -50%);
+    .upload-section { 
+      padding: 15px 20px;
+      background: white;
+      display: flex;
+      justify-content: flex-end;
+      border-bottom: 1px solid transparent;
     }
     
-    /* Position voters around the circle using pattern */
-    .voter-marker:nth-child(1) { top: 20%; left: 50%; }
-    .voter-marker:nth-child(2) { top: 50%; left: 80%; }
-    .voter-marker:nth-child(3) { top: 80%; left: 50%; }
-    .voter-marker:nth-child(4) { top: 50%; left: 20%; }
-    
-    .center-instruction {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        text-align: center;
-        width: 180px;
-        font-weight: 500;
+    .upload-right { 
+      display: flex;
+      gap: 10px;
+      width: auto;
     }
     
-    .vote-marker {
-        position: absolute;
-        width: 50px;
-        height: 80px;
-        background: white;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        font-weight: bold;
-        color: #7b68ee;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    .invite-button { 
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      background-color: white;
+      color: #673ab7;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      height: 42px;
+      width: 140px;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    .invite-button:hover {
+      background-color: #f0e6ff;
     }
     
-    .vote-button {
-        background: white;
-        border: none;
-        border-radius: 6px;
-        width: 50px;
-        height: 80px;
-        font-size: 16px;
-        font-weight: bold;
-        color: #7b68ee;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        cursor: pointer;
-        transition: all 0.2s ease;
+    .file-input {
+      display: inline-flex;
+      position: relative;
+      height: 42px;
+      width: 140px;
+    }
+
+    .file-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      background-color: white;
+      color: #673ab7;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      height: 42px;
+      width: 100%;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    .file-button:hover {
+      background-color: #f0e6ff;
+    }
+
+    .file-input input[type="file"] {
+      opacity: 0;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      z-index: 2;
     }
     
-    .vote-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    #inviteModalCustom {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
     }
     
-    /* Card selection area */
-    .card-selection {
-        width: 100%;
-        padding: 20px;
-        text-align: center;
+    .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      min-width: 300px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
-    .card-selection h3 {
-        font-size: 16px;
-        font-weight: 500;
-        margin-bottom: 15px;
-        color: #555;
+    .modal-content h3 {
+      margin-top: 0;
+      color: #333;
     }
     
-    .card-options {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        flex-wrap: wrap;
-        max-width: 800px;
-        margin: 0 auto;
+    .modal-content input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 15px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
     }
     
-    .card-option {
-        width: 60px;
-        height: 90px;
-        background: white;
-        border: none;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        font-weight: bold;
-        color: #7b68ee;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        cursor: pointer;
-        transition: all 0.2s ease;
+    .modal-content .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
     }
     
-    .card-option:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    .modal-content button {
+      padding: 10px 15px;
+      background: #673ab7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      min-width: 80px;
+      transition: all 0.2s;
     }
     
-    .card-option.selected {
-        background: #7b68ee;
-        color: white;
-        transform: translateY(-3px);
+    .modal-content button:hover {
+      background: #5c33a4;
     }
     
-    /* Right sidebar for stories */
-    .stories-sidebar {
-        width: 350px;
-        background: white;
-        border-left: 1px solid #eaeaea;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
+    /* User list styling - NEW ENHANCED VERSION */
+    .sidebar h3, .rightbar h3 {
+      color: #673ab7;
+      margin-top: 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid white;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      text-transform: uppercase;  
     }
     
-    .story-search {
-        position: relative;
-        margin-bottom: 15px;
+    /* NEW USER LIST DESIGN */
+    #userList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      width: 100%;
     }
     
-    .story-search input {
-        width: 100%;
-        padding: 10px 15px;
-        border: 1px solid #eaeaea;
-        border-radius: 8px;
-        font-size: 14px;
-        background: #f9f9f9;
+    .user-card {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      border: 1px solid #f0f0f0;
+      transition: transform 0.2s ease;
     }
     
-    .story-search button {
-        position: absolute;
-        right: 5px;
-        top: 5px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 5px;
+    .user-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
     }
     
-    .story-card {
-        background: white;
-        border-radius: 8px;
-        border: 1px solid #eaeaea;
-        padding: 15px;
-        margin-bottom: 15px;
-        position: relative;
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      flex-shrink: 0;
     }
     
-    .story-status {
-        display: inline-block;
-        padding: 4px 8px;
-        background: #7b68ee;
-        color: white;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        margin-bottom: 10px;
-    }
-    
-    .story-votes {
-        font-size: 18px;
-        font-weight: 600;
-        margin: 15px 0;
-    }
-    
-    .story-tag {
-        display: flex;
-        align-items: center;
-        margin-top: 15px;
-    }
-    
-    .story-tag button {
-        background: none;
-        border: none;
-        color: #7b68ee;
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-    }
-    
-    .story-tag button span {
-        margin-left: 5px;
-    }
-    
-    .story-actions {
-        margin-top: 15px;
-        display: flex;
-        justify-content: space-between;
-    }
-    
-    .reset-button {
-        display: flex;
-        align-items: center;
-        padding: 8px 15px;
-        background: #f5f5f5;
-        color: #555;
-        border: none;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-    }
-    
-    .reset-button svg {
-        margin-right: 5px;
-    }
-    
-    .add-story-button {
-        width: 100%;
-        padding: 12px;
-        background: white;
-        border: 1px dashed #7b68ee;
-        border-radius: 8px;
-        color: #7b68ee;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    
-    .add-story-button span {
-        margin-right: 5px;
-    }
-    
-    /* Card selection area at bottom */
-    .card-selection-bottom {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        padding: 15px 0;
-        z-index: 100;
-    }
-    
-    .bottom-cards-container {
-        max-width: 1000px;
-        margin: 0 auto;
-    }
-    
-    .bottom-cards-title {
-        text-align: center;
-        margin-bottom: 15px;
-        font-size: 16px;
-        font-weight: 700;
-        color: #555;
-    }
-    
-    .bottom-cards-options {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-    }
-    
-    /* Logo and header */
-    .logo {
-        display: flex;
-        align-items: center;
-    }
-    
-    .logo img {
-        width: 30px;
-        height: 30px;
-        margin-right: 10px;
-    }
-    
-    .logo span {
-        font-size: 18px;
-        font-weight: bold;
-    }
-    
-    /* User info in header */
     .user-info {
-        display: flex;
-        align-items: center;
+      flex: 1;
+      overflow: hidden;
+      padding-right: 8px;
     }
     
-    .avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: #7b68ee;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        margin-right: 10px;
-    }
-
     .username {
-        font-weight: 500;
-        margin-right: 15px;
+      font-weight: 600;
+      font-size: 15px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
     }
     
-    .logout-button {
-        background: transparent;
-        border: none;
-        color: #555;
-        cursor: pointer;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
+    .user-role {
+      font-size: 11px;
+      color: #777;
+      margin-top: 2px;
     }
     
-    .logout-button span {
-        margin-left: 5px;
+    .vote-indicator {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      padding: 0 8px;
+      min-width: 12px;
+      text-align: center;
+      flex-shrink: 0;
     }
     
-    /* Responsive adjustments */
-    @media (max-width: 1200px) {
-        .app-container {
-            flex-direction: column;
-        }
-        
-        .participants-sidebar,
-        .stories-sidebar {
-            width: 100%;
-            height: auto;
-            border: none;
-            border-bottom: 1px solid #eaeaea;
-            padding: 10px;
-        }
-        
-        .participants-list {
-            flex-direction: row;
-            overflow-x: auto;
-            gap: 10px;
-            padding-bottom: 10px;
-        }
-        
-        .participant-item {
-            min-width: 120px;
-        }
-        
-        .voting-area {
-            padding: 20px 10px;
-        }
-        
-        .card-options,
-        .bottom-cards-options {
-            gap: 8px;
-        }
-        
-        .card-option {
-            width: 50px;
-            height: 80px;
-            font-size: 16px;
-        }
+    .host-badge {
+      background: #f8f8f8;
+      color: #555;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
     }
     
-    @media (max-width: 768px) {
-        .app-container {
-            height: auto;
-        }
-        
-        .voters-circle {
-            height: 200px;
-            width: 200px;
-        }
-        
-        .center-instruction {
-            width: 150px;
-            font-size: 14px;
-            padding: 10px 15px;
-        }
-        
-        .card-option {
-            width: 45px;
-            height: 70px;
-            font-size: 15px;
-        }
-        
-        .voting-header {
-            max-width: 90%;
-        }
-        
-        .card-selection-bottom {
-            padding: 10px 0;
-        }
+    .user-card.voted {
+      background-color: #f9fcf9;
+      border-color: #e0eee0;
     }
-
-    /* Planning cards section as fixed bottom */
+    
+    .user-card.current-user {
+      border-left: 3px solid #673ab7;
+    }
+    
+    /* User Circle for poker table */
+    .avatar-circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      font-size: 18px;
+      background-color: #673ab7;
+      transition: all 0.3s ease;
+    }
+    
+    .has-voted .avatar-circle {
+      border: 2px solid #4CAF50;
+    }
+    
+    .user-name {
+      font-size: 12px;
+      margin-top: 5px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      font-weight: 500;
+    }
+    
+    /* Vote cards styling */
     .planning-cards-section {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background-color: white;
-        border-top: 1px solid #e0e0e0;
-        padding: 15px 0;
-        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-        z-index: 1000;
+      width: 100%;
+      text-align: center;
+      margin-top: 20px;
+      padding: 15px;
+      background-color: white;
     }
     
     .planning-cards-section h3 {
-        color: #673ab7;
-        margin-bottom: 15px;
-        font-size: 16px;
-        font-weight: 700;
-        text-align: center;
+      color: #673ab7;
+      margin-bottom: 15px;
+      font-size: 14px;
+      font-weight: 600;
+      border-bottom: 1px solid white;
+      text-transform: uppercase;
     }
     
     .cards {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        flex-wrap: wrap;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     
     .card {
-        width: 60px;
-        height: 90px;
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        font-weight: bold;
-        color: #7b68ee;
-        cursor: pointer;
-        transition: all 0.2s ease;
+      width: 55px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e6e6fa;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      text-align: center;
+      transition: all 0.2s;
+      color: #333;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 4px;
     }
     
-    .card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        border-color: #7b68ee;
+    .add-ticket-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      background-color: white;
+      color: #673ab7;
+      border: 1px solid #673ab7;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin: 0 0 20px 0;
+      height: 42px;
     }
     
-    .card.selected {
-        background: #7b68ee;
-        color: white;
-        border-color: #7b68ee;
-    }
-
-    /* Standard font sizes for revealed votes */
-    body.votes-revealed .vote-badge,
-    .vote-card-space.has-vote .vote-badge {
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        max-width: 80% !important;
-        text-align: center !important;
-        display: block !important;
-        margin: auto !important;
-        line-height: 1.2 !important;
+    /* Responsive styles for small screens */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      
+      .sidebar, .rightbar {
+        width: 100%;
+      }
+      
+      .user-card {
+        padding: 8px;
+      }
+      
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        margin-right: 10px;
+      }
+      
+      .username {
+        font-size: 14px;
+      }
     }
 </style>
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <img src="spade.png" alt="Planning Poker" />
-            <span>Planning Poker</span>
-        </div>
-        <div class="user-info">
-            <div class="avatar" id="headerUserAvatar">AN</div>
-            <span class="username" id="headerUsername">User</span>
-            <button class="logout-button" id="logOffBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17 16L21 12M21 12L17 8M21 12H9M13 16V17C13 18.6569 11.6569 20 10 20H6C4.34315 20 3 18.6569 3 17V7C3 5.34315 4.34315 4 6 4H10C11.6569 4 13 5.34315 13 7V8" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Log Out</span>
-            </button>
-            <div class="connection-status" id="connectionStatus" title="Connected"></div>
-        </div>
-    </header>
-    
-    <div class="app-container">
-        <!-- Left sidebar for participants -->
-        <div class="participants-sidebar">
-            <div class="participants-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 4.354C12.5523 4.354 13 3.90628 13 3.354C13 2.80172 12.5523 2.354 12 2.354V4.354ZM12 2.354C11.4477 2.354 11 2.80172 11 3.354C11 3.90628 11.4477 4.354 12 4.354V2.354ZM19 12.354C19 16.2181 15.866 19.354 12 19.354V21.354C16.9706 21.354 21 17.3246 21 12.354H19ZM12 19.354C8.13401 19.354 5 16.2181 5 12.354H3C3 17.3246 7.02944 21.354 12 21.354V19.354ZM5 12.354C5 8.49003 8.13401 5.354 12 5.354V3.354C7.02944 3.354 3 7.37944 3 12.354H5ZM12 5.354C15.866 5.354 19 8.49003 19 12.354H21C21 7.37944 16.9706 3.354 12 3.354V5.354ZM12 2.354V5.354V2.354Z" fill="#555"/>
-                </svg>
-                <h3>Waiting</h3>
-            </div>
-            <div class="participants-list" id="userList">
-                <!-- Participants will be generated here -->
-                <div class="participant-item">
-                    <div class="participant-avatar has-voted">AN</div>
-                    <span class="participant-name">anandruban</span>
-                </div>
-                <div class="participant-item">
-                    <div class="participant-avatar has-voted">JS</div>
-                    <span class="participant-name">johndoe</span>
-                    <div class="participant-vote">2</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main voting area -->
-        <div class="voting-area">
-            <div class="voting-header">
-                <div class="voting-count">Voting: 44</div>
-            </div>
-            
-            <div class="voters-circle">
-                <!-- Voter positions -->
-                <div class="voter-marker">
-                    <div class="participant-avatar has-voted">JS</div>
-                </div>
-                
-                <div class="center-instruction">
-                    Pick a card below
-                </div>
-                
-                <!-- Vote cards will appear here when selected -->
-                <div class="vote-marker" style="top: 60%; left: 50%; transform: translate(-50%, -50%);">
-                    <div class="vote-button">2</div>
-                </div>
-            </div>
-            
-            <!-- Bottom choose card section -->
-            <div class="card-selection">
-                <h3>Choose your card</h3>
-                <div class="card-options" id="planningCards">
-                    <!-- Planning cards will be generated here -->
-                    <button class="card-option">0</button>
-                    <button class="card-option">1</button>
-                    <button class="card-option selected">2</button>
-                    <button class="card-option">3</button>
-                    <button class="card-option">5</button>
-                    <button class="card-option">8</button>
-                    <button class="card-option">13</button>
-                    <button class="card-option">21</button>
-                    <button class="card-option">34</button>
-                    <button class="card-option">55</button>
-                    <button class="card-option">89</button>
-                    <button class="card-option">☕</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Right sidebar for stories -->
-        <div class="stories-sidebar" id="storyListContainer">
-            <div class="story-search">
-                <input type="text" placeholder="Search and filter tickets...">
-                <button>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707v6.586a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="story-card">
-                <div class="story-status">Pending</div>
-                <span style="color: #888; font-size: 12px;">0 Votes</span>
-                
-                <div class="story-votes">44</div>
-                
-                <div class="story-tag">
-                    <button>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <span>Tag</span>
-                    </button>
-                </div>
-                
-                <div class="story-actions">
-                    <button class="reset-button" id="resetVotesBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        RESET
-                    </button>
-                </div>
-            </div>
-            
-            <button class="add-story-button" id="addTicketBtn">
-                <span>+</span> ADD ANOTHER
-            </button>
-        </div>
 
-        <!-- Modals -->
-        <div id="inviteModalCustom" style="display: none;">
-            <div class="modal-content">
-                <h3>Invite Link</h3>
-                <input id="inviteLinkCustom" readonly="" type="text"/>
-                <div class="button-group">
-                    <button onclick="copyInviteLinkCustom()">Copy Link</button>
-                    <button onclick="hideInviteModalCustom()">Close</button>
-                </div>
-            </div>
-        </div>
-        
-        <div id="loginModalCustom" style="display: none;">
-            <div class="modal-content">
-                <h3>Join Planning Poker Session</h3>
-                <p>Please enter your name to join the session</p>
-                <input id="userNameInput" type="text" placeholder="Your name" />
-                <div class="button-group">
-                    <button id="joinSessionWithName" class="action-button">Join Session</button>
-                </div>
-            </div>
-        </div>
-        
-        <div id="addTicketModalCustom" style="display: none;">
-            <div class="modal-content add-ticket-modal">
-                <h3>Add New Ticket</h3>
-                
-                <div class="input-group">
-                    <label for="ticketNameInput">Name</label>
-                    <input id="ticketNameInput" type="text" placeholder="Enter ticket name">
-                </div>
-                
-                <div class="input-group">
-                    <label for="ticketDescriptionInput">Description</label>
-                    <input id="ticketDescriptionInput" type="text" placeholder="Enter ticket description">
-                </div>
-                
-                <div class="button-group">
-                    <button id="cancelAddTicket" class="cancel-button">CANCEL</button>
-                    <button id="confirmAddTicket" class="confirm-button">
-                        <span class="plus-icon">+</span> ADD
-                    </button>
-                </div>
-            </div>
-        </div>
+<header>
+  <div class="logo">
+    <img src="spade.png" alt="Planning Poker" />
+    <span>Planning Poker</span>
+  </div>
+  <div class="nav-links">    
+    <div class="current-user-display">
+      <div class="user-avatar" id="headerUserAvatar"></div>
+      <span id="headerUsername">User</span>
+    </div>
+    <button id="logOffBtn" class="btn btn-danger join-session">🏃LOG OFF</button>   
+    <div class="connection-status" id="connectionStatus" title="Connected"></div>   
+  </div>
+</header>
+
+<div id="inviteModalCustom">
+  <div class="modal-content">
+    <h3>Invite Link</h3>
+    <input id="inviteLinkCustom" readonly="" type="text"/>
+    <div class="button-group">
+      <button onclick="copyInviteLinkCustom()">Copy Link</button>
+      <button onclick="hideInviteModalCustom()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="loginModalCustom" style="display: none;">
+  <div class="modal-content">
+    <h3>Join Planning Poker Session</h3>
+    <p>Please enter your name to join the session</p>
+    <input id="userNameInput" type="text" placeholder="Your name" />
+    <div class="button-group">
+      <button id="joinSessionWithName" class="action-button">Join Session</button>
+    </div>
+  </div>
+</div>    
+
+<div id="addTicketModalCustom" style="display: none;">
+  <div class="modal-content add-ticket-modal">
+    <h3>Add New Ticket</h3>
+    
+    <div class="input-group">
+      <label for="ticketNameInput">Name</label>
+      <input id="ticketNameInput" type="text" placeholder="Enter ticket name">
     </div>
     
-    <!-- Planning cards section at fixed bottom -->
-    <div class="planning-cards-section" id="fixedPlanningCards" style="display:none;">
-        <h3>Choose your card</h3>
-        <div class="cards" id="bottomPlanningCards">
-            <!-- Cards will be dynamically generated -->
-            <div class="card" data-value="0" draggable="true">0</div>
-            <div class="card" data-value="1" draggable="true">1</div>
-            <div class="card" data-value="2" draggable="true">2</div>
-            <div class="card" data-value="3" draggable="true">3</div>
-            <div class="card" data-value="5" draggable="true">5</div>
-            <div class="card" data-value="8" draggable="true">8</div>
-            <div class="card" data-value="13" draggable="true">13</div>
-            <div class="card" data-value="21" draggable="true">21</div>
-            <div class="card" data-value="34" draggable="true">34</div>
-            <div class="card" data-value="55" draggable="true">55</div>
-            <div class="card" data-value="89" draggable="true">89</div>
-            <div class="card" data-value="☕" draggable="true">☕</div>
-        </div>
+    <div class="input-group">
+      <label for="ticketDescriptionInput">Description</label>
+      <input id="ticketDescriptionInput" type="text" placeholder="Enter ticket description">
     </div>
+    
+    <div class="button-group">
+      <button id="cancelAddTicket" class="cancel-button">CANCEL</button>
+      <button id="confirmAddTicket" class="confirm-button">
+        <span class="plus-icon">+</span> ADD
+      </button>
+    </div>
+  </div>
+</div>
 
-    <!-- Scripts -->
-    <script type="module" src="main.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize the user display in header
-        initUserHeaderDisplay();
-        
-        // Set up the planning cards
-        setupPlanningCards();
-        
-        // Attach event listeners to the card options
-        setupCardOptionListeners();
-        
-        // Set up the log off button
-        setupLogOffButton();
+<div class="upload-section">
+  <div class="upload-right">
+    <div class="file-input" id="fileInputContainer">
+      <span class="file-button">Upload Ticket</span>
+      <input accept=".csv" id="csvInput" type="file"/>
+    </div>
+    <button class="invite-button" id="inviteButton">Invite Others</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="sidebar">
+    <h3>Current Members</h3>
+    <div id="userList">
+      <!-- User list will be populated dynamically -->
+    </div>
+    <div class="controls-section">
+      <button class="button" id="revealVotesBtn">Reveal Votes</button>
+      <button class="button" id="resetVotesBtn">Reset Votes</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="user-circle-container" id="userCircle"></div>
+    <div class="no-stories-message" id="noStoriesMessage">
+      No stories available. Please upload or add stories to start voting.
+    </div> 
+    <div class="planning-cards-section">     
+      <h3>Planning Cards</h3>
+      <div class="card-panel">
+        <div class="cards" id="planningCards">
+          <!-- Cards will be populated dynamically -->  
+        </div>    
+      </div>
+    </div>
+  </div>
+
+  <div class="rightbar" id="storyListContainer">
+    <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
+    <div class="story-container" id="storyList">
+      <!-- Stories will be loaded dynamically -->
+    </div>
+    <div class="navigation-buttons">
+      <button class="button" id="prevStory">Previous Story</button>
+      <button class="button" id="nextStory">Next Story</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+
+<script>
+// User list handling
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the user list functionality
+  setupUserList();
+  
+  // Create a MutationObserver to watch for changes to the user list
+  const userList = document.getElementById('userList');
+  if (userList) {
+    const observer = new MutationObserver(handleUserListChanges);
+    observer.observe(userList, { childList: true, subtree: true });
+  }
+});
+
+// Set up initial user list
+function setupUserList() {
+  const userList = document.getElementById('userList');
+  if (!userList) return;
+  
+  // Clear existing elements (if any)
+  while (userList.firstChild) {
+    userList.removeChild(userList.firstChild);
+  }
+  
+  // Setup will be populated by socket events
+  console.log("User list initialized and ready for socket data");
+}
+
+// Handle changes to the user list
+function handleUserListChanges(mutations) {
+  mutations.forEach(mutation => {
+    if (mutation.type === 'childList') {
+      reformatUserList();
+    }
+  });
+}
+
+// Reformat user entries to match new design
+function reformatUserList() {
+  const userList = document.getElementById('userList');
+  if (!userList) return;
+  
+  const currentUserName = sessionStorage.getItem('userName') || '';
+  
+  // Process all user entries that haven't been reformatted yet
+  const userEntries = userList.querySelectorAll('.user-entry:not(.reformatted)');
+  
+  userEntries.forEach(entry => {
+    // Create new user card
+    const userCard = document.createElement('div');
+    userCard.className = 'user-card';
+    if (entry.classList.contains('voted')) {
+      userCard.classList.add('voted');
+    }
+    
+    // Extract username and vote
+    let username = '';
+    const usernameEl = entry.querySelector('.username');
+    if (usernameEl) {
+      username = usernameEl.textContent.trim();
+    }
+    
+    let voteValue = '';
+    const voteEl = entry.querySelector('.vote-badge');
+    if (voteEl) {
+      voteValue = voteEl.textContent.trim();
+    }
+    
+    // Check if this is the current user
+    if (username === currentUserName) {
+      userCard.classList.add('current-user');
+    }
+    
+    // Create avatar with initials
+    const avatar = document.createElement('div');
+    avatar.className = 'user-avatar';
+    const initials = username
+      .split(' ')
+      .map(name => name.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+    avatar.textContent = initials;
+    
+    // Generate color based on username for consistent colors
+    const hue = Math.abs(username.split('').reduce((a, b) => {
+      return a + b.charCodeAt(0);
+    }, 0) % 360);
+    avatar.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+    
+    // Create user info container
+    const userInfo = document.createElement('div');
+    userInfo.className = 'user-info';
+    
+    // Add username
+    const usernameDiv = document.createElement('div');
+    usernameDiv.className = 'username';
+    usernameDiv.textContent = username;
+    
+    // Add host badge if user is host
+    if (entry.classList.contains('host')) {
+      const hostBadge = document.createElement('span');
+      hostBadge.className = 'host-badge';
+      hostBadge.textContent = 'Host';
+      usernameDiv.appendChild(hostBadge);
+    }
+    
+    // Add role/status
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'user-role';
+    roleDiv.textContent = entry.classList.contains('voted') ? 'Has voted' : 'Not voted yet';
+    
+    // Add elements to user info
+    userInfo.appendChild(usernameDiv);
+    userInfo.appendChild(roleDiv);
+    
+    // Create vote indicator
+    const voteIndicator = document.createElement('div');
+    voteIndicator.className = 'vote-indicator';
+    voteIndicator.textContent = voteValue || '';
+    
+    // Assemble the card
+    userCard.appendChild(avatar);
+    userCard.appendChild(userInfo);
+    userCard.appendChild(voteIndicator);
+    
+    // Replace the original entry with our new card
+    entry.parentNode.replaceChild(userCard, entry);
+    
+    // Copy data attributes and classes for socket functionality
+    Array.from(entry.attributes).forEach(attr => {
+      if (attr.name.startsWith('data-')) {
+        userCard.setAttribute(attr.name, attr.value);
+      }
     });
     
-    function initUserHeaderDisplay() {
-        // Get username from session storage
-        const username = sessionStorage.getItem('userName') || 'User';
-        const usernameEl = document.getElementById('headerUsername');
-        const avatarEl = document.getElementById('headerUserAvatar');
-        
-        if (usernameEl) {
-            usernameEl.textContent = username;
+    // Mark this user as reformatted
+    userCard.classList.add('reformatted');
+  });
+  
+  console.log("User list reformatted to new design");
+}
+
+// Function to update vote status for a user
+function updateUserVoteStatus(username, hasVoted, voteValue = null) {
+  const userList = document.getElementById('userList');
+  if (!userList) return;
+  
+  // Find the user card
+  const userCards = userList.querySelectorAll('.user-card');
+  
+  userCards.forEach(card => {
+    const usernameEl = card.querySelector('.username');
+    if (usernameEl && usernameEl.textContent.includes(username)) {
+      // Update voted class
+      if (hasVoted) {
+        card.classList.add('voted');
+      } else {
+        card.classList.remove('voted');
+      }
+      
+      // Update role/status text
+      const roleEl = card.querySelector('.user-role');
+      if (roleEl) {
+        roleEl.textContent = hasVoted ? 'Has voted' : 'Not voted yet';
+      }
+      
+      // Update vote value if provided
+      if (voteValue !== null) {
+        const voteIndicator = card.querySelector('.vote-indicator');
+        if (voteIndicator) {
+          voteIndicator.textContent = voteValue;
         }
-        
-        if (avatarEl) {
-            // Generate initials for the avatar
-            const initials = username.split(' ')
-                .map(part => part.charAt(0))
-                .join('')
-                .toUpperCase()
-                .substring(0, 2);
-                
-            avatarEl.textContent = initials;
-            
-            // Generate a consistent color based on username
-            const hue = Math.abs(username.split('').reduce((a, b) => {
-                return a + b.charCodeAt(0);
-            }, 0) % 360);
-            
-            avatarEl.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
-        }
+      }
     }
+  });
+}
+
+// Handle new user being added
+function addUserToList(username, isHost = false, hasVoted = false, voteValue = null) {
+  const userList = document.getElementById('userList');
+  if (!userList) return;
+  
+  // Create new user card
+  const userCard = document.createElement('div');
+  userCard.className = 'user-card reformatted';
+  if (hasVoted) {
+    userCard.classList.add('voted');
+  }
+  
+  // Check if this is the current user
+  const currentUserName = sessionStorage.getItem('userName') || '';
+  if (username === currentUserName) {
+    userCard.classList.add('current-user');
+  }
+  
+  // Create avatar with initials
+  const avatar = document.createElement('div');
+  avatar.className = 'user-avatar';
+  const initials = username
+    .split(' ')
+    .map(name => name.charAt(0))
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+  avatar.textContent = initials;
+  
+  // Generate color based on username
+  const hue = Math.abs(username.split('').reduce((a, b) => {
+    return a + b.charCodeAt(0);
+  }, 0) % 360);
+  avatar.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+  
+  // Create user info container
+  const userInfo = document.createElement('div');
+  userInfo.className = 'user-info';
+  
+  // Add username
+  const usernameDiv = document.createElement('div');
+  usernameDiv.className = 'username';
+  usernameDiv.textContent = username;
+  
+  // Add host badge if user is host
+  if (isHost) {
+    const hostBadge = document.createElement('span');
+    hostBadge.className = 'host-badge';
+    hostBadge.textContent = 'Host';
+    usernameDiv.appendChild(hostBadge);
+  }
+  
+  // Add role/status
+  const roleDiv = document.createElement('div');
+  roleDiv.className = 'user-role';
+  roleDiv.textContent = hasVoted ? 'Has voted' : 'Not voted yet';
+  
+  // Add elements to user info
+  userInfo.appendChild(usernameDiv);
+  userInfo.appendChild(roleDiv);
+  
+  // Create vote indicator
+  const voteIndicator = document.createElement('div');
+  voteIndicator.className = 'vote-indicator';
+  voteIndicator.textContent = voteValue || '';
+  
+  // Assemble the card
+  userCard.appendChild(avatar);
+  userCard.appendChild(userInfo);
+  userCard.appendChild(voteIndicator);
+  
+  // Add to user list
+  userList.appendChild(userCard);
+  
+  // Add necessary data attributes for socket functionality
+  userCard.setAttribute('data-username', username);
+  if (isHost) {
+    userCard.setAttribute('data-host', 'true');
+  }
+  if (hasVoted) {
+    userCard.setAttribute('data-voted', 'true');
+  }
+  if (voteValue) {
+    userCard.setAttribute('data-vote', voteValue);
+  }
+  
+  return userCard;
+}
+
+// Expose helper functions for main.js to use
+window.userListFunctions = {
+  updateUserVoteStatus: updateUserVoteStatus,
+  addUserToList: addUserToList,
+  reformatUserList: reformatUserList
+};
+
+// Call reformatUserList periodically to catch any missed updates
+setInterval(reformatUserList, 1000);
+
+// Update header user display
+document.addEventListener('DOMContentLoaded', function() {
+  const username = sessionStorage.getItem('userName') || 'Guest';
+  const usernameEl = document.getElementById('headerUsername');
+  const avatarEl = document.getElementById('headerUserAvatar');
+  
+  if (usernameEl) usernameEl.textContent = username;
+  
+  if (avatarEl) {
+    // Generate initials for the avatar
+    const initials = username.split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+      
+    avatarEl.textContent = initials;
     
-    function setupPlanningCards() {
-        const planningCardsContainer = document.getElementById('planningCards');
-        const bottomPlanningCardsContainer = document.getElementById('bottomPlanningCards');
-        
-        if (!planningCardsContainer || !bottomPlanningCardsContainer) {
-            return;
-        }
-        
-        // Sync the two planning card containers
-        const cardOptions = planningCardsContainer.querySelectorAll('.card-option');
-        bottomPlanningCardsContainer.innerHTML = '';
-        
-        cardOptions.forEach(card => {
-            const value = card.textContent;
-            const newCard = document.createElement('div');
-            newCard.className = 'card';
-            newCard.setAttribute('data-value', value);
-            newCard.setAttribute('draggable', 'true');
-            newCard.textContent = value;
-            
-            // Add selection handling
-            newCard.addEventListener('click', function() {
-                const value = this.getAttribute('data-value');
-                selectCard(value);
-            });
-            
-            bottomPlanningCardsContainer.appendChild(newCard);
-        });
-    }
+    // Generate consistent color based on username
+    const hue = Math.abs(username.split('').reduce((a, b) => {
+      return a + b.charCodeAt(0);
+    }, 0) % 360);
     
-    function setupCardOptionListeners() {
-        const cardOptions = document.querySelectorAll('.card-option');
-        
-        cardOptions.forEach(card => {
-            card.addEventListener('click', function() {
-                // Remove selected class from all cards
-                cardOptions.forEach(c => c.classList.remove('selected'));
-                
-                // Add selected class to this card
-                this.classList.add('selected');
-                
-                // Get the value of the card
-                const value = this.textContent;
-                
-                // Also apply selection to bottom planning cards
-                const bottomCards = document.querySelectorAll('#bottomPlanningCards .card');
-                bottomCards.forEach(bottomCard => {
-                    if (bottomCard.getAttribute('data-value') === value) {
-                        bottomCard.classList.add('selected');
-                    } else {
-                        bottomCard.classList.remove('selected');
-                    }
-                });
-                
-                // Handle the vote
-                handleVote(value);
-            });
-        });
-    }
-    
-    function selectCard(value) {
-        // Handle selection in fixed bottom planning cards
-        const bottomCards = document.querySelectorAll('#bottomPlanningCards .card');
-        bottomCards.forEach(card => {
-            if (card.getAttribute('data-value') === value) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-        });
-        
-        // Handle selection in main planning cards
-        const cardOptions = document.querySelectorAll('.card-option');
-        cardOptions.forEach(card => {
-            if (card.textContent === value) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-        });
-        
-        // Handle the vote
-        handleVote(value);
-    }
-    
-    function handleVote(value) {
-        // Implement vote handling - Use the core functionality from main.js
-        if (window.socket && typeof window.emitVote === 'function') {
-            const userName = sessionStorage.getItem('userName');
-            if (userName) {
-                window.emitVote(value, userName);
-            }
-        } else {
-            console.log('Voted: ' + value);
-        }
-    }
-    
-    function setupLogOffButton() {
-        const logOffBtn = document.getElementById('logOffBtn');
-        
-        if (logOffBtn) {
-            logOffBtn.addEventListener('click', function() {
-                // Clear session storage
-                sessionStorage.clear();
-                
-                // Redirect to main page
-                window.location.href = 'main.html';
-            });
-        }
-    }
-    
-    // Custom modal functions
-    function showInviteModalCustom() {
-        // Create a guest URL
-        const currentUrl = new URL(window.location.href);
-        const params = new URLSearchParams(currentUrl.search);
-        const roomId = params.get('roomId');
-        // Create clean guest URL (without host parameter)
-        const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
-        
-        document.getElementById('inviteLinkCustom').value = guestUrl;
-        document.getElementById('inviteModalCustom').style.display = 'flex';
-    }
-    
-    function hideInviteModalCustom() {
-        document.getElementById('inviteModalCustom').style.display = 'none';
-    }
-    
-    function copyInviteLinkCustom() {
-        const inviteInput = document.getElementById('inviteLinkCustom');
-        inviteInput.select();
-        document.execCommand('copy');
-        alert('Invite link copied!');
-    }
-    </script>
+    avatarEl.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+  }
+});
+
+// Additional functions for modal handling
+function showInviteModalCustom() {
+  const currentUrl = new URL(window.location.href);
+  const params = new URLSearchParams(currentUrl.search);
+  const roomId = params.get('roomId');
+  const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+  
+  document.getElementById('inviteLinkCustom').value = guestUrl;
+  document.getElementById('inviteModalCustom').style.display = 'flex';
+}
+
+function hideInviteModalCustom() {
+  document.getElementById('inviteModalCustom').style.display = 'none';
+}
+
+function copyInviteLinkCustom() {
+  const inviteInput = document.getElementById('inviteLinkCustom');
+  inviteInput.select();
+  document.execCommand('copy');
+  alert('Invite link copied!');
+}
+
+// Log off button functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const logOffBtn = document.getElementById('logOffBtn');
+  if (logOffBtn) {
+    logOffBtn.addEventListener('click', function() {
+      sessionStorage.clear();
+      window.location.href = 'main.html';
+    });
+  }
+});
+
+// Make functions available globally
+window.showInviteModalCustom = showInviteModalCustom;
+window.hideInviteModalCustom = hideInviteModalCustom;
+window.copyInviteLinkCustom = copyInviteLinkCustom;
+
+// Socket integration helper
+function initializeUserListWithSocket(socket) {
+  if (!socket) return;
+  
+  // Listen for user joined events
+  socket.on('userJoined', function(data) {
+    const { userName, isHost } = data;
+    window.userListFunctions.addUserToList(userName, isHost);
+  });
+  
+  // Listen for vote events
+  socket.on('voteUpdate', function(data) {
+    const { userName, hasVoted, vote } = data;
+    window.userListFunctions.updateUserVoteStatus(userName, hasVoted, vote);
+  });
+  
+  // Reformat user list whenever socket updates occur
+  socket.on('userListUpdate', function() {
+    setTimeout(window.userListFunctions.reformatUserList, 100);
+  });
+}
+
+// Expose socket integration function
+window.initializeUserListWithSocket = initializeUserListWithSocket;
+</script>
+
+<script src="main.js" type="module"></script>
+
 </body>
 </html>
