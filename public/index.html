@@ -32,6 +32,7 @@
       display: flex; 
       background: white;
       min-height: calc(100vh - 140px);
+      padding-bottom: 120px; /* Add padding for fixed card panel */
     }
     
     .sidebar, .rightbar { 
@@ -562,7 +563,6 @@
       margin-top: 20px;
       padding: 15px;
       background-color: white;
-       
     }
   
     
@@ -1158,7 +1158,6 @@ white-space: nowrap;
   .container {
     flex-direction: column;
     height: auto;
-    padding-bottom: 70px; /* Space for fixed card panel */
   }
   
   .sidebar, .rightbar {
@@ -1434,6 +1433,76 @@ white-space: nowrap;
     }
   }
 
+/* NEW: Fixed Bottom Planning Cards */
+.planning-cards-section.fixed-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border-top: 1px solid #e0e0e0;
+  padding: 10px 0;
+  margin-top: 0;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.3s ease;
+}
+
+.panel-handle {
+  width: 40px;
+  height: 5px;
+  background-color: #e0e0e0;
+  border-radius: 3px;
+  margin: 0 auto 10px;
+  cursor: pointer;
+}
+
+.planning-cards-section.fixed-bottom.collapsed {
+  transform: translateY(calc(100% - 30px));
+}
+
+.planning-cards-section.fixed-bottom.collapsed .panel-handle {
+  margin-bottom: 20px;
+}
+
+.planning-cards-section.fixed-bottom.hidden {
+  transform: translateY(100%);
+}
+
+/* Standard font sizes for revealed votes */
+body.votes-revealed .vote-card-space .vote-badge,
+.vote-card-space.has-vote .vote-badge {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  max-width: 80% !important;
+  text-align: center !important;
+  display: block !important;
+  margin: auto !important;
+  line-height: 1.2 !important;
+}
+
+/* Adjust sizes based on content */
+.vote-badge[data-value="XXS"],
+.vote-badge[data-value="XXL"],
+.vote-badge:contains("XX") {
+  font-size: 14px !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  body.votes-revealed .vote-card-space .vote-badge {
+    font-size: 16px !important;
+  }
+  
+  .vote-badge[data-value="XXS"],
+  .vote-badge[data-value="XXL"],
+  .vote-badge:contains("XX") {
+    font-size: 12px !important;
+  }
+}
   </style>
 </head>
 <body>
@@ -1529,7 +1598,7 @@ white-space: nowrap;
 <div class="no-stories-message" id="noStoriesMessage">
         No stories available. Please upload or add stories to start voting.
       </div> 
-<!-- Planning cards -->
+<!-- Planning cards - Keep this section, we will convert it to fixed bottom -->
 <div class="planning-cards-section">     
 <h3>Planning Cards</h3>
      <div class="card-panel">
@@ -1559,6 +1628,7 @@ white-space: nowrap;
 </div>
 </div>
 </div>
+
 <!-- Scripts -->
 <script src="main.js" type="module"></script>
 <script>
@@ -1721,6 +1791,49 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Setup mobile layout features
   setupMobileLayout();
+
+  // Find the planning cards section and convert it to fixed bottom
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  
+  if (planningCardsSection) {
+    console.log('Found planning cards section, converting to fixed-bottom layout');
+    
+    // Add fixed-bottom class
+    planningCardsSection.classList.add('fixed-bottom');
+    
+    // Add the handle for collapsing
+    const handle = document.createElement('div');
+    handle.className = 'panel-handle';
+    handle.id = 'panelHandle';
+    planningCardsSection.insertBefore(handle, planningCardsSection.firstChild);
+    
+    // Setup handle click behavior
+    handle.addEventListener('click', function() {
+      planningCardsSection.classList.toggle('collapsed');
+    });
+    
+    // Auto-collapse on mobile by default
+    if (window.innerWidth <= 768) {
+      planningCardsSection.classList.add('collapsed');
+    }
+    
+    // Listen for reveal votes button clicks
+    document.getElementById('revealVotesBtn').addEventListener('click', function() {
+      planningCardsSection.classList.add('hidden');
+    });
+    
+    // Listen for reset votes button clicks
+    document.getElementById('resetVotesBtn').addEventListener('click', function() {
+      planningCardsSection.classList.remove('hidden');
+      
+      // Re-collapse on mobile
+      if (window.innerWidth <= 768) {
+        planningCardsSection.classList.add('collapsed');
+      } else {
+        planningCardsSection.classList.remove('collapsed');
+      }
+    });
+  }
 });
 
 // Setup mobile-specific features
@@ -1803,6 +1916,28 @@ function setupMobileCardSelection() {
       }
     });
   });
+}
+
+// Functions for hiding/showing the fixed planning cards
+function hideFixedPlanningCards() {
+  const planningCardsSection = document.querySelector('.planning-cards-section.fixed-bottom');
+  if (planningCardsSection) {
+    planningCardsSection.classList.add('hidden');
+  }
+}
+
+function showFixedPlanningCards() {
+  const planningCardsSection = document.querySelector('.planning-cards-section.fixed-bottom');
+  if (planningCardsSection) {
+    planningCardsSection.classList.remove('hidden');
+    
+    // Auto-collapse on mobile
+    if (window.innerWidth <= 768) {
+      planningCardsSection.classList.add('collapsed');
+    } else {
+      planningCardsSection.classList.remove('collapsed');
+    }
+  }
 }
 
 // Listen for orientation changes to fix layout
@@ -2216,6 +2351,7 @@ window.showAddTicketModal = showAddTicketModal;
         alert('Error exporting votes: ' + (error.message || 'Unknown error'));
       }
     }
+
 // Monitor for CSV file uploads
 document.getElementById('csvInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
@@ -2367,7 +2503,36 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       // Setup reveal button click handler
       const revealBtn = document.getElementById('revealVotesBtn');
       if (revealBtn) {
-        revealBtn.addEventListener('click', revealVotes);
+        revealBtn.addEventListener('click', function() {
+          // Reveal votes in UI
+          revealVotes();
+          
+          // Hide fixed planning cards panel
+          hideFixedPlanningCards();
+          
+          // Trigger custom event for other components
+          document.dispatchEvent(new CustomEvent('revealsVotes'));
+          
+          // Fix font sizes for revealed votes
+          if (typeof window.fixRevealedVoteFontSizes === 'function') {
+            setTimeout(window.fixRevealedVoteFontSizes, 100);
+          }
+        });
+      }
+      
+      // Setup reset button
+      const resetBtn = document.getElementById('resetVotesBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          // Remove votes-revealed class
+          document.body.classList.remove('votes-revealed');
+          
+          // Show fixed planning cards panel
+          showFixedPlanningCards();
+          
+          // Trigger custom event
+          document.dispatchEvent(new CustomEvent('resetVotes'));
+        });
       }
       
       // Setup export button with direct onclick handler
@@ -2405,6 +2570,17 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       
       // Hide original modals
       hideAllOriginalModals();
+
+      // IMPORTANT: Make sure we only have one planning cards section showing
+      const planningCardsSections = document.querySelectorAll('.planning-cards-section');
+      if (planningCardsSections.length > 1) {
+        console.log('Found multiple planning cards sections, hiding all but the fixed-bottom one');
+        planningCardsSections.forEach(section => {
+          if (!section.classList.contains('fixed-bottom')) {
+            section.style.display = 'none';
+          }
+        });
+      }
     });
     
     // Watch for story list changes
@@ -2685,6 +2861,49 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     });
   }
 
+  // Add function to fix font sizes for revealed votes
+  window.fixRevealedVoteFontSizes = function() {
+    console.log('[UI] Fixing revealed vote font sizes');
+    
+    // Target all vote badges in revealed state
+    const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
+    
+    voteCards.forEach(badge => {
+      // Get the text content
+      const text = badge.textContent || '';
+      
+      // Set base size
+      let fontSize = '18px';
+      
+      // Use smaller font for longer text
+      if (text.length >= 2) {
+        fontSize = '16px';
+      }
+      
+      // Even smaller for special cases
+      if (text.includes('XX')) {
+        fontSize = '14px';
+      }
+      
+      // Apply the styles directly
+      badge.style.fontSize = fontSize;
+      badge.style.fontWeight = '600';
+      badge.style.maxWidth = '80%';
+      badge.style.textAlign = 'center';
+      badge.style.display = 'block';
+    });
+    
+    // Also fix sidebar vote badges
+    const sidebarBadges = document.querySelectorAll('.user-entry .vote-badge');
+    sidebarBadges.forEach(badge => {
+      const text = badge.textContent || '';
+      if (text) {
+        badge.style.fontSize = text.length >= 3 ? '13px' : '14px';
+        badge.style.fontWeight = '600';
+      }
+    });
+  };
+
   // Mobile-specific card functions
   window.fixRevealedVoteFontSizes = function() {
     const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
@@ -2716,7 +2935,7 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       window.socket.emit('castVote', { vote, targetUserId });
       
       // Show selection feedback
-      const cards = document.querySelectorAll('#planningCards .card');
+      const cards = document.querySelectorAll('.card');
       cards.forEach(card => {
         card.classList.remove('selected-card');
         if (card.getAttribute('data-value') === vote) {
@@ -2726,261 +2945,156 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     }
   };
         
+// Add this important fix to hide duplicate planning cards sections
 document.addEventListener('DOMContentLoaded', function() {
-  // Only run on mobile/tablet devices
-  if (window.innerWidth <= 1024) {
-    applyExactMobileLayout();
-  }
-  
-  // Also apply when window is resized
-  window.addEventListener('resize', function() {
-    if (window.innerWidth <= 1024) {
-      applyExactMobileLayout();
-    }
-  });
-  
-  function applyExactMobileLayout() {
-    console.log("Applying exact mobile layout from reference image");
+  // CRITICAL FIX: Make sure we only have the fixed-bottom planning cards showing
+  setTimeout(function() {
+    // Hide the non-fixed planning cards section to avoid duplication
+    const planningCardsSections = document.querySelectorAll('.planning-cards-section');
     
-    // Create style element for the exact mobile layout
-    const mobileStyle = document.createElement('style');
-    mobileStyle.id = 'exact-mobile-layout';
-    mobileStyle.textContent = `
-      /* Reset container layout */
-      .container {
-        display: block !important;
-        padding-bottom: 100px !important;
-        background: white !important;
-      }
+    if (planningCardsSections.length > 1) {
+      console.log('Found multiple planning cards sections, fixing display');
       
-      /* Header styling */
-      header {
-        padding: 12px 20px !important;
-        border-bottom: 1px solid #f0f0f0 !important;
-      }
+      // Keep track of the fixed-bottom section
+      let foundFixedBottom = false;
       
-      /* Hide sidebar on mobile and show as a collapsible section */
-      .sidebar {
-        width: 100% !important;
-        padding: 15px 20px !important;
-        border: none !important;
-        box-shadow: none !important;
-      }
-      
-      /* Hide redundant elements */
-      .upload-section, .planning-cards-section h3 {
-        display: none !important;
-      }
-      
-      /* Main content area */
-      .main {
-        width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        order: 2 !important;
-      }
-      
-      /* Right sidebar styling */
-      .rightbar {
-        width: 100% !important;
-        padding: 15px 20px !important;
-        border: none !important;
-        max-height: 300px !important;
-        overflow-y: auto !important;
-      }
-      
-      /* Story cards */
-      .story-card {
-        margin-bottom: 8px !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px !important;
-        padding: 12px !important;
-      }
-      
-      /* Avatar styling */
-      #userCircle {
-        padding: 15px 5px !important;
-        margin-bottom: 60px !important;
-      }
-      
-      .avatar-circle {
-        width: 60px !important;
-        height: 60px !important;
-        font-size: 24px !important;
-        background-color: #f5ba55 !important;
-        color: white !important;
-        border: none !important;
-      }
-      
-      /* Vote card space */
-      .vote-card-space {
-        width: 60px !important;
-        height: 80px !important;
-        border: 2px dashed #ccc !important;
-        background-color: white !important;
-        border-radius: 8px !important;
-      }
-      
-      /* Reveal votes button */
-      .reveal-votes-button {
-        background-color: white !important;
-        color: #673ab7 !important;
-        border: 2px solid #673ab7 !important;
-        text-transform: uppercase !important;
-        font-weight: bold !important;
-        border-radius: 30px !important;
-        padding: 10px 20px !important;
-      }
-      
-      /* Fixed card panel at bottom */
-      .card-panel {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        background: white !important;
-        border-top: 1px solid #e0e0e0 !important;
-        padding: 10px 5px !important;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1) !important;
-        display: flex !important;
-        justify-content: center !important;
-        z-index: 1000 !important;
-      }
-      
-      /* Planning cards styling to match design */
-      .cards {
-        display: flex !important;
-        justify-content: center !important;
-        gap: 8px !important;
-        padding: 8px 0 !important;
-      }
-      
-      .card {
-        width: 50px !important;
-        height: 50px !important;
-        background-color: #e1d4f9 !important;
-        color: #333 !important;
-        font-weight: bold !important;
-        font-size: 16px !important;
-        border-radius: 8px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 !important;
-      }
-      
-      /* Add exact colors from reference */
-      .button, #revealVotesBtn, #resetVotesBtn {
-        color: #673ab7 !important;
-        border-color: #673ab7 !important;
-        border-radius: 30px !important;
-      }
-      
-      /* Make invite and upload buttons match design */
-      .invite-button, .file-button {
-        border-radius: 30px !important;
-        min-width: 120px !important;
-      }
-      
-      /* Exact alignment for navigation buttons */
-      .navigation-buttons {
-        display: flex !important;
-        justify-content: space-between !important;
-        padding: 0 10px !important;
-        margin: 15px 0 !important;
-      }
-      
-      /* Enhance add ticket button */
-      .add-ticket-btn {
-        border-radius: 30px !important;
-        color: #673ab7 !important;
-        border-color: #673ab7 !important;
-        font-weight: bold !important;
-        margin-bottom: 15px !important;
-      }
-    `;
-    document.head.appendChild(mobileStyle);
-    
-    // Move the planning cards to the bottom in a fixed panel
-    const planningCards = document.querySelector('#planningCards');
-    if (planningCards && !document.querySelector('.mobile-card-panel')) {
-      const cardPanel = document.createElement('div');
-      cardPanel.className = 'card-panel mobile-card-panel';
-      
-      // Add PLANNING CARDS heading above the cards
-      const cardsHeading = document.createElement('div');
-      cardsHeading.textContent = 'PLANNING CARDS';
-      cardsHeading.style.cssText = 'color:#673ab7; font-size:14px; font-weight:600; margin-bottom:5px; text-align:center; width:100%; text-transform:uppercase;';
-      
-      // Move cards to the panel
-      cardPanel.appendChild(cardsHeading);
-      cardPanel.appendChild(planningCards);
-      document.body.appendChild(cardPanel);
-    }
-    
-    // Add Upload Ticket and Invite Others buttons at the top
-    const header = document.querySelector('header');
-    if (header && !document.querySelector('.mobile-action-buttons')) {
-      const actionButtons = document.createElement('div');
-      actionButtons.className = 'mobile-action-buttons';
-      actionButtons.style.cssText = 'display:flex; gap:10px; justify-content:flex-end; padding:10px 20px; border-bottom:1px solid #f0f0f0;';
-      
-      const uploadButton = document.createElement('button');
-      uploadButton.textContent = 'Upload Ticket';
-      uploadButton.className = 'invite-button';
-      uploadButton.onclick = function() {
-        document.getElementById('csvInput').click();
-      };
-      
-      const inviteButton = document.createElement('button');
-      inviteButton.textContent = 'Invite Others';
-      inviteButton.className = 'invite-button';
-      inviteButton.onclick = function() {
-        window.showInviteModalCustom();
-      };
-      
-      actionButtons.appendChild(uploadButton);
-      actionButtons.appendChild(inviteButton);
-      
-      header.insertAdjacentElement('afterend', actionButtons);
-    }
-    
-    // Enhance user voting area
-    setupMobileCardSelection();
-  }
-  
-  function setupMobileCardSelection() {
-    document.querySelectorAll('#planningCards .card').forEach(card => {
-      card.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        
-        // Get current user's vote space
-        const userName = sessionStorage.getItem('userName');
-        if (!userName) return;
-        
-        const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
-        const voteSpace = document.getElementById(`vote-space-${safeId}`);
-        
-        if (voteSpace) {
-          const vote = this.getAttribute('data-value');
-          
-          // Clear selections and add to this card
-          document.querySelectorAll('#planningCards .card').forEach(c => {
-            c.classList.remove('selected-card');
-          });
-          this.classList.add('selected-card');
-          
-          // Use the emitVote function if available
-          if (typeof window.emitVote === 'function') {
-            window.emitVote(vote, userName);
-          } else if (typeof window.socket !== 'undefined') {
-            window.socket.emit('castVote', { vote, targetUserId: userName });
-          }
+      planningCardsSections.forEach(section => {
+        if (section.classList.contains('fixed-bottom')) {
+          section.style.display = 'flex'; // Make sure it's visible
+          foundFixedBottom = true;
+        } else {
+          section.style.display = 'none'; // Hide all others
         }
       });
-    });
-  }
+      
+      // If we didn't find a fixed-bottom section, add the class to the first one
+      if (!foundFixedBottom && planningCardsSections.length > 0) {
+        console.log('No fixed-bottom planning cards found, converting the first one');
+        const firstSection = planningCardsSections[0];
+        firstSection.classList.add('fixed-bottom');
+        firstSection.style.display = 'flex';
+        
+        // Add the handle for mobile
+        if (!firstSection.querySelector('.panel-handle')) {
+          const handle = document.createElement('div');
+          handle.className = 'panel-handle';
+          handle.id = 'panelHandle';
+          firstSection.insertBefore(handle, firstSection.firstChild);
+          
+          // Setup handle click behavior
+          handle.addEventListener('click', function() {
+            firstSection.classList.toggle('collapsed');
+          });
+        }
+      }
+    }
+  }, 300); // Small delay to ensure DOM is fully loaded
 });
+
+function applyExactMobileLayout() {
+  console.log("Applying exact mobile layout from reference image");
+  
+  // Create style element for the exact mobile layout
+  const mobileStyle = document.createElement('style');
+  mobileStyle.id = 'exact-mobile-layout';
+  mobileStyle.textContent = `
+    /* Reset container layout */
+    .container {
+      display: block !important;
+      padding-bottom: 100px !important;
+      background: white !important;
+    }
+    
+    /* Header styling */
+    header {
+      padding: 12px 20px !important;
+      border-bottom: 1px solid #f0f0f0 !important;
+    }
+    
+    /* Hide sidebar on mobile and show as a collapsible section */
+    .sidebar {
+      width: 100% !important;
+      padding: 15px 20px !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    
+    /* Hide redundant elements */
+    .planning-cards-section:not(.fixed-bottom) {
+      display: none !important;
+    }
+    
+    /* Main content area */
+    .main {
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      order: 2 !important;
+    }
+    
+    /* Right sidebar styling */
+    .rightbar {
+      width: 100% !important;
+      padding: 15px 20px !important;
+      border: none !important;
+      max-height: 300px !important;
+      overflow-y: auto !important;
+    }
+    
+    /* Story cards */
+    .story-card {
+      margin-bottom: 8px !important;
+      border: 1px solid #e0e0e0 !important;
+      border-radius: 8px !important;
+      padding: 12px !important;
+    }
+    
+    /* Avatar styling */
+    #userCircle {
+      padding: 15px 5px !important;
+      margin-bottom: 60px !important;
+    }
+    
+    .avatar-circle {
+      width: 60px !important;
+      height: 60px !important;
+      font-size: 24px !important;
+      background-color: #f5ba55 !important;
+      color: white !important;
+      border: none !important;
+    }
+    
+    /* Vote card space */
+    .vote-card-space {
+      width: 60px !important;
+      height: 80px !important;
+      border: 2px dashed #ccc !important;
+      background-color: white !important;
+      border-radius: 8px !important;
+    }
+    
+    /* Reveal votes button */
+    .reveal-votes-button {
+      background-color: white !important;
+      color: #673ab7 !important;
+      border: 2px solid #673ab7 !important;
+      text-transform: uppercase !important;
+      font-weight: bold !important;
+      border-radius: 30px !important;
+      padding: 10px 20px !important;
+    }
+    
+    /* Enhance add ticket button */
+    .add-ticket-btn {
+      border-radius: 30px !important;
+      color: #673ab7 !important;
+      border-color: #673ab7 !important;
+      font-weight: bold !important;
+      margin-bottom: 15px !important;
+    }
+  `;
+  document.head.appendChild(mobileStyle);
+}
 
 // Connection status indicator
 const statusIndicator = document.getElementById('connectionStatus');
@@ -3012,10 +3126,14 @@ document.addEventListener('DOMContentLoaded', function() {
     window.socket.on('connecting', () => updateConnectionStatus('connecting'));
     window.socket.on('reconnecting', () => updateConnectionStatus('connecting'));
   }
+  
+  // Run mobile layout on small screens
+  if (window.innerWidth <= 1024) {
+    applyExactMobileLayout();
+  }
 });
-
-        
 </script>
+
 <!-- Add this just before the closing </body> tag in index.html -->
 <script>
 // Mobile layout to match desktop view
@@ -3170,10 +3288,5 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('loginModalCustom').style.display = 'none';
   });
 </script>
-
-  
-     
 </body>
 </html>
-        
-             
