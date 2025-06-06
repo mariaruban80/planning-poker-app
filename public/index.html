@@ -20,7 +20,14 @@
       background: white;
       border-bottom: 1px solid #e5e7eb;
     }
-    
+/*    body { 
+      background: white;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    } */
     .container { 
       display: flex; 
       background: white;
@@ -53,23 +60,25 @@
       box-shadow: none;
     }
     
+    
+    /* Updated story card styling to match reference screenshot */
     .story-card { 
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: flex-start; /* Left align text */
       margin-bottom: 10px; 
       padding: 14px 16px; 
       background-color: white; 
-      color: #333;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
+      color: #333; /* Dark text color for better readability */
+      border: 1px solid #e0e0e0; /* Light gray border */
+      border-radius: 8px; /* Less rounded corners */
       cursor: pointer; 
       transition: all 0.2s ease;
       font-size: 13px;
-      font-weight: normal;
-      text-align: left;
-      height: auto;
-      min-height: 42px;
+      font-weight: normal; /* Regular font weight */
+      text-align: left; /* Left aligned text */
+      height: auto; /* Allow flexible height */
+      min-height: 42px; /* Minimum height */
       width: 100%;
       box-sizing: border-box;
       white-space: normal;
@@ -77,30 +86,31 @@
     }
     
     .story-card:hover {
-      background-color: #f5f5f5;
+      background-color: #f5f5f5; /* Light gray background on hover */
       border-color: #d0d0d0;
     }
     
     .story-card.selected { 
-      background-color: #e8f0fe;
-      border-color: #4285f4;
+      background-color: #e8f0fe; /* Light blue background */
+      border-color: #4285f4; /* Google blue border */
       color: #333;
     }
     
     .story-card.active { 
-      background-color: #e8f0fe;
+      background-color: #e8f0fe; /* Light blue color for active state */
       border-color: #4285f4;
       color: #333;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow to indicate active */
     }
     
+    /* Updated button styling to match the ADD TICKET reference */
     .button { 
       margin: 10px 0; 
       padding: 12px 20px; 
       background-color: white; 
       color: #673ab7; 
       border: 1px solid #673ab7; 
-      border-radius: 25px;
+      border-radius: 25px; /* More rounded corners like ADD TICKET */
       cursor: pointer; 
       width: 100%;
       font-weight: 600;
@@ -111,43 +121,44 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      height: 42px;
-      min-width: 140px;
+      height: 42px; /* Fixed height for all buttons */
+      min-width: 140px; /* Minimum width to ensure buttons look good */
       box-shadow: none;
     }
 
-    .connection-status {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #4CAF50;
-      transition: background-color 0.3s;
-      z-index: 1000;
-    }
+     .connection-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #4CAF50; /* Green = connected */
+  transition: background-color 0.3s;
+  z-index: 1000;
+}
 
-    .connection-status.connecting {
-      background-color: #FFC107;
-      animation: pulse 1.5s infinite;
-    }
+.connection-status.connecting {
+  background-color: #FFC107; /* Yellow = connecting */
+  animation: pulse 1.5s infinite;
+}
 
-    .connection-status.disconnected {
-      background-color: #F44336;
-    }
+.connection-status.disconnected {
+  background-color: #F44336; /* Red = disconnected */
+}
 
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
     
     .button:hover { 
-      background-color: #f0e6ff;
+      background-color: #f0e6ff; /* Lighter purple background on hover */
       color: #673ab7;
     }
     
+    /* Controls section with fixed height buttons */
     .controls-section {
       display: flex;
       flex-direction: column;
@@ -158,6 +169,7 @@
       margin: 5px 0;
     }
     
+    /* Navigation button container for parallel display */
     .navigation-buttons {
       display: flex;
       gap: 10px;
@@ -170,20 +182,22 @@
       margin: 0;
     }
     
+    /* Updated upload section to match reference screenshot */
     .upload-section { 
       padding: 15px 20px;
       background: white;
       display: flex;
-      justify-content: flex-end;
+      justify-content: flex-end; /* Align to right side */
       border-bottom: 1px solid transparent;
     }
     
     .upload-right { 
       display: flex;
       gap: 10px;
-      width: auto;
+      width: auto; /* Not full width anymore */
     }
     
+    /* Fixed width buttons to match reference screenshot */
     .invite-button { 
       display: inline-flex;
       align-items: center;
@@ -198,7 +212,7 @@
       cursor: pointer;
       transition: all 0.2s;
       height: 42px;
-      width: 140px;
+      width: 140px; /* Fixed width */
       box-sizing: border-box;
       white-space: nowrap;
     }
@@ -207,13 +221,15 @@
       background-color: #f0e6ff;
     }
     
+    /* File input container to match reference screenshot */
     .file-input {
       display: inline-flex;
       position: relative;
       height: 42px;
-      width: 140px;
+      width: 140px; /* Fixed width */
     }
 
+    /* Fixed file button styling */
     .file-button {
       display: inline-flex;
       align-items: center;
@@ -248,6 +264,7 @@
       z-index: 2;
     }
     
+    /* Updated modal styling with higher z-index to ensure it appears on top */
     #inviteModalCustom {
       position: fixed;
       top: 0;
@@ -308,109 +325,125 @@
       background: #5c33a4;
     }
     
-    /* User list styling - NEW ENHANCED VERSION */
+    /* User list styling */
     .sidebar h3, .rightbar h3 {
       color: #673ab7;
       margin-top: 0;
       padding-bottom: 10px;
-      border-bottom: 1px solid white;
+      border-bottom: 1px solid white; /* Changed to white */
       font-size: 14px;
       font-weight: 600;
       margin-bottom: 15px;
       text-transform: uppercase;  
     }
     
-    /* NEW USER LIST DESIGN */
     #userList {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin: 0;
-      padding: 0;
+      padding: 0.5rem 0;
       width: 100%;
     }
-    
-    .user-card {
+
+    .user-entry {
       display: flex;
       align-items: center;
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-      border: 1px solid #f0f0f0;
-      transition: transform 0.2s ease;
+      justify-content: space-between;
+      background: white;
+      border-radius: 30px;
+      padding: 8px 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    
-    .user-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+
+    .user-entry.voted {
+      background: linear-gradient(to right, #e5f7e5, #c1e1c1);
     }
-    
-    .user-avatar {
-      width: 40px;
-      height: 40px;
+
+    .avatar {
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      margin-right: 14px;
+      object-fit: cover;
+      margin-right: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
       font-weight: bold;
-      font-size: 16px;
-      flex-shrink: 0;
+      color: white;
     }
-    
-    .user-info {
-      flex: 1;
-      overflow: hidden;
-      padding-right: 8px;
-    }
-    
+
     .username {
       font-weight: 600;
-      font-size: 15px;
-      color: #333;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.3;
+      font-size: 14px;
+      color: #3b444b;
+      flex: 1;
     }
-    
-    .user-role {
-      font-size: 11px;
-      color: #777;
-      margin-top: 2px;
-    }
-    
-    .vote-indicator {
-      font-size: 16px;
-      font-weight: bold;
-      color: #333;
-      padding: 0 8px;
-      min-width: 12px;
+
+    /* Updated - Only change the opacity of question marks but keep original functionality */
+    .vote-badge {
+      background-color: transparent;
+      font-size: 14px; /* Match username font size */
+      font-weight: 600; /* Match username font weight */
+      padding: 2px 8px;
+      min-width: 28px;
       text-align: center;
-      flex-shrink: 0;
+      color: transparent; /* Hide question marks */
     }
     
-    .host-badge {
-      background: #f8f8f8;
-      color: #555;
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      margin-left: 6px;
+    /* When votes are revealed, show them with this color */
+    body.votes-revealed .vote-badge {
+      color: #673ab7 !important;
+      font-size: 14px;
     }
     
-    .user-card.voted {
-      background-color: #f9fcf9;
-      border-color: #e0eee0;
+    /* New poker table layout */
+    .poker-table-layout {
+      display: flex;
+       flex-direction: column;
+       align-items: center;
+       width: 100%;
+       max-width: 100%; /* Allow full width on smaller screens */
+       margin: 0 auto;
+       gap: 15px;
+       padding: 20px 5px; /* Reduce horizontal padding on small screens */;
     }
     
-    .user-card.current-user {
-      border-left: 3px solid #673ab7;
+    .current-story-display {
+      width: 100%;
+      max-width: 700px;
+      padding: 15px;
+      background-color: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 600;
+      color: #333;
     }
     
-    /* User Circle for poker table */
+    .avatar-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    
+    .vote-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    
+    .avatar-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 70px;
+    }
+    
     .avatar-circle {
       width: 60px;
       height: 60px;
@@ -440,6 +473,88 @@
       font-weight: 500;
     }
     
+    .vote-card-space {
+      width: 40px;
+      height: 90px;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      transition: all 0.2s ease;
+      font-size: 14px;
+    }
+    
+    .vote-card-space:hover {
+      border-color: #999;
+      background-color: #f9f9f9;
+    }
+    
+    .vote-card-space.has-vote {
+      border-style: solid;
+      border-color: #673ab7;
+      background-color: #f0e6ff;
+    }
+    
+    /* Updated - Make vote card question marks invisible but still functional */
+    .vote-card-space .vote-badge {
+     // font-size: 18px;
+      font-size: 14px;
+      font-weight: bold;
+      color: transparent; /* Make question marks invisible */
+    }
+    
+    /* Show vote values when votes are revealed */
+    body.votes-revealed .vote-card-space .vote-badge {
+      font-size: 16px !important; /* Base size for revealed votes */
+      max-width: 80% !important;
+      overflow: hidden !important;
+      text-align: center !important;
+      line-height: 1 !important;
+    }
+     /* Special cases for longer text in revealed votes */
+    body.votes-revealed .vote-card-space .vote-badge:contains("XX") {    
+      font-size: 14px !important;
+    }
+
+    body.votes-revealed .vote-card-space .vote-badge:contains("XXL"),
+    body.votes-revealed .vote-card-space .vote-badge:contains("XXS") {
+      font-size: 12px !important;
+    }
+    
+    .reveal-button-container {
+      margin: 15px 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    /* For T-shirt sizing which tends to have longer text */
+    .vote-badge:contains("XXS"), 
+    .vote-badge:contains("XXL") {
+      font-size: 14px !important;
+    }
+    .reveal-votes-button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      background-color: white;
+      color: #673ab7;
+      border: 2px solid #673ab7;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+      min-width: 200px;
+      text-transform: uppercase;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    .reveal-votes-button:hover {
+      background-color: #673ab7;
+      color: white;
+    }
+    
     /* Vote cards styling */
     .planning-cards-section {
       width: 100%;
@@ -447,10 +562,12 @@
       margin-top: 20px;
       padding: 15px;
       background-color: white;
+       
     }
+  
     
     .planning-cards-section h3 {
-      color: #673ab7;
+      color: #673ab7; /* Changed to purple */
       margin-bottom: 15px;
       font-size: 14px;
       font-weight: 600;
@@ -466,23 +583,76 @@
     }
     
     .card {
-      width: 55px;
-      height: 50px;
+      width: 55px; /* Decreased size */
+      height: 50px; /* Decreased size */
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #e6e6fa;
+      background: #e6e6fa; /* Light purple background */
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 14px; /* Smaller size */
       text-align: center;
       transition: all 0.2s;
       color: #333;
       font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      margin: 4px;
+      margin: 4px; /* Small margin */
     }
     
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Add disabled state for planning cards */
+    .card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+      background-color: #f0f0f0;
+      color: #aaa;
+    }
+    
+    .card.disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Voted heading in sidebar */
+    .section-heading {
+      font-size: 14px;
+      font-weight: 600;
+      padding-bottom: 10px;  
+      color: #673ab7;
+      margin: 20px 0 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 1px solid white; /* Changed to white */
+    }
+
+    /* User-friendly UI tweaks */
+    @media (max-width: 1200px) {
+      .container {
+        flex-direction: column;
+        height: auto;
+      }
+      .sidebar, .rightbar {
+        width: 100%;
+        max-width: 100%;
+        border: none;
+        border-bottom: 1px solid white; /* Changed to white */
+      }
+    }
+
+    /* User circle container styling */
+    #userCircle {
+      background-color: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    
+    /* Add Ticket button styling - Updated to match image */
     .add-ticket-btn {
       display: flex;
       align-items: center;
@@ -501,60 +671,801 @@
       height: 42px;
     }
     
-    /* Responsive styles for small screens */
-    @media (max-width: 768px) {
-      .container {
-        flex-direction: column;
-      }
-      
-      .sidebar, .rightbar {
-        width: 100%;
-      }
-      
-      .user-card {
-        padding: 8px;
-      }
-      
-      .user-avatar {
-        width: 36px;
-        height: 36px;
-        margin-right: 10px;
-      }
-      
-      .username {
-        font-size: 14px;
-      }
+    .add-ticket-btn:hover {
+      background-color: #f0e6ff;
     }
-</style>
+    
+    .add-ticket-btn span {
+      margin-right: 5px;
+      font-size: 18px;
+      color: #673ab7;
+    }
+    
+    /* Story list container - no top heading */
+    .story-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    
+    /* Hide any modal coming from main.js */
+    .modal-dialog, .modal-overlay {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    
+    /* Updated story text to handle long content */
+    .story-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3; /* Show max of 3 lines */
+      -webkit-box-orient: vertical;
+      max-height: none; /* Remove fixed height constraint */
+      width: 100%;
+      text-align: left;
+    }
+    
+    /* Hide elements for guest users */
+    .hide-for-guests {
+      display: none !important; /* Use !important to override any inline styles */
+    }
+    /* Add disabled state for buttons */
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+      background-color: #f0f0f0;
+      color: #aaa;
+    }
+    /* No stories message */
+    .no-stories-message {
+      display: none;
+      text-align: center;
+      margin: 20px auto;
+      padding: 10px 15px;
+      background-color: #f9f9f9;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+      color: #666;
+      font-style: italic;
+      max-width: 80%;
+    }
+    /* Add these styles to the existing style section */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: white;
+      border-bottom: 1px solid white;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+    
+    .logo img {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+    
+    .logo span {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 14px;
+    }
+    
+    .nav-links a {
+      text-decoration: none;
+      color: #6b7280;
+      padding: 5px;
+    }
+    
+    .session-button {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .new-session {
+      background-color: #f3f4f6;
+      color: #111827;
+    }
+    
+    .new-session:before {
+      content: "+";
+      margin-right: 4px;
+      font-weight: bold;
+    }
+    
+    .join-session {
+      background-color: transparent;
+      color: #111827;
+    }
+    
+    .join-session:before {
+      content: "🧭";
+      margin-right: 4px;
+      font-size: 14px;
+    }
+    
+    .github-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    
+    .country-selector {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+     .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    #logOffBtn {
+       display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      background-color: #f3f4f6;
+      color: #111827;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+        
+    }
+    
+    #logOffBtn:hover {
+      background-color: #e5e7eb; 
+    }    
+/* Add a logout icon before the text */
+#logOffBtn:before {
+  content: "🏃";
+  margin-right: 4px;
+  font-size: 16px;
+}
+    
+    /* Custom Login Modal Styling */
+#loginModalCustom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+#loginModalCustom .modal-content {
+  background-color: white;
+  border-radius: 10px;
+  padding: 30px 40px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#loginModalCustom h3 {
+  color: #673ab7;
+  margin-top: 0;
+  font-size: 22px;
+  margin-bottom: 15px;
+}
+
+#loginModalCustom p {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+#loginModalCustom input {
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 20px;
+  border: 1px solid #d0d0d0;
+  border-radius: 25px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+#loginModalCustom input:focus {
+  outline: none;
+  border-color: #673ab7;
+  box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2);
+}
+
+#loginModalCustom .button-group {
+  display: flex;
+  justify-content: center;
+}
+
+#loginModalCustom .action-button {
+  background-color: #673ab7;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#loginModalCustom .action-button:hover {
+  background-color: #5c33a4;
+  transform: translateY(-2px);
+}
+
+#loginModalCustom .action-button:active {
+  transform: translateY(0);
+}
+ /* Custom Add Ticket Modal Styling */
+#addTicketModalCustom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.add-ticket-modal {
+  background-color: white;
+  border-radius: 12px;
+  padding: 20px 25px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  border: 2px solid #673ab7;
+}
+
+.add-ticket-modal h3 {
+  color: #673ab7;
+  margin-top: 0;
+  font-size: 20px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  display: block;
+  color: #673ab7;
+  font-size: 14px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #673ab7;
+  box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2);
+}
+
+.add-ticket-modal .button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 25px;
+}
+
+.cancel-button {
+  background-color: white;
+  color: #666;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 48%;
+}
+
+.cancel-button:hover {
+  background-color: #f5f5f5;
+}
+
+.confirm-button {
+  background-color: #673ab7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 48%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-button:hover {
+  background-color: #5c33a4;
+}
+
+.plus-icon {
+  margin-right: 5px;
+  font-weight: bold;
+}
+    /* Current user display in header */
+.current-user-display {
+    display: flex;
+  align-items: center;
+  margin-right: 15px;
+  background-color: transparent;
+  padding: 0;
+  border: none;
+}
+
+.user-avatar {
+  margin-right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: white;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+#headerUsername {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-right: 8px;
+white-space: nowrap;
+}
+
+/* Updated LOG OFF button style */
+#logOffBtn {
+    display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background-color: white;
+  color: #673ab7;
+ /* border: 1px solid #673ab7; */
+     border: white;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+#logOffBtn:hover {
+  background-color: #f0e6ff;
+}
+
+#logOffBtn:before {
+  content: "🚪";
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+/* Add these responsive styles to index.html's style section */
+
+/* Make the layout responsive */
+@media (max-width: 768px) {
+  .avatar-row, .vote-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 5px;
+    box-sizing: border-box;
+  }
+
+  .card-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    padding: 10px 5px;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+  }
+
+  .card-panel .cards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 5px 0;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 5px;
+  }
+  
+  .card-panel .cards::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .card-panel .cards::-webkit-scrollbar-thumb {
+    background: #673ab7;
+    border-radius: 2px;
+  }
+  
+  .vote-card-space {
+    width: 45px;
+    height: 70px;
+    min-width: 45px;
+    margin: 3px;
+  }
+  
+  /* Smaller font for votes on mobile */
+  body.votes-revealed .vote-card-space .vote-badge {
+    font-size: 14px !important;
+  }
+  
+  body.votes-revealed .vote-card-space .vote-badge:contains("XX") {
+    font-size: 12px !important;
+  }
+  
+  /* Container layout for mobile */
+  .container {
+    flex-direction: column;
+    height: auto;
+    padding-bottom: 70px; /* Space for fixed card panel */
+  }
+  
+  .sidebar, .rightbar {
+    width: 100%;
+    max-width: 100%;
+    padding: 15px;
+    border: none;
+  }
+  
+  /* Mobile header adjustments */
+  header {
+    padding: 8px 15px;
+  }
+  
+  .logo span {
+    font-size: 16px;
+  }
+  
+  /* Collapsible sections for mobile */
+  .mobile-toggle-button {
+    display: flex;
+    width: 100%;
+    padding: 12px;
+    background: #f5f5f5;
+    border: none;
+    text-align: left;
+    font-weight: bold;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    align-items: center;
+  }
+  
+  .mobile-toggle-button:after {
+    content: "▼";
+    margin-left: auto;
+    transition: transform 0.2s;
+  }
+  
+  .mobile-toggle-button.active:after {
+    transform: rotate(180deg);
+  }
+  
+  .mobile-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  
+  .mobile-collapsible.active {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  
+  /* Improved touch targets */
+  .button, .invite-button, .file-button, .story-card {
+    min-height: 44px; /* Apple's recommended minimum touch target size */
+  }
+  
+  .card {
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
+    margin: 3px;
+  }
+  
+  /* Modals on mobile */
+  #loginModalCustom .modal-content,
+  #inviteModalCustom .modal-content,
+  #addTicketModalCustom .modal-content {
+    width: 90%;
+    padding: 20px;
+    max-width: 320px;
+  }
+  
+  /* Selected-card feedback */
+  .selected-card {
+    transform: scale(1.1);
+    border: 2px solid #673ab7;
+    background-color: #e8f0fe;
+    box-shadow: 0 0 8px rgba(103, 58, 183, 0.5);
+  }
+  
+  /* Fix user circle display on mobile */
+  #userCircle {
+    margin-bottom: 80px;
+    padding: 10px 5px;
+  }
+  
+  /* Fix alignment on mobile */
+  .avatar-container {
+    width: 60px;
+  }
+  
+  .avatar-circle {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* Smaller mobile phones */
+@media (max-width: 480px) {
+  .container {
+    flex-direction: column;
+  }
+  
+  .sidebar, .rightbar {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px;
+  }
+  
+  .vote-card-space {
+    width: 40px;
+    height: 60px;
+    min-width: 40px;
+  }
+  
+  .card {
+    width: 35px;
+    height: 35px;
+    font-size: 11px;
+  }
+  
+  .avatar-container {
+    width: 50px;
+  }
+  
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .reveal-votes-button {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-width: 160px;
+  }
+  
+  .user-name {
+    font-size: 10px;
+  }
+  
+  /* Fixed-width buttons get smaller */
+  .invite-button, .file-button {
+    width: 100px;
+  }
+  
+  .navigation-buttons .button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  /* Fix header in tight spaces */
+  #headerUsername {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Emoji burst animation */
+.global-emoji-burst {
+  position: fixed;
+  font-size: 2rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.5) translateY(0);
+  transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+  z-index: 9999;
+}
+
+.global-emoji-burst.burst-go {
+  opacity: 1;
+  transform: scale(1.5) translateY(-100px);
+}
+
+/* Add input shake animation for validation if not already present */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Own vote space styling */
+.own-vote-space {
+  border: 2px dashed #673ab7;
+  position: relative;
+}
+
+.own-vote-space::after {
+  content: 'Your vote';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #673ab7;
+  white-space: nowrap;
+}
+
+/* Add styles for the drop-not-allowed state */
+.vote-card-space.drop-not-allowed {
+  border-color: #f44336;
+  background-color: #ffebee;
+  position: relative;
+}
+
+.vote-card-space.drop-not-allowed::before {
+  content: '✕';
+  position: absolute;
+  color: #f44336;
+  font-size: 24px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+     
+  @media (max-width: 767px) {
+    /* Fix positioning for mobile */
+    .avatar-row, .vote-row {
+      gap: 15px !important;
+    }
+    
+    /* Make sure the user vote card is highlighted */
+    .own-vote-space {
+      border: 2px dashed #673ab7 !important;
+    }
+    
+    /* Properly show vote values */
+    body.votes-revealed .vote-badge {
+      color: #673ab7 !important;
+      opacity: 1 !important;
+    }
+    
+    /* Fix the header for small screens */
+    #headerUsername {
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    /* Fix story list display */
+    .story-title {
+      font-size: 13px;
+      -webkit-line-clamp: 2;
+    }
+    
+    /* Improve fixed card panel */
+    .card-panel {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+    }
+    
+    /* Add proper spacing to main container */
+    .container {
+      padding-top: 10px !important;
+    }
+    
+    /* Make sure buttons have consistent styling */
+    .button, .invite-button, .file-button {
+      min-height: 42px;
+    }
+    
+    /* Make modals more mobile-friendly */
+    .modal-content {
+      max-width: 90% !important;
+      width: 320px !important;
+      padding: 20px !important;
+    }
+  }
+
+  </style>
 </head>
 <body>
 
-<header>
+    <header>
   <div class="logo">
     <img src="spade.png" alt="Planning Poker" />
     <span>Planning Poker</span>
   </div>
   <div class="nav-links">    
+    <!-- New user display element -->
     <div class="current-user-display">
       <div class="user-avatar" id="headerUserAvatar"></div>
       <span id="headerUsername">User</span>
     </div>
     <button id="logOffBtn" class="btn btn-danger join-session">🏃LOG OFF</button>   
     <div class="connection-status" id="connectionStatus" title="Connected"></div>   
+    
   </div>
 </header>
-
+<!-- Create a completely new custom invite modal that doesn't use the same ID or classes as the original -->
 <div id="inviteModalCustom">
-  <div class="modal-content">
-    <h3>Invite Link</h3>
-    <input id="inviteLinkCustom" readonly="" type="text"/>
-    <div class="button-group">
-      <button onclick="copyInviteLinkCustom()">Copy Link</button>
-      <button onclick="hideInviteModalCustom()">Close</button>
-    </div>
-  </div>
+<div class="modal-content">
+<h3>Invite Link</h3>
+<input id="inviteLinkCustom" readonly="" type="text"/>
+<div class="button-group">
+<button onclick="copyInviteLinkCustom()">Copy Link</button>
+<button onclick="hideInviteModalCustom()">Close</button>
 </div>
-
+</div>
+</div>
+<!-- Custom Login Modal -->
 <div id="loginModalCustom" style="display: none;">
   <div class="modal-content">
     <h3>Join Planning Poker Session</h3>
@@ -565,7 +1476,7 @@
     </div>
   </div>
 </div>    
-
+<!-- Custom Add Ticket Modal -->
 <div id="addTicketModalCustom" style="display: none;">
   <div class="modal-content add-ticket-modal">
     <h3>Add New Ticket</h3>
@@ -587,338 +1498,177 @@
       </button>
     </div>
   </div>
-</div>
-
+</div>    
+<!-- Updated Upload Section - moved to right side as per screenshot -->
 <div class="upload-section">
-  <div class="upload-right">
-    <div class="file-input" id="fileInputContainer">
-      <span class="file-button">Upload Ticket</span>
-      <input accept=".csv" id="csvInput" type="file"/>
-    </div>
-    <button class="invite-button" id="inviteButton">Invite Others</button>
-  </div>
+<div class="upload-right">
+<div class="file-input" id="fileInputContainer">
+<span class="file-button">Upload Ticket</span>
+<input accept=".csv" id="csvInput" type="file"/>
 </div>
-
+<button class="invite-button" id="inviteButton">Invite Others</button>
+</div>
+</div>
 <div class="container">
-  <div class="sidebar">
-    <h3>Current Members</h3>
-    <div id="userList">
-      <!-- User list will be populated dynamically -->
-    </div>
-    <div class="controls-section">
-      <button class="button" id="revealVotesBtn">Reveal Votes</button>
-      <button class="button" id="resetVotesBtn">Reset Votes</button>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="user-circle-container" id="userCircle"></div>
-    <div class="no-stories-message" id="noStoriesMessage">
-      No stories available. Please upload or add stories to start voting.
-    </div> 
-    <div class="planning-cards-section">     
-      <h3>Planning Cards</h3>
-      <div class="card-panel">
-        <div class="cards" id="planningCards">
-          <!-- Cards will be populated dynamically -->  
-        </div>    
-      </div>
-    </div>
-  </div>
-
-  <div class="rightbar" id="storyListContainer">
-    <button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
-    <div class="story-container" id="storyList">
-      <!-- Stories will be loaded dynamically -->
-    </div>
-    <div class="navigation-buttons">
-      <button class="button" id="prevStory">Previous Story</button>
-      <button class="button" id="nextStory">Next Story</button>
-    </div>
-  </div>
+<div class="sidebar">
+<h3>Current Members</h3>
+<div id="userList"></div>
+<!-- <h3 class="section-heading">Voting Controls</h3> -->
+<!-- Added controls-section for better styling of control buttons -->
+<div class="controls-section">
+<button class="button" id="revealVotesBtn">Reveal Votes</button>
+<button class="button" id="resetVotesBtn">Reset Votes</button>
+<!-- <button class="button" id="exportCsvBtn">Export All Votes</button> -->
 </div>
-
+</div>
+<div class="main">
+<!-- Story will be displayed in the poker-table-layout instead of here -->
+<!-- New poker table layout will be rendered here -->
+<div class="user-circle-container" id="userCircle"></div>
+<!-- Simple no stories message -->
+<div class="no-stories-message" id="noStoriesMessage">
+        No stories available. Please upload or add stories to start voting.
+      </div> 
+<!-- Planning cards -->
+<div class="planning-cards-section">     
+<h3>Planning Cards</h3>
+     <div class="card-panel">
+<div class="cards" id="planningCards">
+<!--  <div class="card" data-value="0" draggable="true">0</div>
+<div class="card" data-value="1" draggable="true">1</div>
+<div class="card" data-value="3" draggable="true">3</div>
+<div class="card" data-value="5" draggable="true">5</div>
+<div class="card" data-value="8" draggable="true">8</div>
+<div class="card" data-value="13" draggable="true">13</div>
+<div class="card" data-value="21" draggable="true">21</div> -->    
+</div>    
+</div>
+</div>
+</div>
+<div class="rightbar" id="storyListContainer">
+<!-- Added ID to the ADD TICKET button -->
+<button class="add-ticket-btn" id="addTicketBtn"><span>+</span>ADD TICKET</button>
+<!-- The story list CONTAINER with no hardcoded stories -->
+<div class="story-container" id="storyList">
+<!-- Stories will be loaded dynamically -->
+</div>
+<!-- Navigation buttons -->
+<div class="navigation-buttons">
+<button class="button" id="prevStory">Previous Story</button>
+<button class="button" id="nextStory">Next Story</button>
+</div>
+</div>
+</div>
 <!-- Scripts -->
-
+<script src="main.js" type="module"></script>
 <script>
-// User list handling
-document.addEventListener('DOMContentLoaded', function() {
-  // Initialize the user list functionality
-  setupUserList();
+
+function updateHeaderStyle() {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Reset header styles to match the image */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: white;
+      border-bottom: 1px solid #f0f0f0;
+      height: 60px;
+      box-sizing: border-box;
+    }
+    
+    /* Logo and text styling */
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+    
+    .logo img {
+      width: 32px;
+      height: 32px;
+      margin-right: 12px;
+    }
+    
+    .logo span {
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Nav links styling */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    /* Keep existing buttons but adjust general navigation style */
+    .nav-links a, 
+    .nav-links button:not(#logOffBtn):not(.current-user-display) {
+      text-decoration: none;
+      color: #555;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    /* Don't modify these elements */
+    #headerUsername,
+    #headerUserAvatar,
+    #logOffBtn,
+    .current-user-display {
+      /* Preserve existing styles */
+    }
+  `;
+  document.head.appendChild(style);
   
-  // Create a MutationObserver to watch for changes to the user list
-  const userList = document.getElementById('userList');
-  if (userList) {
-    const observer = new MutationObserver(handleUserListChanges);
-    observer.observe(userList, { childList: true, subtree: true });
+  // Optionally, update the logo element if needed
+  const logoElement = document.querySelector('.logo img');
+  if (logoElement) {
+    // Update to a solid black spade if it's not already
+    // Only do this if the logo needs updating
+    // logoElement.src = 'blackspade.png'; 
   }
-});
-
-// Set up initial user list
-function setupUserList() {
-  const userList = document.getElementById('userList');
-  if (!userList) return;
-  
-  // Clear existing elements (if any)
-  while (userList.firstChild) {
-    userList.removeChild(userList.firstChild);
-  }
-  
-  // Setup will be populated by socket events
-  console.log("User list initialized and ready for socket data");
 }
-
-// Handle changes to the user list
-function handleUserListChanges(mutations) {
-  mutations.forEach(mutation => {
-    if (mutation.type === 'childList') {
-      reformatUserList();
-    }
-  });
-}
-
-// Reformat user entries to match new design
-function reformatUserList() {
-  const userList = document.getElementById('userList');
-  if (!userList) return;
-  
-  const currentUserName = sessionStorage.getItem('userName') || '';
-  
-  // Process all user entries that haven't been reformatted yet
-  const userEntries = userList.querySelectorAll('.user-entry:not(.reformatted)');
-  
-  userEntries.forEach(entry => {
-    // Create new user card
-    const userCard = document.createElement('div');
-    userCard.className = 'user-card';
-    if (entry.classList.contains('voted')) {
-      userCard.classList.add('voted');
-    }
-    
-    // Extract username and vote
-    let username = '';
-    const usernameEl = entry.querySelector('.username');
-    if (usernameEl) {
-      username = usernameEl.textContent.trim();
-    }
-    
-    let voteValue = '';
-    const voteEl = entry.querySelector('.vote-badge');
-    if (voteEl) {
-      voteValue = voteEl.textContent.trim();
-    }
-    
-    // Check if this is the current user
-    if (username === currentUserName) {
-      userCard.classList.add('current-user');
-    }
-    
-    // Create avatar with initials
-    const avatar = document.createElement('div');
-    avatar.className = 'user-avatar';
-    const initials = username
-      .split(' ')
-      .map(name => name.charAt(0))
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-    avatar.textContent = initials;
-    
-    // Generate color based on username for consistent colors
-    const hue = Math.abs(username.split('').reduce((a, b) => {
-      return a + b.charCodeAt(0);
-    }, 0) % 360);
-    avatar.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
-    
-    // Create user info container
-    const userInfo = document.createElement('div');
-    userInfo.className = 'user-info';
-    
-    // Add username
-    const usernameDiv = document.createElement('div');
-    usernameDiv.className = 'username';
-    usernameDiv.textContent = username;
-    
-    // Add host badge if user is host
-    if (entry.classList.contains('host')) {
-      const hostBadge = document.createElement('span');
-      hostBadge.className = 'host-badge';
-      hostBadge.textContent = 'Host';
-      usernameDiv.appendChild(hostBadge);
-    }
-    
-    // Add role/status
-    const roleDiv = document.createElement('div');
-    roleDiv.className = 'user-role';
-    roleDiv.textContent = entry.classList.contains('voted') ? 'Has voted' : 'Not voted yet';
-    
-    // Add elements to user info
-    userInfo.appendChild(usernameDiv);
-    userInfo.appendChild(roleDiv);
-    
-    // Create vote indicator
-    const voteIndicator = document.createElement('div');
-    voteIndicator.className = 'vote-indicator';
-    voteIndicator.textContent = voteValue || '';
-    
-    // Assemble the card
-    userCard.appendChild(avatar);
-    userCard.appendChild(userInfo);
-    userCard.appendChild(voteIndicator);
-    
-    // Replace the original entry with our new card
-    entry.parentNode.replaceChild(userCard, entry);
-    
-    // Copy data attributes and classes for socket functionality
-    Array.from(entry.attributes).forEach(attr => {
-      if (attr.name.startsWith('data-')) {
-        userCard.setAttribute(attr.name, attr.value);
-      }
-    });
-    
-    // Mark this user as reformatted
-    userCard.classList.add('reformatted');
-  });
-  
-  console.log("User list reformatted to new design");
-}
-
-// Function to update vote status for a user
-function updateUserVoteStatus(username, hasVoted, voteValue = null) {
-  const userList = document.getElementById('userList');
-  if (!userList) return;
-  
-  // Find the user card
-  const userCards = userList.querySelectorAll('.user-card');
-  
-  userCards.forEach(card => {
-    const usernameEl = card.querySelector('.username');
-    if (usernameEl && usernameEl.textContent.includes(username)) {
-      // Update voted class
-      if (hasVoted) {
-        card.classList.add('voted');
+     
+    // Function to check if there are any stories and update UI accordingly
+    function checkForStories() {
+      const storyList = document.getElementById('storyList');
+      const noStoriesMessage = document.getElementById('noStoriesMessage');
+      const planningCards = document.querySelectorAll('#planningCards .card');
+      
+      // Check if there are any story cards
+      const storyCards = storyList ? storyList.querySelectorAll('.story-card') : [];
+      const hasStories = storyCards.length > 0;
+      
+      if (!hasStories) {
+        // No stories - disable planning cards
+        planningCards.forEach(card => {
+          card.classList.add('disabled');
+          card.setAttribute('draggable', 'false');
+        });
+        
+        // Show no stories message
+        if (noStoriesMessage) {
+          noStoriesMessage.style.display = 'block';
+        }
       } else {
-        card.classList.remove('voted');
-      }
-      
-      // Update role/status text
-      const roleEl = card.querySelector('.user-role');
-      if (roleEl) {
-        roleEl.textContent = hasVoted ? 'Has voted' : 'Not voted yet';
-      }
-      
-      // Update vote value if provided
-      if (voteValue !== null) {
-        const voteIndicator = card.querySelector('.vote-indicator');
-        if (voteIndicator) {
-          voteIndicator.textContent = voteValue;
+        // Has stories - enable planning cards
+        planningCards.forEach(card => {
+          card.classList.remove('disabled');
+          card.setAttribute('draggable', 'true');
+        });
+        
+        // Hide no stories message
+        if (noStoriesMessage) {
+          noStoriesMessage.style.display = 'none';
         }
       }
     }
-  });
-}
-
-// Handle new user being added
-function addUserToList(username, isHost = false, hasVoted = false, voteValue = null) {
-  const userList = document.getElementById('userList');
-  if (!userList) return;
-  
-  // Create new user card
-  const userCard = document.createElement('div');
-  userCard.className = 'user-card reformatted';
-  if (hasVoted) {
-    userCard.classList.add('voted');
-  }
-  
-  // Check if this is the current user
-  const currentUserName = sessionStorage.getItem('userName') || '';
-  if (username === currentUserName) {
-    userCard.classList.add('current-user');
-  }
-  
-  // Create avatar with initials
-  const avatar = document.createElement('div');
-  avatar.className = 'user-avatar';
-  const initials = username
-    .split(' ')
-    .map(name => name.charAt(0))
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-  avatar.textContent = initials;
-  
-  // Generate color based on username
-  const hue = Math.abs(username.split('').reduce((a, b) => {
-    return a + b.charCodeAt(0);
-  }, 0) % 360);
-  avatar.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
-  
-  // Create user info container
-  const userInfo = document.createElement('div');
-  userInfo.className = 'user-info';
-  
-  // Add username
-  const usernameDiv = document.createElement('div');
-  usernameDiv.className = 'username';
-  usernameDiv.textContent = username;
-  
-  // Add host badge if user is host
-  if (isHost) {
-    const hostBadge = document.createElement('span');
-    hostBadge.className = 'host-badge';
-    hostBadge.textContent = 'Host';
-    usernameDiv.appendChild(hostBadge);
-  }
-  
-  // Add role/status
-  const roleDiv = document.createElement('div');
-  roleDiv.className = 'user-role';
-  roleDiv.textContent = hasVoted ? 'Has voted' : 'Not voted yet';
-  
-  // Add elements to user info
-  userInfo.appendChild(usernameDiv);
-  userInfo.appendChild(roleDiv);
-  
-  // Create vote indicator
-  const voteIndicator = document.createElement('div');
-  voteIndicator.className = 'vote-indicator';
-  voteIndicator.textContent = voteValue || '';
-  
-  // Assemble the card
-  userCard.appendChild(avatar);
-  userCard.appendChild(userInfo);
-  userCard.appendChild(voteIndicator);
-  
-  // Add to user list
-  userList.appendChild(userCard);
-  
-  // Add necessary data attributes for socket functionality
-  userCard.setAttribute('data-username', username);
-  if (isHost) {
-    userCard.setAttribute('data-host', 'true');
-  }
-  if (hasVoted) {
-    userCard.setAttribute('data-voted', 'true');
-  }
-  if (voteValue) {
-    userCard.setAttribute('data-vote', voteValue);
-  }
-  
-  return userCard;
-}
-
-// Expose helper functions for main.js to use
-window.userListFunctions = {
-  updateUserVoteStatus: updateUserVoteStatus,
-  addUserToList: addUserToList,
-  reformatUserList: reformatUserList
-};
-
-// Call reformatUserList periodically to catch any missed updates
-setInterval(reformatUserList, 1000);
-
-// Update header user display
-document.addEventListener('DOMContentLoaded', function() {
+// Initialize the user display in header - improved version
+function initUserHeaderDisplay() {
+  // Get username from session storage - prioritize the one set through login modal
   const username = sessionStorage.getItem('userName') || 'Guest';
   const usernameEl = document.getElementById('headerUsername');
   const avatarEl = document.getElementById('headerUserAvatar');
@@ -935,80 +1685,1495 @@ document.addEventListener('DOMContentLoaded', function() {
       
     avatarEl.textContent = initials;
     
-    // Generate consistent color based on username
+    // Generate a consistent color based on username
     const hue = Math.abs(username.split('').reduce((a, b) => {
       return a + b.charCodeAt(0);
     }, 0) % 360);
     
     avatarEl.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
   }
+}
+
+// Call this function when the DOM is loaded AND after login
+document.addEventListener('DOMContentLoaded', function() {
+  // Initial setup of header
+  initUserHeaderDisplay();
+  
+  // Add a callback to the join session button to update header after login
+  const joinButton = document.getElementById('joinSessionWithName');
+  if (joinButton) {
+    joinButton.addEventListener('click', function() {
+      // Set a small delay to ensure sessionStorage is updated first
+      setTimeout(initUserHeaderDisplay, 100);
+    });
+  }
+  
+  // Also listen for Enter key in username input
+  const userNameInput = document.getElementById('userNameInput');
+  if (userNameInput) {
+    userNameInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        // Set a small delay to ensure sessionStorage is updated first
+        setTimeout(initUserHeaderDisplay, 100);
+      }
+    });
+  }
+  
+  // Setup mobile layout features
+  setupMobileLayout();
 });
 
-// Additional functions for modal handling
-function showInviteModalCustom() {
-  const currentUrl = new URL(window.location.href);
-  const params = new URLSearchParams(currentUrl.search);
-  const roomId = params.get('roomId');
-  const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+// Setup mobile-specific features
+function setupMobileLayout() {
+  // Only run on mobile devices
+  if (window.innerWidth <= 768) {
+    console.log("Setting up mobile layout");
+    
+    // Create toggle buttons for mobile sections
+    const userListSection = document.getElementById('userList');
+    if (userListSection && userListSection.parentNode) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'mobile-toggle-button';
+      toggleBtn.textContent = 'Current Members';
+      toggleBtn.onclick = () => toggleMobileSection(userListSection);
+      
+      userListSection.parentNode.insertBefore(toggleBtn, userListSection);
+      userListSection.classList.add('mobile-collapsible');
+    }
+    
+    // Create toggle for story list container
+    const storyListContainer = document.getElementById('storyList');
+    if (storyListContainer && storyListContainer.parentNode) {
+      const storyToggle = document.createElement('button');
+      storyToggle.className = 'mobile-toggle-button';
+      storyToggle.textContent = 'Story List';
+      storyToggle.onclick = () => toggleMobileSection(storyListContainer);
+      
+      storyListContainer.parentNode.insertBefore(storyToggle, storyListContainer);
+      storyListContainer.classList.add('mobile-collapsible');
+    }
+    
+    // Enable touch for card selection
+    setupMobileCardSelection();
+  }
+}
+
+function toggleMobileSection(element) {
+  element.classList.toggle('active');
+  const button = element.previousElementSibling;
+  if (button && button.classList.contains('mobile-toggle-button')) {
+    button.classList.toggle('active');
+  }
+}
+
+function setupMobileCardSelection() {
+  document.querySelectorAll('#planningCards .card').forEach(card => {
+    // Remove any existing handlers by cloning
+    const newCard = card.cloneNode(true);
+    if (card.parentNode) {
+      card.parentNode.replaceChild(newCard, card);
+    }
+    
+    // Add touch handler
+    newCard.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      
+      // Get current user's vote space
+      const userName = sessionStorage.getItem('userName');
+      if (!userName) return;
+      
+      const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+      const voteSpace = document.getElementById(`vote-space-${safeId}`);
+      
+      if (voteSpace) {
+        const vote = this.getAttribute('data-value');
+        
+        // Clear selections and add to this card
+        document.querySelectorAll('#planningCards .card').forEach(c => {
+          c.classList.remove('selected-card');
+        });
+        this.classList.add('selected-card');
+        
+        // Use the emitVote function if available
+        if (typeof window.emitVote === 'function') {
+          window.emitVote(vote, userName);
+        } else if (typeof window.socket !== 'undefined') {
+          window.socket.emit('castVote', { vote, targetUserId: userName });
+        }
+      }
+    });
+  });
+}
+
+// Listen for orientation changes to fix layout
+window.addEventListener('orientationchange', function() {
+  setTimeout(() => {
+    if (typeof window.fixRevealedVoteFontSizes === 'function') {
+      window.fixRevealedVoteFontSizes();
+    }
+  }, 300);
+});
+
+// Update existing handleLoginSubmit function to call our header update
+// This modifies the existing function from your ENHANCED SCRIPT FOR USERNAME HANDLING
+const originalHandleLoginSubmit = window.handleLoginSubmit || function() {};
+window.handleLoginSubmit = function() {
+  const username = document.getElementById('userNameInput').value.trim();
   
-  document.getElementById('inviteLinkCustom').value = guestUrl;
-  document.getElementById('inviteModalCustom').style.display = 'flex';
+  if (username) {
+    // Store with both key formats for compatibility
+    sessionStorage.setItem('userName', username);
+    console.log(`User joined as: ${username}`);
+    
+    // Hide the modal
+    document.getElementById('loginModalCustom').style.display = 'none';
+    
+    // Mark username as ready
+    window.userNameReady = true;
+    
+    // Show main content
+    if (window.showMainContent) window.showMainContent();
+    
+    // Initialize the app now that we have a username
+    if (window.initializeAppWithName) window.initializeAppWithName(username);
+    
+    // Update header display with the new username
+    initUserHeaderDisplay();
+  } else {
+    // Show validation error - shake the input
+    const input = document.getElementById('userNameInput');
+    input.style.borderColor = '#ff4d4f';
+    input.classList.add('shake');
+    
+    setTimeout(() => {
+      input.classList.remove('shake');
+    }, 500);
+  }
+};
+
+// Also make sure to update the display whenever username changes
+window.updateUserDisplay = function() {
+  initUserHeaderDisplay();
+};
+// Add Ticket Modal Functions
+function showAddTicketModal() {
+  // Clear previous input values
+  document.getElementById('ticketNameInput').value = '';
+  document.getElementById('ticketDescriptionInput').value = '';
+  
+  // Show the modal
+  document.getElementById('addTicketModalCustom').style.display = 'flex';
+  
+  // Focus on the name input
+  setTimeout(() => {
+    document.getElementById('ticketNameInput').focus();
+  }, 100);
 }
 
-function hideInviteModalCustom() {
-  document.getElementById('inviteModalCustom').style.display = 'none';
+function hideAddTicketModal() {
+  document.getElementById('addTicketModalCustom').style.display = 'none';
 }
 
-function copyInviteLinkCustom() {
-  const inviteInput = document.getElementById('inviteLinkCustom');
-  inviteInput.select();
-  document.execCommand('copy');
-  alert('Invite link copied!');
+function handleAddTicketSubmit() {
+  const ticketName = document.getElementById('ticketNameInput').value.trim();
+  const ticketDescription = document.getElementById('ticketDescriptionInput').value.trim();
+  
+  // Validate input
+  if (!ticketName) {
+    const nameInput = document.getElementById('ticketNameInput');
+    nameInput.classList.add('shake');
+    nameInput.style.borderColor = '#ff4d4f';
+    
+    setTimeout(() => {
+      nameInput.classList.remove('shake');
+    }, 500);
+    
+    return;
+  }
+  
+  // Prepare ticket text (combine name and description if provided)
+  let ticketText = ticketName;
+  if (ticketDescription) {
+    ticketText = ticketName + ': ' + ticketDescription;
+  }
+  
+  // Create ticket data
+  const ticketData = {
+    id: `story_${Date.now()}`,
+    text: ticketText
+  };
+  
+  // Hide the modal
+  hideAddTicketModal();
+  
+  // If we have access to main.js functions
+  if (window.addTicketFromModal) {
+    window.addTicketFromModal(ticketData);
+  } else {
+    // Fallback implementation
+    const storyList = document.getElementById('storyList');
+    
+    if (storyList) {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = ticketData.id;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = ticketData.text;
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
+      
+      // Try to emit to socket if available
+      if (window.socket) {
+        window.socket.emit('addTicket', ticketData);
+      }
+    }
+  }
 }
 
-// Log off button functionality
+// Set up event listeners for the add ticket modal
 document.addEventListener('DOMContentLoaded', function() {
-  const logOffBtn = document.getElementById('logOffBtn');
-  if (logOffBtn) {
-    logOffBtn.addEventListener('click', function() {
-      sessionStorage.clear();
-      window.location.href = 'main.html';
+  // Set up Add Ticket button to use modal
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (addTicketBtn) {
+    // Remove any existing click handlers by cloning the button
+    const newBtn = addTicketBtn.cloneNode(true);
+    addTicketBtn.parentNode.replaceChild(newBtn, addTicketBtn);
+    
+    // Add new click handler for the modal
+    newBtn.addEventListener('click', showAddTicketModal);
+  }
+  
+  // Set up modal buttons
+  document.getElementById('cancelAddTicket').addEventListener('click', hideAddTicketModal);
+  document.getElementById('confirmAddTicket').addEventListener('click', handleAddTicketSubmit);
+  
+  // Set up enter key in description field
+  document.getElementById('ticketDescriptionInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      handleAddTicketSubmit();
+    }
+  });
+});
+
+// Expose function for main.js
+window.showAddTicketModal = showAddTicketModal;
+    function isGuestUser() {
+     // Check if URL contains 'roomId' parameter but not 'host=true'
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Consider user a guest if:
+      // 1. There's no 'host' parameter, or
+      // 2. The 'host' parameter is anything other than 'true'
+      return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
+    }
+
+    function setupGuestModeOnLoad() {
+      if (isGuestUser()) {
+        console.log('Guest mode activated - hiding control elements');
+        
+        // Hide control buttons in sidebar
+        const revealVotesBtn = document.getElementById('revealVotesBtn');
+        const resetVotesBtn = document.getElementById('resetVotesBtn');
+        if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
+        if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
+                // Hide upload ticket button
+        const fileInputContainer = document.getElementById('fileInputContainer');
+        if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
+        
+        // Hide add ticket button 
+        const addTicketBtn = document.getElementById('addTicketBtn');
+        if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+        
+        // Add guest mode indicator if not already present
+        if (!document.getElementById('guestModeIndicator')) {
+          const header = document.querySelector('header');
+          if (header) {
+            const indicator = document.createElement('div');
+            indicator.id = 'guestModeIndicator';
+            indicator.style.marginLeft = 'auto';
+            indicator.style.marginRight = '15px';
+            indicator.style.color = '#673ab7';
+            indicator.style.fontSize = '14px';
+            indicator.style.fontWeight = '500';
+            indicator.textContent = 'Guest Mode';
+            
+            // Insert before the LOG OFF button
+            const logOffBtn = document.getElementById('logOffBtn');
+            if (logOffBtn) {
+              header.insertBefore(indicator, logOffBtn);
+            } else {
+              header.appendChild(indicator);
+            }
+          }
+        }
+      }
+    }
+
+    // Custom modal functions
+    function showInviteModalCustom() {
+      // First hide any existing modals from the original app
+      hideAllOriginalModals();
+          // Create a guest URL
+      const currentUrl = new URL(window.location.href);
+      const params = new URLSearchParams(currentUrl.search);
+      const roomId = params.get('roomId');
+      // Create clean guest URL (without host parameter)
+      const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+      // Set the link value
+      //document.getElementById('inviteLinkCustom').value = window.location.href;
+      document.getElementById('inviteLinkCustom').value = guestUrl;
+      
+    // Show our custom modal
+  const modalElement = document.getElementById('inviteModalCustom');
+  if (modalElement) {
+    modalElement.style.display = 'flex';
+  } else {
+    console.error('Modal element not found!');
+    // Fallback to alert if modal element is missing
+    alert(`Share this invite link: ${guestUrl}`);
+  }
+}
+
+    function hideInviteModalCustom() {
+      document.getElementById('inviteModalCustom').style.display = 'none';
+    }
+
+    function copyInviteLinkCustom() {
+      const inviteInput = document.getElementById('inviteLinkCustom');
+      inviteInput.select();
+      document.execCommand('copy');
+      alert('Invite link copied!');
+    }
+    
+    // Simple function to reveal votes - only toggles the body class
+    function revealVotes() {
+      document.body.classList.add('votes-revealed');
+    }
+
+    // Debugging function to help see what votes are stored
+    function debugVotes() {
+      console.clear();
+      console.log("DEBUG: Checking all story cards for votes");
+      
+      const storyList = document.getElementById('storyList');
+      const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+      
+      console.log(`Found ${storyCards.length} story cards`);
+      
+      let totalVotes = 0;
+      
+      storyCards.forEach((card, index) => {
+        console.group(`Story ${index + 1}: ${card.id}`);
+        
+        // Check data-vote attribute
+        if (card.hasAttribute('data-vote')) {
+          console.log(`✅ data-vote attribute: "${card.getAttribute('data-vote')}"`);
+          totalVotes++;
+        } else {
+          console.log("❌ No data-vote attribute");
+        }
+        
+        // Check data-voted attribute
+        if (card.hasAttribute('data-voted')) {
+          console.log(`✅ data-voted attribute: "${card.getAttribute('data-voted')}"`);
+        } else {
+          console.log("❌ No data-voted attribute");
+        }
+        
+        // Check vote-badge elements
+        const voteBadges = card.querySelectorAll('.vote-badge');
+        if (voteBadges.length > 0) {
+          console.log(`✅ Found ${voteBadges.length} vote badge(s):`);
+          voteBadges.forEach((badge, i) => {
+            console.log(`   Badge ${i + 1}: "${badge.textContent}" (${badge.hidden ? 'hidden' : 'visible'})`);
+          });
+        } else {
+          console.log("❌ No vote-badge elements");
+        }
+        
+        console.groupEnd();
+      });
+      
+      console.log(`Summary: Found ${totalVotes} stories with votes out of ${storyCards.length} total stories`);
+      
+      // Check if any planning cards are marked as selected
+      const selectedCards = document.querySelectorAll('.card[data-selected="true"]');
+      console.log(`Found ${selectedCards.length} selected planning cards`);
+      selectedCards.forEach(card => {
+        console.log(`   Value: ${card.getAttribute('data-value')}`);
+      });
+    }
+
+    // IMPROVED: Export function that retrieves ONLY actual votes
+    function exportAllVotes() {
+      try {
+        console.log("Export function started - retrieving actual votes only");
+        
+        // Force vote visibility for export
+        document.body.classList.add('votes-revealed');
+        
+        // Get all story cards
+        const storyList = document.getElementById('storyList');
+        const storyCards = Array.from(storyList?.querySelectorAll('.story-card') || []);
+        
+        if (storyCards.length === 0) {
+          alert('No stories available to export.');
+          return;
+        }
+        
+        console.log(`Found ${storyCards.length} story cards`);
+        
+        // Save current selection to restore later
+        const originalSelectedStory = document.querySelector('.story-card.selected');
+        
+        // Prepare CSV content
+        let csv = `Story ID,Story Description,Highest Vote\n`;
+        
+        // First, gather all existing votes
+        console.log("Gathering all votes from story cards");
+        
+        // Process each story card
+        storyCards.forEach((card, index) => {
+          // Get story ID
+          const storyId = card.id || `story_${index}`;
+          
+          // Get story description
+          let storyDesc = '';
+          const storyTitleElement = card.querySelector('.story-title');
+          if (storyTitleElement) {
+            storyDesc = storyTitleElement.textContent.trim();
+          } else {
+            storyDesc = card.textContent.trim();
+          }
+          
+          // FOCUS: Find the actual vote for this story
+          let highestVote = 'No votes';
+          
+          // Check data-vote attribute (primary storage method)
+          if (card.hasAttribute('data-vote')) {
+            const voteValue = card.getAttribute('data-vote');
+            if (voteValue && !isNaN(voteValue)) {
+              highestVote = voteValue;
+              console.log(`Story ${storyId} has vote ${voteValue} from data-vote attribute`);
+            }
+          }
+          
+          // Check for vote-badge elements (secondary storage method)
+          if (highestVote === 'No votes') {
+            const voteBadges = card.querySelectorAll('.vote-badge');
+            voteBadges.forEach(badge => {
+              const voteText = badge.textContent.trim();
+              if (voteText && !isNaN(voteText)) {
+                highestVote = voteText;
+                console.log(`Story ${storyId} has vote ${voteText} from vote-badge element`);
+              }
+            });
+          }
+          
+          // Check data-voted attribute as indicator (tertiary check)
+          if (highestVote === 'No votes' && card.hasAttribute('data-voted')) {
+            // Story is marked as voted but no value found
+            console.log(`Story ${storyId} is marked as voted but no value found`);
+          }
+          
+          // Properly escape the description for CSV format
+          const escapedDesc = storyDesc.includes('"') || storyDesc.includes(',') ? 
+                             `"${storyDesc.replace(/"/g, '""')}"` : storyDesc;
+          
+          // Add this row to the CSV
+          csv += `${storyId},${escapedDesc},${highestVote}\n`;
+        });
+        
+        // Restore original selection
+        if (originalSelectedStory) {
+          document.querySelectorAll('.story-card').forEach(s => s.classList.remove('selected'));
+          originalSelectedStory.classList.add('selected');
+        }
+        
+        // Create and trigger the download
+        console.log("Creating CSV file for download");
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'planning_poker_votes.csv');
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log("Export completed with actual votes only");
+        
+      } catch (error) {
+        console.error('Error exporting votes:', error);
+        alert('Error exporting votes: ' + (error.message || 'Unknown error'));
+      }
+    }
+// Monitor for CSV file uploads
+document.getElementById('csvInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const csvData = event.target.result;
+    const storyList = document.getElementById('storyList');
+    
+    // Save existing manually added stories before processing CSV
+    const existingStories = [];
+    if (storyList) {
+      const manualStories = storyList.querySelectorAll('.story-card[id^="story_"]');
+      manualStories.forEach(card => {
+        // Only save non-CSV stories (using ID pattern)
+        if (card.id && !card.id.includes('story_csv_')) {
+          existingStories.push({
+            id: card.id,
+            text: card.querySelector('.story-title').textContent
+          });
+        }
+      });
+      
+      console.log(`Saved ${existingStories.length} existing stories before CSV processing`);
+      
+      // Now clear the list for new content
+      storyList.innerHTML = '';
+    }
+    
+    // First, restore the manually added stories
+    existingStories.forEach((story, index) => {
+      const storyCard = document.createElement('div');
+      storyCard.className = 'story-card';
+      storyCard.id = story.id;
+      storyCard.dataset.index = index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.className = 'story-title';
+      storyTitle.textContent = story.text;
+      
+      storyCard.appendChild(storyTitle);
+      storyList.appendChild(storyCard);
+    });
+    
+    // Then add the CSV stories
+    const stories = csvData.split('\n');
+    let startIndex = existingStories.length;
+    
+    stories.forEach(function(story, index) {
+      if (story.trim()) {
+        const storyCard = document.createElement('div');
+        storyCard.className = 'story-card';
+        storyCard.id = `story_csv_${index}`;
+        storyCard.dataset.index = startIndex + index;
+        
+        const storyTitle = document.createElement('div');
+        storyTitle.className = 'story-title';
+        storyTitle.textContent = story.trim();
+        
+        storyCard.appendChild(storyTitle);
+        storyList.appendChild(storyCard);
+      }
+    });
+    
+    // Check for stories again after CSV upload
+    checkForStories();
+    
+    // Select the first story if there are any
+    const firstStory = storyList.querySelector('.story-card');
+    if (firstStory) {
+      firstStory.classList.add('selected');
+    }
+    
+    // Notify main.js about the combined stories if possible
+    if (window.notifyStoriesUpdated && typeof window.notifyStoriesUpdated === 'function') {
+      window.notifyStoriesUpdated();
+    }
+  };
+  
+  reader.readAsText(file);
+});
+    
+    // Story selection functionality
+    document.addEventListener('click', function(e) {
+      const clickedStory = e.target.closest('.story-card');
+      if (clickedStory) {
+        // Deselect all stories
+        document.querySelectorAll('.story-card').forEach(story => {
+          story.classList.remove('selected');
+        });
+        
+        // Select the clicked story
+        clickedStory.classList.add('selected');
+      }
+    });
+    
+    // Previous and Next story button handlers
+    document.getElementById('prevStory')?.addEventListener('click', function() {
+      const selectedStory = document.querySelector('.story-card.selected');
+      if (selectedStory && selectedStory.previousElementSibling) {
+        selectedStory.classList.remove('selected');
+        selectedStory.previousElementSibling.classList.add('selected');
+      }
+    });
+    
+    document.getElementById('nextStory')?.addEventListener('click', function() {
+      const selectedStory = document.querySelector('.story-card.selected');
+      if (selectedStory && selectedStory.nextElementSibling) {
+        selectedStory.classList.remove('selected');
+        selectedStory.nextElementSibling.classList.add('selected');
+      }
+    });
+    
+    // Add click handlers for planning cards - to store votes in data attributes
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', function() {
+        const value = this.getAttribute('data-value');
+        const selectedStory = document.querySelector('.story-card.selected');
+        
+        if (selectedStory) {
+          // Store the vote directly on the story card as a data attribute
+          selectedStory.setAttribute('data-vote', value);
+          selectedStory.setAttribute('data-voted', 'true');
+          
+          // Store which card was selected
+          document.querySelectorAll('.card').forEach(c => {
+            c.removeAttribute('data-selected');
+          });
+          this.setAttribute('data-selected', 'true');
+          
+          // Update any vote badge if it exists
+          let voteBadge = selectedStory.querySelector('.vote-badge');
+          if (!voteBadge) {
+            voteBadge = document.createElement('span');
+            voteBadge.className = 'vote-badge';
+            selectedStory.appendChild(voteBadge);
+          }
+          voteBadge.textContent = value;
+        }
+      });
+    });
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check for stories
+      checkForStories();
+      
+      // Setup reveal button click handler
+      const revealBtn = document.getElementById('revealVotesBtn');
+      if (revealBtn) {
+        revealBtn.addEventListener('click', revealVotes);
+      }
+      
+      // Setup export button with direct onclick handler
+      const exportBtn = document.getElementById('exportCsvBtn');
+      if (exportBtn) {
+        exportBtn.onclick = exportAllVotes;
+      }
+      
+      // Setup invite button with direct handler to ensure it uses our custom modal
+      const inviteBtn = document.getElementById('inviteButton');
+      if (inviteBtn) {
+        // Remove any existing handlers first by cloning and replacing
+        const newInviteBtn = inviteBtn.cloneNode(true);
+        inviteBtn.parentNode.replaceChild(newInviteBtn, inviteBtn);
+        
+        // Add our custom handler
+        newInviteBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showInviteModalCustom();
+        });
+      }
+      
+      // Setup NEW SESSION button to include host parameter
+      const newSessionBtn = document.getElementById('newSessionBtn');
+      if (newSessionBtn) {
+        newSessionBtn.addEventListener('click', function() {
+          const roomId = 'room-' + Math.floor(Math.random() * 10000);
+          window.location.href = `${window.location.origin}${window.location.pathname}?roomId=${roomId}&host=true`;
+        });
+      }
+      
+      // Setup guest mode restrictions
+      setupGuestModeOnLoad();
+      
+      // Hide original modals
+      hideAllOriginalModals();
+    });
+    
+    // Watch for story list changes
+    const storyList = document.getElementById('storyList');
+    if (storyList) {
+      const observer = new MutationObserver(function(mutations) {
+        checkForStories();
+      });
+      
+      observer.observe(storyList, { 
+        childList: true,
+        subtree: true
+      });
+    }
+    
+    // Override existing invite functions if they exist
+    if (typeof openInviteModal === 'function') {
+      console.log('Overriding existing openInviteModal function');
+      window.openInviteModal = function() {
+        showInviteModalCustom();
+        return false;
+      };
+    }
+  </script>
+
+   <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if the button exists before trying to use it
+            const logOffBtn = document.getElementById('logOffBtn');
+            
+            if (logOffBtn) {
+                logOffBtn.addEventListener('click', function() {
+                    // Clear session storage
+                    sessionStorage.clear();
+                    
+                    // Redirect to main.html
+                    window.location.href = 'main.html';
+                });
+            } else {
+                console.error('Log Off button not found - make sure the button exists in HTML');
+            }
+        });
+    </script>
+   <!-- ENHANCED SCRIPT FOR USERNAME HANDLING -->
+<script>
+  // Global flag to track if username is ready
+  window.userNameReady = false;
+  
+  // Handle username synchronization and prompt for invited users
+  document.addEventListener('DOMContentLoaded', function() {
+    // STEP 1: Check for username from main.html (userName with capital N)
+    const storedUserName = sessionStorage.getItem('userName');
+    
+    // STEP 2: Check if this is a new user joining via invite link
+    const urlParams = new URLSearchParams(window.location.search);
+    const isJoiningViaInvite = urlParams.has('roomId') && !storedUserName;
+    
+    if (isJoiningViaInvite) {
+      // This is someone joining via invite link who doesn't have a userName yet
+      showLoginModal();
+      
+      // Important: Mark username as not ready to prevent socket connection
+      window.userNameReady = false;
+      
+      // Hide main content until user provides name
+      hideMainContent();
+    } else {
+      // User already has a name, mark as ready
+      window.userNameReady = true;
+    }
+    
+    // Debugging info
+    console.log('Username from sessionStorage:', sessionStorage.getItem('userName'));
+  });
+  
+  // Function to hide main content until user provides name
+  function hideMainContent() {
+    const container = document.querySelector('.container');
+    const uploadSection = document.querySelector('.upload-section');
+    
+    if (container) container.style.display = 'none';
+    if (uploadSection) uploadSection.style.display = 'none';
+  }
+  
+  // Function to show main content after user provides name
+  function showMainContent() {
+    const container = document.querySelector('.container');
+    const uploadSection = document.querySelector('.upload-section');
+    
+    if (container) container.style.display = 'flex';
+    if (uploadSection) uploadSection.style.display = 'flex';
+  }
+  
+  // Function to show custom login modal
+  function showLoginModal() {
+    const loginModal = document.getElementById('loginModalCustom');
+    if (loginModal) {
+      // Mark username as explicitly not ready to prevent socket connection
+        window.userNameReady = false;  
+        loginModal.style.display = 'flex';
+      
+      // Focus on the input field
+      setTimeout(() => {
+        document.getElementById('userNameInput').focus();
+      }, 100);
+      
+      // Add event listener to join button
+      document.getElementById('joinSessionWithName').addEventListener('click', handleLoginSubmit);
+      
+      // Add event listener for enter key
+      document.getElementById('userNameInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          handleLoginSubmit();
+        }
+      });
+    } else {
+      // Fallback to prompt if modal doesn't exist
+      fallbackToPrompt();
+    }
+  }
+  
+  // Function to handle login form submission
+  function handleLoginSubmit() {
+    const username = document.getElementById('userNameInput').value.trim();
+    
+    if (username) {
+      // Store with both key formats for compatibility
+      sessionStorage.setItem('userName', username);
+      console.log(`User joined as: ${username}`);
+      
+      // Hide the modal
+      document.getElementById('loginModalCustom').style.display = 'none';
+      
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content
+      showMainContent();
+      
+      // Initialize the app now that we have a username
+      initializeAppWithName(username);
+    } else {
+      // Show validation error - shake the input
+      const input = document.getElementById('userNameInput');
+      input.style.borderColor = '#ff4d4f';
+      input.classList.add('shake');
+      
+      setTimeout(() => {
+        input.classList.remove('shake');
+      }, 500);
+    }
+  }
+  
+  // Initialize the app with the provided username
+  function initializeAppWithName(username) {
+    // Initialize socket connection with the username
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+    
+    if (window.initializeSocketWithName) {
+      window.initializeSocketWithName(roomId, username);
+    } else {
+      // Fallback to reloading if the function isn't available
+      window.location.reload();
+    }
+  }
+  
+  // Fallback to browser prompt if modal doesn't exist
+  function fallbackToPrompt() {
+    const username = prompt('Please enter your name to join the planning poker session:');
+    
+    if (username && username.trim()) {
+      // Store with both key formats for compatibility
+      sessionStorage.setItem('userName', username.trim());
+      console.log(`User joined as: ${username.trim()}`);
+      
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content and initialize
+      showMainContent();
+      initializeAppWithName(username.trim());
+    } else {
+      // If no username provided, set a default
+      const guestName = 'Guest ' + Math.floor(Math.random() * 1000);
+      sessionStorage.setItem('userName', guestName);
+      alert(`You will join as "${guestName}"`);
+      
+      // Mark username as ready
+      window.userNameReady = true;
+      
+      // Show main content and initialize
+      showMainContent();
+      initializeAppWithName(guestName);
+    }
+  }
+  
+  // Make getUserName function available globally for socket.js
+  window.getUserName = function() {
+    return sessionStorage.getItem('userName') || 'Anonymous';
+  };
+  
+  // Add a little shake animation for validation errors
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    .shake {
+      animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+  `;
+  document.head.appendChild(style);
+</script> 
+    
+    <script>
+  // Expose modal functions to window scope for main.js to use
+  window.showInviteModalCustom = function() {
+    // First hide any existing modals from the original app
+    if (typeof hideAllOriginalModals === 'function') {
+      hideAllOriginalModals();
+    }
+    
+    // Create a guest URL
+    const currentUrl = new URL(window.location.href);
+    const params = new URLSearchParams(currentUrl.search);
+    const roomId = params.get('roomId');
+    
+    // Create clean guest URL (without host parameter)
+    const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+    
+    // Set the link value
+    document.getElementById('inviteLinkCustom').value = guestUrl;
+    
+    // Show our custom modal
+    document.getElementById('inviteModalCustom').style.display = 'flex';
+  };
+  
+  window.hideInviteModalCustom = function() {
+    document.getElementById('inviteModalCustom').style.display = 'none';
+  };
+  
+  window.copyInviteLinkCustom = function() {
+    const inviteInput = document.getElementById('inviteLinkCustom');
+    inviteInput.select();
+    document.execCommand('copy');
+    alert('Invite link copied!');
+  };
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Ensure the invite button uses our custom modal function
+    const inviteBtn = document.getElementById('inviteButton');
+    if (inviteBtn) {
+      inviteBtn.onclick = window.showInviteModalCustom;
+    }
+  });
+</script>
+ <!-- Add this before the closing </body> tag 
+<script src="userlist-fix.js"></script> -->
+<script>
+  // Force user list fix on page interaction
+  document.addEventListener('click', function() {
+    if (typeof directUserFix === 'function') {
+      directUserFix();
+    }
+  }, { once: true });
+</script>
+   <script>
+  // Helper function to hide all original modals
+  function hideAllOriginalModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+      modal.style.display = 'none';
+    });
+  }
+
+  // Mobile-specific card functions
+  window.fixRevealedVoteFontSizes = function() {
+    const voteCards = document.querySelectorAll('.vote-card-space.has-vote .vote-badge');
+    const isMobile = window.innerWidth <= 768;
+    
+    voteCards.forEach(badge => {
+      const text = badge.textContent || '';
+      let fontSize = isMobile ? '14px' : '18px'; // Smaller base size on mobile
+      
+      if (text.length >= 2) {
+        fontSize = isMobile ? '12px' : '16px';
+      }
+      
+      if (text.includes('XX')) {
+        fontSize = isMobile ? '10px' : '14px';
+      }
+      
+      badge.style.fontSize = fontSize;
+      badge.style.maxWidth = '80%';
+      badge.style.textAlign = 'center';
+      badge.style.lineHeight = '1';
+      badge.style.overflow = 'hidden';
+    });
+  };
+  
+  // Make emitVote function available for mobile use
+  window.emitVote = function(vote, targetUserId) {
+    if (window.socket) {
+      window.socket.emit('castVote', { vote, targetUserId });
+      
+      // Show selection feedback
+      const cards = document.querySelectorAll('#planningCards .card');
+      cards.forEach(card => {
+        card.classList.remove('selected-card');
+        if (card.getAttribute('data-value') === vote) {
+          card.classList.add('selected-card');
+        }
+      });
+    }
+  };
+        
+document.addEventListener('DOMContentLoaded', function() {
+  // Only run on mobile/tablet devices
+  if (window.innerWidth <= 1024) {
+    applyExactMobileLayout();
+  }
+  
+  // Also apply when window is resized
+  window.addEventListener('resize', function() {
+    if (window.innerWidth <= 1024) {
+      applyExactMobileLayout();
+    }
+  });
+  
+  function applyExactMobileLayout() {
+    console.log("Applying exact mobile layout from reference image");
+    
+    // Create style element for the exact mobile layout
+    const mobileStyle = document.createElement('style');
+    mobileStyle.id = 'exact-mobile-layout';
+    mobileStyle.textContent = `
+      /* Reset container layout */
+      .container {
+        display: block !important;
+        padding-bottom: 100px !important;
+        background: white !important;
+      }
+      
+      /* Header styling */
+      header {
+        padding: 12px 20px !important;
+        border-bottom: 1px solid #f0f0f0 !important;
+      }
+      
+      /* Hide sidebar on mobile and show as a collapsible section */
+      .sidebar {
+        width: 100% !important;
+        padding: 15px 20px !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Hide redundant elements */
+      .upload-section, .planning-cards-section h3 {
+        display: none !important;
+      }
+      
+      /* Main content area */
+      .main {
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        order: 2 !important;
+      }
+      
+      /* Right sidebar styling */
+      .rightbar {
+        width: 100% !important;
+        padding: 15px 20px !important;
+        border: none !important;
+        max-height: 300px !important;
+        overflow-y: auto !important;
+      }
+      
+      /* Story cards */
+      .story-card {
+        margin-bottom: 8px !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+      }
+      
+      /* Avatar styling */
+      #userCircle {
+        padding: 15px 5px !important;
+        margin-bottom: 60px !important;
+      }
+      
+      .avatar-circle {
+        width: 60px !important;
+        height: 60px !important;
+        font-size: 24px !important;
+        background-color: #f5ba55 !important;
+        color: white !important;
+        border: none !important;
+      }
+      
+      /* Vote card space */
+      .vote-card-space {
+        width: 60px !important;
+        height: 80px !important;
+        border: 2px dashed #ccc !important;
+        background-color: white !important;
+        border-radius: 8px !important;
+      }
+      
+      /* Reveal votes button */
+      .reveal-votes-button {
+        background-color: white !important;
+        color: #673ab7 !important;
+        border: 2px solid #673ab7 !important;
+        text-transform: uppercase !important;
+        font-weight: bold !important;
+        border-radius: 30px !important;
+        padding: 10px 20px !important;
+      }
+      
+      /* Fixed card panel at bottom */
+      .card-panel {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        background: white !important;
+        border-top: 1px solid #e0e0e0 !important;
+        padding: 10px 5px !important;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1) !important;
+        display: flex !important;
+        justify-content: center !important;
+        z-index: 1000 !important;
+      }
+      
+      /* Planning cards styling to match design */
+      .cards {
+        display: flex !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 8px 0 !important;
+      }
+      
+      .card {
+        width: 50px !important;
+        height: 50px !important;
+        background-color: #e1d4f9 !important;
+        color: #333 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+      }
+      
+      /* Add exact colors from reference */
+      .button, #revealVotesBtn, #resetVotesBtn {
+        color: #673ab7 !important;
+        border-color: #673ab7 !important;
+        border-radius: 30px !important;
+      }
+      
+      /* Make invite and upload buttons match design */
+      .invite-button, .file-button {
+        border-radius: 30px !important;
+        min-width: 120px !important;
+      }
+      
+      /* Exact alignment for navigation buttons */
+      .navigation-buttons {
+        display: flex !important;
+        justify-content: space-between !important;
+        padding: 0 10px !important;
+        margin: 15px 0 !important;
+      }
+      
+      /* Enhance add ticket button */
+      .add-ticket-btn {
+        border-radius: 30px !important;
+        color: #673ab7 !important;
+        border-color: #673ab7 !important;
+        font-weight: bold !important;
+        margin-bottom: 15px !important;
+      }
+    `;
+    document.head.appendChild(mobileStyle);
+    
+    // Move the planning cards to the bottom in a fixed panel
+    const planningCards = document.querySelector('#planningCards');
+    if (planningCards && !document.querySelector('.mobile-card-panel')) {
+      const cardPanel = document.createElement('div');
+      cardPanel.className = 'card-panel mobile-card-panel';
+      
+      // Add PLANNING CARDS heading above the cards
+      const cardsHeading = document.createElement('div');
+      cardsHeading.textContent = 'PLANNING CARDS';
+      cardsHeading.style.cssText = 'color:#673ab7; font-size:14px; font-weight:600; margin-bottom:5px; text-align:center; width:100%; text-transform:uppercase;';
+      
+      // Move cards to the panel
+      cardPanel.appendChild(cardsHeading);
+      cardPanel.appendChild(planningCards);
+      document.body.appendChild(cardPanel);
+    }
+    
+    // Add Upload Ticket and Invite Others buttons at the top
+    const header = document.querySelector('header');
+    if (header && !document.querySelector('.mobile-action-buttons')) {
+      const actionButtons = document.createElement('div');
+      actionButtons.className = 'mobile-action-buttons';
+      actionButtons.style.cssText = 'display:flex; gap:10px; justify-content:flex-end; padding:10px 20px; border-bottom:1px solid #f0f0f0;';
+      
+      const uploadButton = document.createElement('button');
+      uploadButton.textContent = 'Upload Ticket';
+      uploadButton.className = 'invite-button';
+      uploadButton.onclick = function() {
+        document.getElementById('csvInput').click();
+      };
+      
+      const inviteButton = document.createElement('button');
+      inviteButton.textContent = 'Invite Others';
+      inviteButton.className = 'invite-button';
+      inviteButton.onclick = function() {
+        window.showInviteModalCustom();
+      };
+      
+      actionButtons.appendChild(uploadButton);
+      actionButtons.appendChild(inviteButton);
+      
+      header.insertAdjacentElement('afterend', actionButtons);
+    }
+    
+    // Enhance user voting area
+    setupMobileCardSelection();
+  }
+  
+  function setupMobileCardSelection() {
+    document.querySelectorAll('#planningCards .card').forEach(card => {
+      card.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        
+        // Get current user's vote space
+        const userName = sessionStorage.getItem('userName');
+        if (!userName) return;
+        
+        const safeId = userName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+        const voteSpace = document.getElementById(`vote-space-${safeId}`);
+        
+        if (voteSpace) {
+          const vote = this.getAttribute('data-value');
+          
+          // Clear selections and add to this card
+          document.querySelectorAll('#planningCards .card').forEach(c => {
+            c.classList.remove('selected-card');
+          });
+          this.classList.add('selected-card');
+          
+          // Use the emitVote function if available
+          if (typeof window.emitVote === 'function') {
+            window.emitVote(vote, userName);
+          } else if (typeof window.socket !== 'undefined') {
+            window.socket.emit('castVote', { vote, targetUserId: userName });
+          }
+        }
+      });
     });
   }
 });
 
-// Make functions available globally
-window.showInviteModalCustom = showInviteModalCustom;
-window.hideInviteModalCustom = hideInviteModalCustom;
-window.copyInviteLinkCustom = copyInviteLinkCustom;
+// Connection status indicator
+const statusIndicator = document.getElementById('connectionStatus');
 
-// Socket integration helper
-function initializeUserListWithSocket(socket) {
-  if (!socket) return;
+function updateConnectionStatus(status) {
+  if (!statusIndicator) return;
   
-  // Listen for user joined events
-  socket.on('userJoined', function(data) {
-    const { userName, isHost } = data;
-    window.userListFunctions.addUserToList(userName, isHost);
-  });
-  
-  // Listen for vote events
-  socket.on('voteUpdate', function(data) {
-    const { userName, hasVoted, vote } = data;
-    window.userListFunctions.updateUserVoteStatus(userName, hasVoted, vote);
-  });
-  
-  // Reformat user list whenever socket updates occur
-  socket.on('userListUpdate', function() {
-    setTimeout(window.userListFunctions.reformatUserList, 100);
-  });
+  switch(status) {
+    case 'connected':
+      statusIndicator.className = 'connection-status';
+      statusIndicator.title = 'Connected';
+      break;
+    case 'connecting':
+      statusIndicator.className = 'connection-status connecting';
+      statusIndicator.title = 'Connecting...';
+      break;
+    case 'disconnected':
+      statusIndicator.className = 'connection-status disconnected';
+      statusIndicator.title = 'Disconnected';
+      break;
+  }
 }
 
-// Expose socket integration function
-window.initializeUserListWithSocket = initializeUserListWithSocket;
+// Update status when socket events occur
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.socket) {
+    window.socket.on('connect', () => updateConnectionStatus('connected'));
+    window.socket.on('disconnect', () => updateConnectionStatus('disconnected'));
+    window.socket.on('connecting', () => updateConnectionStatus('connecting'));
+    window.socket.on('reconnecting', () => updateConnectionStatus('connecting'));
+  }
+});
+
+        
+</script>
+<!-- Add this just before the closing </body> tag in index.html -->
+<script>
+// Mobile layout to match desktop view
+document.addEventListener('DOMContentLoaded', function() {
+  // Check if mobile device
+  const isMobile = window.innerWidth <= 1024;
+  if (isMobile) {
+    console.log("Applying mobile layout optimizations");
+    
+    // Create mobile-optimized styles
+    const mobileStyle = document.createElement('style');
+    mobileStyle.id = 'mobile-layout-inline';
+    mobileStyle.textContent = `
+      /* Mobile optimizations */
+      @media (max-width: 1024px) {
+        body {
+          overflow-x: hidden;
+        }
+        
+        /* Enable horizontal scrolling for container */
+        .container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+          padding-bottom: 0 !important;
+        }
+        
+        /* Make columns fixed-width for scrolling */
+        .sidebar, .rightbar {
+          min-width: 300px;
+          scroll-snap-align: start;
+        }
+        
+        .main {
+          min-width: 600px;
+          scroll-snap-align: start;
+        }
+        
+        /* Larger touch targets */
+        .card, .story-card, .button, .user-entry, .avatar-container {
+          min-height: 44px;
+        }
+        
+        /* Touch feedback */
+        .card:active {
+          transform: scale(0.95);
+          background-color: #d6bcfa !important;
+        }
+        
+        /* Story list scrolling */
+        .story-container {
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        
+        /* Larger gap between elements */
+        .avatar-row, .vote-row {
+          gap: 40px;
+        }
+        
+        /* Better visibility */
+        .vote-badge, .vote-card-space .vote-badge {
+          font-weight: bold;
+          font-size: 20px;
+        }
+        
+        /* Scale the user circle area */
+        #userCircle {
+          width: 100%;
+          max-width: 100%;
+        }
+        
+        /* Better card colors */
+        .card {
+          background-color: #e1d4f9 !important;
+        }
+        
+        /* Proper header alignment */
+        header {
+          padding: 15px 20px !important;
+        }
+      }
+    `;
+    
+    document.head.appendChild(mobileStyle);
+    
+    // Setup touch handling for cards
+    setupMobileTouchHandling();
+  }
+  
+  // Set up touch handling for mobile devices
+  function setupMobileTouchHandling() {
+    // Make cards work with touch events
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        
+        // Clear selections
+        document.querySelectorAll('.card').forEach(c => {
+          c.classList.remove('selected-card');
+        });
+        
+        // Select this card
+        this.classList.add('selected-card');
+        
+        // Get vote value
+        const vote = this.getAttribute('data-value');
+        const userName = sessionStorage.getItem('userName');
+        
+        // Emit vote if possible
+        if (userName && typeof window.emitVote === 'function') {
+          window.emitVote(vote, userName);
+        } else if (userName && window.socket) {
+          window.socket.emit('castVote', { vote, targetUserId: userName });
+        }
+      });
+    });
+  }
+});
+</script> 
+
+    <script type="module" src="main.js"></script>
+
+     <script>
+  document.getElementById('joinSessionWithName').addEventListener('click', function () {
+    const nameInput = document.getElementById('userNameInput');
+    const userName = nameInput.value.trim();
+
+    if (!userName) {
+      alert('Please enter your name to join.');
+      return;
+    }
+
+    // ✅ FIX: Store userName in sessionStorage so it persists
+    sessionStorage.setItem('userName', userName);
+
+    // ✅ FIX: Load roomId from URL or generate one
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('roomId');
+    if (!roomId) {
+      roomId = 'room-' + Math.floor(Math.random() * 10000);
+      const newUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'roomId=' + roomId;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+
+    // ✅ FIX: Initialize socket with saved name
+    if (typeof window.initializeSocketWithName === 'function') {
+      window.initializeSocketWithName(roomId, userName);
+    }
+
+    // Hide the login modal
+    document.getElementById('loginModalCustom').style.display = 'none';
+  });
 </script>
 
-<script src="main.js" type="module"></script>
-
+  
+     
 </body>
 </html>
+        
+             
