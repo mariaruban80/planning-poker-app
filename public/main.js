@@ -2,7 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
+import { inivote-statistics-containertializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -1504,17 +1504,16 @@ function addVoteStatisticsStyles() {
  * @param {Object} votes - Vote data
  */
 function handleVotesRevealed(storyId, votes) {
- 
+  // Skip for deleted stories
   if (!votes || typeof votes !== 'object') return;
-   // 🧩 Ensure style block is added for vote statistics
-  if (typeof addFixedVoteStatisticsStyles === 'function') {
-    addFixedVoteStatisticsStyles();
-  }
 
+  // Apply votes to UI if not already done
   applyVotesToUI(votes, false);
 
+  // Create a map of unique votes
   const uniqueVotes = new Map();
   const userMap = window.userMap || {};
+  
   for (const [socketId, vote] of Object.entries(votes)) {
     const userName = userMap[socketId] || socketId;
     if (!uniqueVotes.has(userName)) {
@@ -1522,8 +1521,10 @@ function handleVotesRevealed(storyId, votes) {
     }
   }
 
+  // Extract vote values
   const voteValues = Array.from(uniqueVotes.values());
 
+  // Parse numeric values
   function parseNumericVote(vote) {
     if (typeof vote !== 'string') return NaN;
     if (vote === '½') return 0.5;
@@ -1536,72 +1537,73 @@ function handleVotesRevealed(storyId, votes) {
     return isNaN(parsed) ? NaN : parsed;
   }
 
+  // Get numeric values for calculations
   const numericValues = voteValues.map(parseNumericVote).filter(v => !isNaN(v));
 
-  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  // Calculate average if there are numeric values
   let averageValue = null;
-
-  if (voteValues.length > 0) {
-    const frequency = {};
-    let maxFreq = 0;
-
-    voteValues.forEach(vote => {
-      frequency[vote] = (frequency[vote] || 0) + 1;
-      if (frequency[vote] > maxFreq) {
-        maxFreq = frequency[vote];
-        mostCommonVote = vote;
-      }
-    });
-
-    if (numericValues.length > 0) {
-      averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
-      averageValue = Math.round(averageValue * 10) / 10;
-    }
+  if (numericValues.length > 0) {
+    averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+    averageValue = Math.round(averageValue); // Round to whole number like in screenshot
   }
-
+  
+  // Remove any existing stats containers for this story
   const existingStatsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
   existingStatsContainers.forEach(el => el.remove());
 
+  // Create new container for vote statistics
   const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.setAttribute('data-story-id', storyId);
-  statsContainer.innerHTML = `
-    <div class="fixed-vote-display">
-      <div class="fixed-vote-card">
-        ${mostCommonVote}
-        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
+  
+  // Create HTML for the new design
+  // Show up to 2 vote cards as in the screenshot
+  const displayVotes = voteValues.slice(0, 2);
+  
+  // Create vote cards display
+  let cardsHTML = '';
+  displayVotes.forEach(vote => {
+    cardsHTML += `
+      <div class="vote-card-item">
+        <div class="vote-connector"></div>
+        <div class="vote-display-card">${vote}</div>
+        <div class="vote-count">1 Vote</div>
       </div>
-      <div class="fixed-vote-stats">
-        ${averageValue !== null ? `
-          <div class="fixed-stat-group">
-            <div class="fixed-stat-label">Average:</div>
-            <div class="fixed-stat-value">${averageValue}</div>
-          </div>` : ''}
-        <div class="fixed-stat-group">
-          <div class="fixed-stat-label">Agreement:</div>
-          <div class="fixed-agreement-circle">
-            <div class="agreement-icon">👍</div>
-          </div>
+    `;
+  });
+  
+  statsContainer.innerHTML = `
+    <div class="vote-cards-display">
+      ${cardsHTML}
+    </div>
+    <div class="vote-statistics">
+      <div class="stat-section">
+        <div class="stat-label">Average:</div>
+        <div class="stat-value">${averageValue !== null ? averageValue : '-'}</div>
+      </div>
+      <div class="agreement-section">
+        <div class="stat-label">Agreement:</div>
+        <div class="agreement-indicator">
+          <div class="agreement-robot">🤖</div>
         </div>
       </div>
     </div>
   `;
 
+  // Add the stats container to the DOM
   const planningCardsSection = document.querySelector('.planning-cards-section');
-  const currentStoryCard = document.querySelector('.story-card.selected');
-
   if (planningCardsSection && planningCardsSection.parentNode) {
     planningCardsSection.classList.add('hidden-until-init');
     planningCardsSection.style.display = 'none';
-    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection.nextSibling);
-  } else if (currentStoryCard && currentStoryCard.parentNode) {
-    currentStoryCard.parentNode.insertBefore(statsContainer, currentStoryCard.nextSibling);
+    planningCardsSection.parentNode.insertBefore(statsContainer, planningCardsSection);
   } else {
     document.body.appendChild(statsContainer);
   }
 
-  statsContainer.style.display = 'block';
+  // Make sure the stats container is visible
+  statsContainer.style.display = 'flex';
 }
+
 
 /**
  * Setup Add Ticket button
