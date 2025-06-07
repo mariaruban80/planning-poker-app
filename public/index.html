@@ -1435,6 +1435,51 @@ white-space: nowrap;
   }
 
   </style>
+     <style>
+          /* Fixed planning cards panel at the bottom */
+.planning-cards-section {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border-top: 1px solid #e0e0e0;
+  padding: 10px 0;
+  z-index: 1000;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+}
+
+/* Card panel styling */
+.card-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Cards container */
+.cards {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 5px 0;
+  overflow-x: auto;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Add padding to main container to prevent content from being hidden behind fixed panel */
+.container {
+  padding-bottom: 120px !important;
+}
+
+/* Increase z-index for reveal button to appear above cards panel */
+.reveal-button-container {
+  position: relative;
+  z-index: 1001;
+}
+     </style>
 </head>
 <body>
 
