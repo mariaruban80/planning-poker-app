@@ -177,7 +177,7 @@ function mergeVote(storyId, userName, vote) {
 
 function refreshVoteDisplay() {
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
-  clearAllVoteVisuals();
+//  clearAllVoteVisuals();
 
   // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
