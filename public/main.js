@@ -2601,10 +2601,11 @@ function createAvatarContainer(user) {
  * Create vote card space for a user
  */
 
+
 function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
-  voteCard.id = `vote-space-${user.id}`;
+  voteCard.id = `vote-space-${user.name}`; // Use user.name instead of user.id
   if (isCurrentUser) voteCard.classList.add('own-vote-space');
 
   const voteBadge = document.createElement('span');
@@ -2622,13 +2623,17 @@ function createVoteCardSpace(user, isCurrentUser) {
       if (voterName) {
         mergeVote(storyId, voterName, vote);
         socket.emit('castVote', { vote, targetUserId: user.id, storyId, userName: voterName });
-        updateVoteVisuals(user.id, votesRevealed[storyId] ? vote : '👍', true);
+        //updateVoteVisuals(voterName, votesRevealed[storyId] ? vote : '👍', true); // Use voterName
+        
+updateVoteVisuals(user.name, votesRevealed[storyId] ? vote : '👍', true);
+
       }
     });
   }
 
   return voteCard;
 }
+
 
 
 
