@@ -2701,7 +2701,6 @@ function createVoteCardSpace(user, isCurrentUser) {
 function updateVoteVisuals(userId, vote, hasVoted = false) {
   console.log(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${hasVoted}`);
   
-  // Get the story ID and check its reveal state
   const storyId = getCurrentStoryId();
   
   // Skip for deleted stories or when no story is selected
@@ -2709,46 +2708,50 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     console.log('[VOTE] Not updating vote visuals for deleted story');
     return;
   }
-  
-  const isRevealed = storyId && votesRevealed[storyId] === true;
-  
-  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
-  
-  // Determine what to show based on reveal state
+
+  const isRevealed = votesRevealed[storyId] === true;
   const displayVote = isRevealed ? vote : '👍';
-  
+
+  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
   console.log(`[DEBUG] Will display: ${displayVote}`);
-  
-  // Update badges in sidebar
-  const sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
-  if (sidebarBadge) {
-    // Only set content if the user has voted
-    if (hasVoted) {
-      sidebarBadge.textContent = displayVote;
-      sidebarBadge.style.color = '#673ab7'; // Make sure the text has a visible color
-      sidebarBadge.style.opacity = '1'; // Ensure full opacity
-    } else {
-      sidebarBadge.textContent = ''; // Empty if no vote
+
+  // 🔐 Fallback: if socket.id DOM elements don't exist, try using userName instead
+  let safeUserId = userId;
+  if (!document.querySelector(`#vote-space-${userId}`)) {
+    const fallbackName = window.userMap?.[userId] || sessionStorage.getItem('userName');
+    if (fallbackName) {
+      console.log(`[FALLBACK] No DOM for socket ID ${userId}, trying fallback userId="${fallbackName}"`);
+      safeUserId = fallbackName;
     }
   }
-  
+
+  // Update sidebar badge
+  const sidebarBadge = document.querySelector(`#user-${safeUserId} .vote-badge`);
+  if (sidebarBadge) {
+    if (hasVoted) {
+      sidebarBadge.textContent = displayVote;
+      sidebarBadge.style.color = '#673ab7';
+      sidebarBadge.style.opacity = '1';
+    } else {
+      sidebarBadge.textContent = '';
+    }
+  }
+
   // Update vote card space
-  const voteSpace = document.querySelector(`#vote-space-${userId}`);
+  const voteSpace = document.querySelector(`#vote-space-${safeUserId}`);
   if (voteSpace) {
     const voteBadge = voteSpace.querySelector('.vote-badge');
     if (voteBadge) {
-      // Only show vote if they've voted
       if (hasVoted) {
         voteBadge.textContent = displayVote;
-        voteBadge.style.color = '#673ab7'; // Make sure the text has a visible color
-        voteBadge.style.opacity = '1'; // Ensure full opacity
-        console.log(`[DEBUG] Updated vote badge for ${userId} to "${displayVote}"`);
+        voteBadge.style.color = '#673ab7';
+        voteBadge.style.opacity = '1';
+        console.log(`[DEBUG] Updated vote badge for ${safeUserId} to "${displayVote}"`);
       } else {
-        voteBadge.textContent = ''; // Empty if no vote
+        voteBadge.textContent = '';
       }
     }
-    
-    // Update vote space class
+
     if (hasVoted) {
       voteSpace.classList.add('has-vote');
     } else {
@@ -2756,25 +2759,25 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
     }
   }
 
-  // Update avatar to show they've voted
+  // Update avatar styling
   if (hasVoted) {
-    const avatarContainer = document.querySelector(`#user-circle-${userId}`);
+    const avatarContainer = document.querySelector(`#user-circle-${safeUserId}`);
     if (avatarContainer) {
       avatarContainer.classList.add('has-voted');
-      
       const avatar = avatarContainer.querySelector('.avatar-circle');
       if (avatar) {
-        avatar.style.backgroundColor = '#c1e1c1'; // Green background
+        avatar.style.backgroundColor = '#c1e1c1'; // Light green
       }
     }
-    
-    // Also update sidebar avatar
-    const sidebarAvatar = document.querySelector(`#user-${userId} img.avatar`);
+
+    const sidebarAvatar = document.querySelector(`#user-${safeUserId} img.avatar`);
     if (sidebarAvatar) {
       sidebarAvatar.style.backgroundColor = '#c1e1c1';
     }
   }
 }
+
+
 
 /**
  * Update story title
