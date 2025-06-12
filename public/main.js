@@ -171,6 +171,7 @@ function mergeVote(storyId, userName, vote) {
   votesPerStory[storyId][userName] = vote;
   window.currentVotesPerStory = votesPerStory;
 }
+
 function clearAllVoteVisuals() {
   // This removes all vote badges from previous votes before re-rendering
   const badges = document.querySelectorAll('.vote-badge');
@@ -185,21 +186,23 @@ function clearAllVoteVisuals() {
     space.classList.remove('has-vote');
   });
 }
-
 function refreshVoteDisplay() {
-  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
   clearAllVoteVisuals();
 
-  // Loop over all stories and their votes
   for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
-    for (const [userId, vote] of Object.entries(votes)) {
-      // Update UI for each user vote on each story
-      updateVoteVisuals(userId, vote, storyId);
-          
+    const uniqueVotes = new Map();
+    for (const [id, vote] of Object.entries(votes)) {
+      const name = userMap?.[id] || id;
+      if (!uniqueVotes.has(name)) {
+        uniqueVotes.set(name, vote);
+        updateVoteVisuals(name, vote, storyId);
+      }
     }
-    updateVoteBadges(storyId, votes);
+    updateVoteBadges(storyId, Object.fromEntries(uniqueVotes));
   }
 }
+
+
 
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
@@ -566,18 +569,25 @@ function initializeApp(roomId) {
 
   // Setup heartbeat mechanism to prevent timeouts
   setupHeartbeat();
+socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
+  const name = userName || userId;
 
-  socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
-    const name = userName || userId;
+  // Prevent overwriting valid votes if this user already exists
+  if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+  const existing = votesPerStory[storyId][name];
+  if (existing !== vote) {
     mergeVote(storyId, name, vote);
+  }
 
-    const currentId = getCurrentStoryId();
-    if (storyId === currentId) {
-      updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
-    }
+  const currentId = getCurrentStoryId();
+  if (storyId === currentId && votesRevealed[storyId]) {
+    updateVoteVisuals(name, vote, true);
+  }
 
-    refreshVoteDisplay();
-  });
+  refreshVoteDisplay();
+});
+
+
   
   socket.on('storyVotes', ({ storyId, votes }) => {
     // Don't process votes for deleted stories
