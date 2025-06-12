@@ -171,6 +171,20 @@ function mergeVote(storyId, userName, vote) {
   votesPerStory[storyId][userName] = vote;
   window.currentVotesPerStory = votesPerStory;
 }
+function clearAllVoteVisuals() {
+  // This removes all vote badges from previous votes before re-rendering
+  const badges = document.querySelectorAll('.vote-badge');
+  badges.forEach(badge => {
+    badge.textContent = '';  // Clear the vote value
+    badge.removeAttribute('title');
+  });
+
+  // Optionally, remove vote highlight classes
+  const voteSpaces = document.querySelectorAll('.vote-card-space');
+  voteSpaces.forEach(space => {
+    space.classList.remove('has-vote');
+  });
+}
 
 function refreshVoteDisplay() {
   // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
@@ -725,6 +739,7 @@ function initializeApp(roomId) {
 
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
+     clearAllVoteVisuals();  
 
     // Always show planning cards and hide stats for this story
     const planningCardsSection = document.querySelector('.planning-cards-section');
