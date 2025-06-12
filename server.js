@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // added to call the main.html file
 app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, 'public', 'About.html'));
+  res.sendFile(join(__dirname, 'public', 'main.html'));
 });
 app.use(express.static(join(__dirname, 'public')));
 
