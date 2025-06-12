@@ -197,7 +197,7 @@ function refreshVoteDisplay() {
         updateVoteVisuals(name, vote, storyId);
       }
     }
-    updateVoteBadges(storyId, Object.fromEntries(uniqueVotes));
+  //  updateVoteBadges(storyId, Object.fromEntries(uniqueVotes));
   }
 }
 
