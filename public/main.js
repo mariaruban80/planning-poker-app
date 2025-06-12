@@ -173,15 +173,14 @@ function mergeVote(storyId, userName, vote) {
 }
 
 function clearAllVoteVisuals() {
-  // This removes all vote badges from previous votes before re-rendering
   const badges = document.querySelectorAll('.vote-badge');
   badges.forEach(badge => {
-    badge.textContent = '';  // Clear the vote value
+    badge.textContent = '';
     badge.removeAttribute('title');
+    badge.innerHTML = '';
   });
 
-  // Optionally, remove vote highlight classes
-  const voteSpaces = document.querySelectorAll('.vote-card-space');
+ const voteSpaces = document.querySelectorAll('.vote-card-space');
   voteSpaces.forEach(space => {
     space.classList.remove('has-vote');
   });
@@ -204,21 +203,21 @@ function refreshVoteDisplay() {
 
 
 
-function updateVoteBadges(storyId, votes) {
-  // Count how many unique users have voted for this story
-  const voteCount = Object.keys(votes).length;
+function updateVoteVisuals(userId, vote, storyId) {
+  console.debug(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${storyId}`);
+  const display = vote !== undefined ? vote.toString() : '?';
 
-  console.log(`Story ${storyId} has ${voteCount} votes`);
+  const badge = document.querySelector(`.vote-badge[data-user-id="${userId}"]`);
+  if (badge) {
+    badge.textContent = display;
+    badge.setAttribute('title', `Vote: ${display}`);
+    badge.classList.add('has-vote');
 
-  // Find the vote badge element for the story (adjust selector as per your HTML)
-  const voteBadge = document.querySelector(`#vote-badge-${storyId}`);
-
-  if (voteBadge) {
-    // Update the badge text to show number of votes
-    voteBadge.textContent = voteCount;
-
-    // Optionally update a tooltip or aria-label for accessibility
-    voteBadge.setAttribute('title', `${voteCount} vote${voteCount !== 1 ? 's' : ''}`);
+    // Add emoji thumbs-up for revealed vote
+    if (votesRevealed[storyId]) {
+      badge.innerHTML = `👍 ${display}`;
+      console.debug(`[DEBUG] Emoji rendering for ${userId}: vote=${vote}, revealed=${votesRevealed[storyId]}`);
+    }
   }
 }
 
@@ -569,10 +568,9 @@ function initializeApp(roomId) {
 
   // Setup heartbeat mechanism to prevent timeouts
   setupHeartbeat();
-socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
-  const name = userName || userId;
+socket.on('voteUpdate', ({ userId, vote, storyId }) => {
+  const name = userMap[userId] || userId;
 
-  // Prevent overwriting valid votes if this user already exists
   if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
   const existing = votesPerStory[storyId][name];
   if (existing !== vote) {
@@ -581,7 +579,7 @@ socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
 
   const currentId = getCurrentStoryId();
   if (storyId === currentId && votesRevealed[storyId]) {
-    updateVoteVisuals(name, vote, true);
+    updateVoteVisuals(name, vote, storyId);
   }
 
   refreshVoteDisplay();
@@ -715,30 +713,33 @@ socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     delete votesRevealed[storyId];
   });
   
-  socket.on('votesRevealed', ({ storyId }) => {
-    if (deletedStoryIds.has(storyId)) return;
-    
-    // Skip if already revealed to avoid duplicate animations
-    if (votesRevealed[storyId] === true) {
-      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      return;
-    }
-    
-    votesRevealed[storyId] = true;
-    const votes = votesPerStory[storyId] || {};
-    
-    // Hide planning cards for this story
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.classList.add('hidden-until-init');
-      planningCardsSection.style.display = 'none';
-    }
-    
-    handleVotesRevealed(storyId, votes);
-    
-    // Log action for debugging
-    console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
-  })
+socket.on('votesRevealed', ({ storyId }) => {
+  if (deletedStoryIds.has(storyId)) return;
+  
+  // Skip if already revealed to avoid duplicate animations
+  if (votesRevealed[storyId] === true) {
+    console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
+    return;
+  }
+
+  votesRevealed[storyId] = true;
+  const votes = votesPerStory[storyId] || {};
+
+  // Hide planning cards for this story
+  const planningCardsSection = document.querySelector('.planning-cards-section');
+  if (planningCardsSection) {
+    planningCardsSection.classList.add('hidden-until-init');
+    planningCardsSection.style.display = 'none';
+  }
+
+  handleVotesRevealed(storyId, votes);
+
+  // ✅ Ensure emoji thumbs-up badges are applied
+  refreshVoteDisplay();
+
+  console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
+});
+
 
   socket.on('votesReset', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
