@@ -202,25 +202,6 @@ function refreshVoteDisplay() {
 }
 
 
-
-function updateVoteVisuals(userId, vote, storyId) {
-  console.debug(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${storyId}`);
-  const display = vote !== undefined ? vote.toString() : '?';
-
-  const badge = document.querySelector(`.vote-badge[data-user-id="${userId}"]`);
-  if (badge) {
-    badge.textContent = display;
-    badge.setAttribute('title', `Vote: ${display}`);
-    badge.classList.add('has-vote');
-
-    // Add emoji thumbs-up for revealed vote
-    if (votesRevealed[storyId]) {
-      badge.innerHTML = `👍 ${display}`;
-      console.debug(`[DEBUG] Emoji rendering for ${userId}: vote=${vote}, revealed=${votesRevealed[storyId]}`);
-    }
-  }
-}
-
 /**
  * Save deleted story IDs to sessionStorage
  */
@@ -578,9 +559,9 @@ socket.on('voteUpdate', ({ userId, vote, storyId }) => {
   }
 
   const currentId = getCurrentStoryId();
-  if (storyId === currentId && votesRevealed[storyId]) {
-    updateVoteVisuals(name, vote, storyId);
-  }
+ if (storyId === currentId) {
+  updateVoteVisuals(name, vote, true);
+}
 
   refreshVoteDisplay();
 });
