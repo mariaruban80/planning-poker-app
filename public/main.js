@@ -2601,7 +2601,7 @@ function createAvatarContainer(user) {
  * Create vote card space for a user
  */
 
-
+function createVoteCardSpace(user, isCurrentUser) {
   const voteCard = document.createElement('div');
   voteCard.classList.add('vote-card-space');
   voteCard.id = `vote-space-${user.id}`;
@@ -2629,6 +2629,7 @@ function createAvatarContainer(user) {
 
   return voteCard;
 }
+
 
 
 /**
