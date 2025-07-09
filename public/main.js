@@ -3257,74 +3257,66 @@ function setupStoryNavigation() {
  * Set up story card interactions based on user role
  */
 function setupStoryCardInteractions() {
-  const isHost = sessionStorage.getItem('isHost') === 'true';
-  console.log(`[INTERACTIONS] Setting up story card interactions for ${isHost ? 'host' : 'guest'}`);
-  
-  const storyCards = document.querySelectorAll('.story-card');
-  
+  const storyList = document.getElementById('storyList');
+  if (!storyList) return;
+
+  // Iterate over all current story cards
+  const storyCards = storyList.querySelectorAll('.story-card');
   storyCards.forEach(card => {
-    if (deletedStoryIds.has(card.id)) return;
-    
-    const newCard = card.cloneNode(true);
-    if (card.parentNode) {
-      card.parentNode.replaceChild(newCard, card);
-    
-      if (isHost) {
-        // Enable for hosts
-        newCard.classList.remove('disabled-story');
-        newCard.style.opacity = '1';
-        newCard.style.pointerEvents = 'auto';
-        newCard.style.cursor = 'pointer';
-        
-        // Add click event listener
-        newCard.addEventListener('click', () => {
-          const index = parseInt(newCard.dataset.index || 0);
-          console.log(`[INTERACTIONS] Host selected story at index ${index}`);
-          selectStory(index);
-        });
-        
-        // Re-add edit button if needed
-        if (!newCard.querySelector('.story-edit-btn')) {
-          const editButton = document.createElement('div');
-          editButton.className = 'story-edit-btn';
-          editButton.innerHTML = '✏️';
-          editButton.title = 'Edit story';
-          
-          editButton.onclick = function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            const storyTitle = newCard.querySelector('.story-title');
-            if (storyTitle && window.showEditTicketModal) {
-              window.showEditTicketModal(newCard.id, storyTitle.textContent);
+    const storyId = card.id;
+
+    // Only allow editing/deleting for host users
+    if (isCurrentUserHost()) {
+      // Add edit (pencil) button
+      const editButton = document.createElement('div');
+      editButton.className = 'story-edit-btn';
+      editButton.innerHTML = '✏️';
+      editButton.title = 'Edit story';
+
+      editButton.onclick = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const titleDiv = card.querySelector('.story-title');
+        if (!titleDiv) return;
+
+        // Replace title with an input field
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = titleDiv.textContent;
+        input.className = 'story-edit-input';
+        titleDiv.replaceWith(input);
+        input.focus();
+
+        input.onblur = () => {
+          const newText = input.value.trim();
+          if (newText && newText !== titleDiv.textContent) {
+            titleDiv.textContent = newText;
+            input.replaceWith(titleDiv);
+
+            // ✅ Emit update to server
+            if (socket && socket.connected) {
+              socket.emit('editStory', {
+                storyId: card.id,
+                newText: newText
+              });
             }
-          };
-          
-          newCard.appendChild(editButton);
-        }
-        
-        // Re-add delete button if needed
-        if (!newCard.querySelector('.story-delete-btn')) {
-          const deleteButton = document.createElement('div');
-          deleteButton.className = 'story-delete-btn';
-          deleteButton.innerHTML = '🗑';
-          deleteButton.title = 'Delete story';
-          
-          deleteButton.onclick = function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            deleteStory(newCard.id);
-          };
-          
-          newCard.appendChild(deleteButton);
-        }
-      } else {
-        // Disable for guests
-        newCard.classList.add('disabled-story');
-        newCard.style.opacity = '0.6';
-        newCard.style.pointerEvents = 'none';
-        newCard.style.cursor = 'not-allowed';
-      }
+          } else {
+            input.replaceWith(titleDiv);
+          }
+        };
+      };
+
+      card.appendChild(editButton);
     }
+
+    // Enable selecting the story card
+    card.addEventListener('click', () => {
+      const index = [...storyList.children].indexOf(card);
+      if (!deletedStoryIds.has(card.id)) {
+        selectStory(index);
+      }
+    });
   });
 }
 
