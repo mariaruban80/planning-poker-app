@@ -1021,6 +1021,16 @@ export function requestVotesByUsername() {
     socket.emit('requestVotesByUsername', { userName });
   }
 }
+/**
+ * Update a ticket and sync with other users
+ * @param {Object} ticketData - Updated ticket data {id, text}
+ */
+export function emitUpdateTicket(ticketData) {
+  if (socket) {
+    console.log('[SOCKET] Updating ticket:', ticketData);
+    socket.emit('updateTicket', ticketData);
+  }
+}
 
 /**
  * Clean up socket connection
