@@ -1037,7 +1037,10 @@ function enableHostControls() {
   if (guestIndicator) {
     guestIndicator.remove();
   }
-  
+   console.log('[UI] Setting up story card interactions for host');
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 100);
   console.log('[UI] Host controls enabled successfully');
 }
 
@@ -2015,8 +2018,12 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
   // Add to DOM
   storyCard.appendChild(storyTitle);
   
+  // Get current user host status
+  const isHost = sessionStorage.getItem('isHost') === 'true';
+  console.log(`[ADD] Adding ticket for ${isHost ? 'host' : 'guest'} user`);
+  
   // Add delete button for hosts only
-  if (isCurrentUserHost()) {
+  if (isHost) {
     const deleteButton = document.createElement('div');
     deleteButton.className = 'story-delete-btn';
     deleteButton.innerHTML = '🗑'; // dustbin symbol
@@ -2033,17 +2040,29 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
   
   storyList.appendChild(storyCard);
   
-  // Check if user is guest and handle accordingly
-  if (isGuestUser()) {
-    storyCard.classList.add('disabled-story');
-  } else {
-    // Add click event listener only for hosts
+  // Handle click events based on user role
+  if (isHost) {
+    // Enable for hosts
+    storyCard.classList.remove('disabled-story');
+    storyCard.style.opacity = '1';
+    storyCard.style.pointerEvents = 'auto';
+    storyCard.style.cursor = 'pointer';
+    
+    // Add click event listener
     storyCard.addEventListener('click', () => {
+      console.log(`[ADD] Host clicked story at index ${newIndex}`);
       selectStory(newIndex);
     });
+  } else {
+    // Disable for guests
+    storyCard.classList.add('disabled-story');
+    storyCard.style.opacity = '0.6';
+    storyCard.style.pointerEvents = 'none';
+    storyCard.style.cursor = 'not-allowed';
   }
-    // Select the new story if requested (only for hosts)
-  if (selectAfterAdd && !isGuestUser()) {
+  
+  // Select the new story if requested (only for hosts)
+  if (selectAfterAdd && isHost) {
     selectStory(newIndex);
   }
   
@@ -2058,9 +2077,9 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     card.classList.remove('disabled');
     card.setAttribute('draggable', 'true');
   });
+  
   normalizeStoryIndexes();
-} 
-
+}
 /**
  * Set up a mutation observer to catch any newly added story cards
  */
@@ -2129,6 +2148,11 @@ function processAllTickets(tickets) {
   // if (isGuestUser()) {
   //   applyGuestRestrictions();
   // }
+
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 200);
+  
 }
 
 // Get storyId from selected card
@@ -3161,8 +3185,9 @@ function setupStoryNavigation() {
  * Set up story card interactions based on user role
  */
 function setupStoryCardInteractions() {
-  // Check if user is a guest (joined via shared URL)
-  const isGuest = isGuestUser();
+  // Check if user is a host (use current sessionStorage value)
+  const isHost = sessionStorage.getItem('isHost') === 'true';
+  console.log(`[INTERACTIONS] Setting up story card interactions for ${isHost ? 'host' : 'guest'}`);
   
   // Select all story cards
   const storyCards = document.querySelectorAll('.story-card');
@@ -3173,30 +3198,27 @@ function setupStoryCardInteractions() {
       return;
     }
     
-    if (isGuest) {
-      // For guests: disable clicking and add visual indicator
-      card.classList.add('disabled-story');
-      
-      // Remove any existing click handlers by cloning and replacing
-      const newCard = card.cloneNode(true);
-      if (card.parentNode) {
-        card.parentNode.replaceChild(newCard, card);
-      }
-    } else {
-      // For hosts: maintain normal selection behavior
-      // Remove existing handlers first to prevent duplicates
-      const newCard = card.cloneNode(true);
-      if (card.parentNode) {
-        card.parentNode.replaceChild(newCard, card);
-      
+    // Remove existing handlers by cloning and replacing
+    const newCard = card.cloneNode(true);
+    if (card.parentNode) {
+      card.parentNode.replaceChild(newCard, card);
+    
+      if (isHost) {
+        // For hosts: enable normal selection behavior
+        newCard.classList.remove('disabled-story');
+        newCard.style.opacity = '1';
+        newCard.style.pointerEvents = 'auto';
+        newCard.style.cursor = 'pointer';
+        
         // Add fresh click event listener
         newCard.addEventListener('click', () => {
           const index = parseInt(newCard.dataset.index || 0);
+          console.log(`[INTERACTIONS] Host selected story at index ${index}`);
           selectStory(index);
         });
         
-        // Re-add delete button if needed
-        if (isCurrentUserHost() && !newCard.querySelector('.story-delete-btn')) {
+        // Re-add delete button if needed and doesn't exist
+        if (!newCard.querySelector('.story-delete-btn')) {
           const deleteButton = document.createElement('div');
           deleteButton.className = 'story-delete-btn';
           deleteButton.innerHTML = '🗑';
@@ -3210,10 +3232,18 @@ function setupStoryCardInteractions() {
           
           newCard.appendChild(deleteButton);
         }
+      } else {
+        // For guests: disable clicking and add visual indicator
+        newCard.classList.add('disabled-story');
+        newCard.style.opacity = '0.6';
+        newCard.style.pointerEvents = 'none';
+        newCard.style.cursor = 'not-allowed';
       }
     }
   });
 }
+
+
 
 /**
  * Generate avatar URL
