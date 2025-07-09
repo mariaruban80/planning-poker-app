@@ -105,12 +105,12 @@ window.initializeSocketWithName = function(roomId, name) {
   addNewLayoutStyles();
   
   // Setup heartbeat to prevent idle timeouts
-  setupHeartbeat();
+//  setupHeartbeat();
 };
 
 /**
  * Set up heartbeat mechanism to prevent connection timeouts
- */
+ 
 function setupHeartbeat() {
   // Clear any existing heartbeat interval
   if (heartbeatInterval) {
@@ -141,7 +141,7 @@ function setupHeartbeat() {
   window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
   });
-}
+}*/
 
 /**
  * Load deleted story IDs from sessionStorage
@@ -173,21 +173,75 @@ function mergeVote(storyId, userName, vote) {
   window.currentVotesPerStory = votesPerStory;
 }
 
+function clearAllVoteVisuals() {
+  const badges = document.querySelectorAll('.vote-badge');
+  badges.forEach(badge => {
+    badge.textContent = '';
+    badge.removeAttribute('title');
+    badge.innerHTML = '';
+  });
 
-function refreshVoteDisplay() {
-  // Clear existing vote visuals, e.g. clear vote counts, badges, etc.
-  clearAllVoteVisuals();
-
-  // Loop over all stories and their votes
-  for (const [storyId, votes] of Object.entries(window.currentVotesPerStory || {})) {
-    for (const [userId, vote] of Object.entries(votes)) {
-      // Update UI for each user vote on each story
-      updateVoteVisuals(userId, vote, storyId);
-          
+  const voteSpaces = document.querySelectorAll('.vote-card-space');
+  voteSpaces.forEach(space => {
+    space.classList.remove('has-vote');
+  });
+  
+  // Also clear the "has-voted" class from user avatars
+  const avatarContainers = document.querySelectorAll('.avatar-container');
+  avatarContainers.forEach(container => {
+    container.classList.remove('has-voted');
+    const avatar = container.querySelector('.avatar-circle');
+    if (avatar) {
+      avatar.style.backgroundColor = ''; // Reset background color
     }
-    updateVoteBadges(storyId, votes);
+  });
+}
+function refreshVoteDisplay() {
+  try {
+    // Clear all vote visuals first
+    clearAllVoteVisuals();
+
+    const currentStoryId = getCurrentStoryId();
+    if (!currentStoryId) return;
+
+    const currentVotes = window.currentVotesPerStory?.[currentStoryId] || {};
+
+    // Track processed usernames to avoid duplicates
+    const processedUsernames = new Set();
+
+    // Get all currently active users with their socket IDs
+    const activeUsers = new Map();
+    document.querySelectorAll('.avatar-container').forEach(container => {
+      const userId = container.getAttribute('data-user-id');
+      const userName = container.querySelector('.user-name')?.textContent;
+      if (userId && userName) {
+        activeUsers.set(userName, userId);
+      }
+    });
+
+    // Build a mapping of username to latest vote
+    const userVotes = {};
+    for (const [socketId, vote] of Object.entries(currentVotes)) {
+      const name = userMap?.[socketId] || socketId;
+      userVotes[name] = { socketId, vote };
+    }
+
+    // Apply votes to UI
+    for (const [username, data] of Object.entries(userVotes)) {
+      if (processedUsernames.has(username)) continue;
+      processedUsernames.add(username);
+
+      const socketIdToUse = activeUsers.get(username) || data.socketId;
+      updateVoteVisuals(socketIdToUse, data.vote, true);
+    }
+
+  } catch (error) {
+    console.error('[VOTE] Error in refreshVoteDisplay:', error);
   }
 }
+
+
+
 
 function updateVoteBadges(storyId, votes) {
   // Count how many unique users have voted for this story
@@ -234,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
   }
   appendRoomIdToURL(roomId);
-  
+  //  window.history.replaceState({}, document.title, window.location.pathname);
   // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
   
@@ -520,14 +574,20 @@ function setupGuestModeRestrictions() {
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
-  
-  if (roomId) {
-    return roomId;
+  const isHost = urlParams.get('host') === 'true';
+
+  // ✅ Store host status in sessionStorage
+  if (isHost) {
+    sessionStorage.setItem('isHost', 'true');
   } else {
-    // If no roomId in URL, generate a new one (fallback behavior)
-    return 'room-' + Math.floor(Math.random() * 10000);
+    sessionStorage.setItem('isHost', 'false');
   }
+
+  // Fallback: generate a room if not present
+  return roomId || 'room-' + Math.floor(Math.random() * 10000);
 }
+
+
 
 /**
  * Append room ID to URL if not already present
@@ -559,7 +619,7 @@ function initializeApp(roomId) {
   }
 
   // Setup heartbeat mechanism to prevent timeouts
-  setupHeartbeat();
+//  setupHeartbeat();
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     const name = userName || userId;
@@ -734,55 +794,42 @@ console.log('[RESTORE] Skipped manual session restoration — server handles vot
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
   
-  socket.on('storySelected', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-    hasReceivedStorySelection = true;
-
-    // Fallback: get storyId from index if missing
-    if (!storyId && typeof storyIndex === 'number') {
-      const storyCards = document.querySelectorAll('.story-card');
-      const target = storyCards[storyIndex];
-      if (target) {
-        storyId = target.id;
-        console.log('[SOCKET] Fallback resolved storyId from index:', storyId);
+// Improve the storySelected event handler
+socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+  // If storyId is provided directly, use it
+  if (storyId) {
+    // Select the story
+    selectStory(storyIndex, false);
+    return;
+  }
+  
+  // If no storyId was provided, try to resolve it from the index
+  if (typeof storyIndex === 'number') {
+    // Try to find the story card by index
+    const storyCards = document.querySelectorAll('.story-card');
+    if (storyIndex >= 0 && storyIndex < storyCards.length) {
+      const targetCard = storyCards[storyIndex];
+      if (targetCard && targetCard.id) {
+        console.log(`[SOCKET] Resolved storyId from index ${storyIndex}: ${targetCard.id}`);
+        selectStory(storyIndex, false);
+        return;
       }
     }
-
-    if (!storyId) {
-      console.warn(`[storySelected] Could not resolve storyId`);
+    
+    // If we still can't find the story, try one more approach:
+    // Find any story card with the matching data-index attribute
+    const indexCard = document.querySelector(`.story-card[data-index="${storyIndex}"]`);
+    if (indexCard && indexCard.id) {
+      console.log(`[SOCKET] Found story card using data-index=${storyIndex}: ${indexCard.id}`);
+      selectStory(storyIndex, false);
       return;
     }
-
-    selectStory(storyIndex, false);
-    
-    // For guests, ensure planning cards are visible when changing stories
-    const planningCardsSection = document.querySelector('.planning-cards-section');
-    if (planningCardsSection) {
-      planningCardsSection.classList.remove('hidden-until-init');
-      planningCardsSection.style.display = 'block';
-    }
-    
-    // Hide all vote statistics containers when changing stories
-    const allStatsContainers = document.querySelectorAll('.vote-statistics-container');
-    allStatsContainers.forEach(container => {
-      container.style.display = 'none';
-    });
-    
-    // After story selection, request votes and check if they're already revealed
-    const currentStoryId = getCurrentStoryId();
-    if (currentStoryId && socket && socket.connected && !deletedStoryIds.has(currentStoryId)) {
-      setTimeout(() => {
-        socket.emit('requestStoryVotes', { storyId: currentStoryId });
-        
-        // If votes are already revealed for this story, show them
-        if (votesRevealed[currentStoryId] && votesPerStory[currentStoryId]) {
-          setTimeout(() => {
-            handleVotesRevealed(currentStoryId, votesPerStory[currentStoryId]);
-          }, 200);
-        }
-      }, 100);
-    }
-  });
+  }
+  
+  console.warn(`[SOCKET] Could not resolve story for index ${storyIndex}`);
+});
   
   // Add reconnection handlers for socket
   if (socket) {
@@ -1494,49 +1541,91 @@ function addVoteStatisticsStyles() {
  * @param {number} storyId - ID of the story
  * @param {Object} votes - Vote data
  */
+
 function handleVotesRevealed(storyId, votes) {
- 
   if (!votes || typeof votes !== 'object') return;
-   // 🧩 Ensure style block is added for vote statistics
+  
+  // Ensure style block is added for vote statistics
   if (typeof addFixedVoteStatisticsStyles === 'function') {
     addFixedVoteStatisticsStyles();
   }
 
+  // First, apply the votes to the UI
   applyVotesToUI(votes, false);
 
-  const uniqueVotes = new Map();
+  // CRITICAL PART: Create a username → vote map that completely ignores socket IDs
   const userMap = window.userMap || {};
-  for (const [socketId, vote] of Object.entries(votes)) {
+  const usernameToVoteMap = new Map();
+
+  // -----------------------------------------------------
+  // FIRST STEP: Build a complete mapping of user → votes
+  // -----------------------------------------------------
+  // For each vote in the input, map it to a username
+  Object.entries(votes).forEach(([socketId, vote]) => {
     const userName = userMap[socketId] || socketId;
-    if (!uniqueVotes.has(userName)) {
-      uniqueVotes.set(userName, vote);
+    
+    // Store this vote for this username
+    if (!usernameToVoteMap.has(userName)) {
+      usernameToVoteMap.set(userName, { vote, socketIds: [socketId] });
+    } else {
+      // User already has a vote registered, record this socket ID
+      usernameToVoteMap.get(userName).socketIds.push(socketId);
     }
+  });
+
+  // -----------------------------------------------------
+  // SECOND STEP: Log the deduplication for debugging
+  // -----------------------------------------------------
+  let duplicateVotesFound = false;
+  usernameToVoteMap.forEach((data, userName) => {
+    if (data.socketIds.length > 1) {
+      duplicateVotesFound = true;
+      console.log(`[DEDUP] User ${userName} has ${data.socketIds.length} socket IDs with votes`);
+    }
+  });
+
+  if (duplicateVotesFound) {
+    console.log('[DEDUP] Found duplicate votes! Original count:', Object.keys(votes).length, 
+      'Deduplicated count:', usernameToVoteMap.size);
   }
 
-  const voteValues = Array.from(uniqueVotes.values());
+  // -----------------------------------------------------
+  // THIRD STEP: Extract ONLY unique votes (one per user)
+  // -----------------------------------------------------
+  const uniqueVoteValues = Array.from(usernameToVoteMap.values()).map(data => data.vote);
 
+  // -----------------------------------------------------
+  // FOURTH STEP: Calculate statistics
+  // -----------------------------------------------------
+  // Parse numeric values for average calculation
   function parseNumericVote(vote) {
-    if (typeof vote !== 'string') return NaN;
+    if (typeof vote !== 'string' && typeof vote !== 'number') return NaN;
     if (vote === '½') return 0.5;
     if (vote === '?' || vote === '☕' || vote === '∞') return NaN;
 
-    const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
-    if (match) return parseFloat(match[1]);
+    // Handle T-shirt sizes with numbers in parentheses
+    if (typeof vote === 'string') {
+      const match = vote.match(/\((\d+(?:\.\d+)?)\)$/);
+      if (match) return parseFloat(match[1]);
+    }
 
     const parsed = parseFloat(vote);
     return isNaN(parsed) ? NaN : parsed;
   }
 
-  const numericValues = voteValues.map(parseNumericVote).filter(v => !isNaN(v));
+  const numericValues = uniqueVoteValues.map(parseNumericVote).filter(v => !isNaN(v));
 
-  let mostCommonVote = voteValues.length > 0 ? voteValues[0] : '0';
+  // Default values
+  let mostCommonVote = uniqueVoteValues.length > 0 ? uniqueVoteValues[0] : '0';
   let averageValue = null;
 
-  if (voteValues.length > 0) {
+  // Calculate statistics if we have votes
+  if (uniqueVoteValues.length > 0) {
+    // Find most common vote
     const frequency = {};
     let maxFreq = 0;
 
-    voteValues.forEach(vote => {
+    uniqueVoteValues.forEach(vote => {
       frequency[vote] = (frequency[vote] || 0) + 1;
       if (frequency[vote] > maxFreq) {
         maxFreq = frequency[vote];
@@ -1544,23 +1633,37 @@ function handleVotesRevealed(storyId, votes) {
       }
     });
 
+    // Calculate average if we have numeric values
     if (numericValues.length > 0) {
       averageValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
       averageValue = Math.round(averageValue * 10) / 10;
     }
   }
 
+  // Log final statistics data
+  console.log(`[VOTES] Showing stats for ${usernameToVoteMap.size} unique users (${Object.keys(votes).length} total votes)`);
+  console.log(`[VOTES] Most common: ${mostCommonVote}, Average: ${averageValue}`);
+
+  // -----------------------------------------------------
+  // FIFTH STEP: Create statistics UI
+  // -----------------------------------------------------
+  // Remove any existing stats containers for this story
   const existingStatsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
   existingStatsContainers.forEach(el => el.remove());
 
+  // Create the stats container
   const statsContainer = document.createElement('div');
   statsContainer.className = 'vote-statistics-container';
   statsContainer.setAttribute('data-story-id', storyId);
+  
+  // Use the deduplicated count for the UI display - this is critical!
+  const voteCount = usernameToVoteMap.size;
+  
   statsContainer.innerHTML = `
     <div class="fixed-vote-display">
       <div class="fixed-vote-card">
         ${mostCommonVote}
-        <div class="fixed-vote-count">${voteValues.length} Vote${voteValues.length !== 1 ? 's' : ''}</div>
+        <div class="fixed-vote-count">${voteCount} Vote${voteCount !== 1 ? 's' : ''}</div>
       </div>
       <div class="fixed-vote-stats">
         ${averageValue !== null ? `
@@ -1578,6 +1681,7 @@ function handleVotesRevealed(storyId, votes) {
     </div>
   `;
 
+  // Insert the stats container into the DOM
   const planningCardsSection = document.querySelector('.planning-cards-section');
   const currentStoryCard = document.querySelector('.story-card.selected');
 
@@ -1593,6 +1697,7 @@ function handleVotesRevealed(storyId, votes) {
 
   statsContainer.style.display = 'block';
 }
+
 
 /**
  * Setup Add Ticket button
@@ -2684,8 +2789,10 @@ function createVoteCardSpace(user, isCurrentUser) {
  */
 function updateVoteVisuals(userId, vote, hasVoted = false) {
   console.log(`[DEBUG] updateVoteVisuals: userId=${userId}, vote=${vote}, hasVoted=${hasVoted}`);
-
+  
   const storyId = getCurrentStoryId();
+  
+  // Skip for deleted stories or when no story is selected
   if (!storyId || deletedStoryIds.has(storyId)) {
     console.log('[VOTE] Not updating vote visuals for deleted story');
     return;
@@ -2694,49 +2801,85 @@ function updateVoteVisuals(userId, vote, hasVoted = false) {
   const isRevealed = votesRevealed[storyId] === true;
   const displayVote = isRevealed ? vote : '👍';
 
-  console.log(`[DEBUG] Story ${storyId} revealed state: ${isRevealed}`);
+  console.log(`[DEBUG] Story ${storyId} revealed state:`, isRevealed);
   console.log(`[DEBUG] Will display: ${displayVote}`);
 
-  // Get display name from userMap or fallback to userId
-  const displayName = window.userMap?.[userId] || userId;
-
-  const containers = document.querySelectorAll('.avatar-container');
-
-  containers.forEach(container => {
-    const nameEl = container.querySelector('.user-name');
-    const voteSpace = container.querySelector('.vote-card-space');
-    const voteBadge = container.querySelector('.vote-badge');
-
-    const name = nameEl?.textContent?.trim();
-    if (name !== displayName) return;
-
-    // Apply visual update
-    if (voteSpace) {
-      if (hasVoted) {
-        voteSpace.classList.add('has-vote');
-      } else {
-        voteSpace.classList.remove('has-vote');
+  // Multiple selector attempts for better reliability
+  // Try direct user ID first
+  let voteSpace = document.querySelector(`#vote-space-${userId}`);
+  let sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
+  let avatarContainer = document.querySelector(`#user-circle-${userId}`);
+  
+  // If not found by socket ID, try username lookup
+  if (!voteSpace || !sidebarBadge) {
+    const userName = window.userMap?.[userId] || userId;
+    
+    // Try to find elements by username-based attributes
+    const userElements = document.querySelectorAll(`.user-name`);
+    userElements.forEach(el => {
+      if (el.textContent === userName) {
+        // Found element with matching username
+        const container = el.closest('.avatar-container');
+        if (container) {
+          avatarContainer = container;
+          const userId = container.getAttribute('data-user-id');
+          if (userId) {
+            voteSpace = document.querySelector(`#vote-space-${userId}`);
+            sidebarBadge = document.querySelector(`#user-${userId} .vote-badge`);
+          }
+        }
       }
-    }
+    });
+  }
 
+  // Update sidebar badge if found
+  if (sidebarBadge) {
+    if (hasVoted) {
+      sidebarBadge.textContent = displayVote;
+      sidebarBadge.style.color = '#673ab7';
+      sidebarBadge.style.opacity = '1';
+    } else {
+      sidebarBadge.textContent = '';
+    }
+  } else {
+    console.log(`[DEBUG] Could not find sidebar badge for ${userId}`);
+  }
+
+  // Update vote card space if found
+  if (voteSpace) {
+    const voteBadge = voteSpace.querySelector('.vote-badge');
     if (voteBadge) {
       if (hasVoted) {
         voteBadge.textContent = displayVote;
         voteBadge.style.color = '#673ab7';
         voteBadge.style.opacity = '1';
-        console.log(`[DEBUG] Updated vote badge for "${name}" to "${displayVote}"`);
       } else {
         voteBadge.textContent = '';
       }
     }
 
-    // Green highlight avatar circle
-    const avatarCircle = container.querySelector('.avatar-circle');
-    if (hasVoted && avatarCircle) {
-      avatarCircle.style.backgroundColor = '#c1e1c1';
+    if (hasVoted) {
+      voteSpace.classList.add('has-vote');
+    } else {
+      voteSpace.classList.remove('has-vote');
     }
-  });
+  } else {
+    console.log(`[DEBUG] Could not find vote space for ${userId}`);
+  }
+
+  // Update avatar styling
+  if (hasVoted && avatarContainer) {
+    avatarContainer.classList.add('has-voted');
+    const avatar = avatarContainer.querySelector('.avatar-circle');
+    if (avatar) {
+      avatar.style.backgroundColor = '#c1e1c1'; // Light green
+    }
+  } else if (!avatarContainer) {
+    console.log(`[DEBUG] Could not find avatar container for ${userId}`);
+  }
 }
+
+
 
 
 
