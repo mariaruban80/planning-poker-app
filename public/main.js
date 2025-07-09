@@ -70,7 +70,37 @@ window.addTicketFromModal = function(ticketData) {
   // Store in manually added tickets
   manuallyAddedTickets.push(ticketData);
 };
-
+/**
+ * Handle updating a ticket from the modal
+ * @param {Object} ticketData - Updated ticket data {id, text}
+ */
+window.updateTicketFromModal = function(ticketData) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  console.log('[EDIT] Updating ticket:', ticketData);
+  
+  // Update the DOM
+  const storyCard = document.getElementById(ticketData.id);
+  if (storyCard) {
+    const storyTitle = storyCard.querySelector('.story-title');
+    if (storyTitle) {
+      storyTitle.textContent = ticketData.text;
+    }
+  }
+  
+  // Emit to server for synchronization
+  if (socket) {
+    socket.emit('updateTicket', ticketData);
+  }
+  
+  // Update local tickets array if it exists
+  if (typeof manuallyAddedTickets !== 'undefined') {
+    const ticketIndex = manuallyAddedTickets.findIndex(t => t.id === ticketData.id);
+    if (ticketIndex !== -1) {
+      manuallyAddedTickets[ticketIndex] = ticketData;
+    }
+  }
+};
 /**
  * Initialize socket with a specific name (used when joining via invite)
  * @param {string} roomId - Room ID to join 
@@ -2034,8 +2064,25 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
   const isHost = sessionStorage.getItem('isHost') === 'true';
   console.log(`[ADD] Adding ticket for ${isHost ? 'host' : 'guest'} user`);
   
-  // Add delete button for hosts only
+  // Add edit and delete buttons for hosts only
   if (isHost) {
+    // Create edit button
+    const editButton = document.createElement('div');
+    editButton.className = 'story-edit-btn';
+    editButton.innerHTML = '✏️'; // pencil icon
+    editButton.title = 'Edit story';
+    
+    // Add click handler for edit button
+    editButton.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent story selection when clicking edit
+      if (window.showEditTicketModal) {
+        window.showEditTicketModal(ticketData.id, ticketData.text);
+      }
+    });
+    
+    storyCard.appendChild(editButton);
+    
+    // Create delete button
     const deleteButton = document.createElement('div');
     deleteButton.className = 'story-delete-btn';
     deleteButton.innerHTML = '🗑'; // dustbin symbol
@@ -3210,39 +3257,52 @@ function setupStoryNavigation() {
  * Set up story card interactions based on user role
  */
 function setupStoryCardInteractions() {
-  // Check if user is a host (use current sessionStorage value)
   const isHost = sessionStorage.getItem('isHost') === 'true';
   console.log(`[INTERACTIONS] Setting up story card interactions for ${isHost ? 'host' : 'guest'}`);
   
-  // Select all story cards
   const storyCards = document.querySelectorAll('.story-card');
   
   storyCards.forEach(card => {
-    // Skip deleted stories
-    if (deletedStoryIds.has(card.id)) {
-      return;
-    }
+    if (deletedStoryIds.has(card.id)) return;
     
-    // Remove existing handlers by cloning and replacing
     const newCard = card.cloneNode(true);
     if (card.parentNode) {
       card.parentNode.replaceChild(newCard, card);
     
       if (isHost) {
-        // For hosts: enable normal selection behavior
+        // Enable for hosts
         newCard.classList.remove('disabled-story');
         newCard.style.opacity = '1';
         newCard.style.pointerEvents = 'auto';
         newCard.style.cursor = 'pointer';
         
-        // Add fresh click event listener
+        // Add click event listener
         newCard.addEventListener('click', () => {
           const index = parseInt(newCard.dataset.index || 0);
           console.log(`[INTERACTIONS] Host selected story at index ${index}`);
           selectStory(index);
         });
         
-        // Re-add delete button if needed and doesn't exist
+        // Re-add edit button if needed
+        if (!newCard.querySelector('.story-edit-btn')) {
+          const editButton = document.createElement('div');
+          editButton.className = 'story-edit-btn';
+          editButton.innerHTML = '✏️';
+          editButton.title = 'Edit story';
+          
+          editButton.onclick = function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            const storyTitle = newCard.querySelector('.story-title');
+            if (storyTitle && window.showEditTicketModal) {
+              window.showEditTicketModal(newCard.id, storyTitle.textContent);
+            }
+          };
+          
+          newCard.appendChild(editButton);
+        }
+        
+        // Re-add delete button if needed
         if (!newCard.querySelector('.story-delete-btn')) {
           const deleteButton = document.createElement('div');
           deleteButton.className = 'story-delete-btn';
@@ -3258,7 +3318,7 @@ function setupStoryCardInteractions() {
           newCard.appendChild(deleteButton);
         }
       } else {
-        // For guests: disable clicking and add visual indicator
+        // Disable for guests
         newCard.classList.add('disabled-story');
         newCard.style.opacity = '0.6';
         newCard.style.pointerEvents = 'none';
