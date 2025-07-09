@@ -2006,14 +2006,11 @@ document.addEventListener('DOMContentLoaded', function() {
 // Expose function for main.js
 window.showAddTicketModal = showAddTicketModal;
     function isGuestUser() {
-     // Check if URL contains 'roomId' parameter but not 'host=true'
-      const urlParams = new URLSearchParams(window.location.search);
-      
-      // Consider user a guest if:
-      // 1. There's no 'host' parameter, or
-      // 2. The 'host' parameter is anything other than 'true'
-      return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
+      return sessionStorage.getItem('isHost') !== 'true';
     }
+     function isCurrentUserHost() {
+  return sessionStorage.getItem('isHost') === 'true';
+}
 
     function setupGuestModeOnLoad() {
       if (isGuestUser()) {
@@ -2672,24 +2669,15 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     <script>
   // Expose modal functions to window scope for main.js to use
   window.showInviteModalCustom = function() {
-    // First hide any existing modals from the original app
-    if (typeof hideAllOriginalModals === 'function') {
-      hideAllOriginalModals();
-    }
-    
-    // Create a guest URL
-    const currentUrl = new URL(window.location.href);
-    const params = new URLSearchParams(currentUrl.search);
-    const roomId = params.get('roomId');
-    
-    // Create clean guest URL (without host parameter)
-    const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
-    
-    // Set the link value
-    document.getElementById('inviteLinkCustom').value = guestUrl;
-    
-    // Show our custom modal
-    document.getElementById('inviteModalCustom').style.display = 'flex';
+  const currentUrl = new URL(window.location.href);
+  const params = new URLSearchParams(currentUrl.search);
+  const roomId = params.get('roomId');
+  
+  // Create clean guest URL (no host parameter at all)
+  const guestUrl = `${currentUrl.origin}${currentUrl.pathname}?roomId=${roomId}`;
+  
+  document.getElementById('inviteLinkCustom').value = guestUrl;
+  document.getElementById('inviteModalCustom').style.display = 'flex';
   };
   
   window.hideInviteModalCustom = function() {
