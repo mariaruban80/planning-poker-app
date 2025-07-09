@@ -896,6 +896,33 @@ export function emitAddTicket(ticketData) {
     }
   }
 }
+/**
+ * Update a ticket and sync with other users
+ * @param {Object} ticketData - Updated ticket data {id, text}
+ */
+export function emitUpdateTicket(ticketData) {
+  if (socket) {
+    // Check if this ticket is in our deleted list
+    if (lastKnownRoomState.deletedStoryIds && 
+        lastKnownRoomState.deletedStoryIds.includes(ticketData.id)) {
+      console.log(`[SOCKET] Cannot update deleted ticket: ${ticketData.id}`);
+      return;
+    }
+    
+    console.log('[SOCKET] Updating ticket:', ticketData);
+    socket.emit('updateTicket', ticketData);
+    
+    // Update local state tracking - ensure initialization
+    if (!lastKnownRoomState.tickets) lastKnownRoomState.tickets = [];
+    
+    // Find and update the ticket in local state
+    const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
+    if (existingIndex !== -1) {
+      lastKnownRoomState.tickets[existingIndex] = ticketData;
+      console.log('[SOCKET] Updated ticket in local state:', ticketData);
+    }
+  }
+}
 
 /**
  * Force reconnection if disconnected
@@ -1019,16 +1046,6 @@ export function requestVotesByUsername() {
   if (socket && socket.connected && userName) {
     console.log(`[SOCKET] Requesting votes for username: ${userName}`);
     socket.emit('requestVotesByUsername', { userName });
-  }
-}
-/**
- * Update a ticket and sync with other users
- * @param {Object} ticketData - Updated ticket data {id, text}
- */
-export function emitUpdateTicket(ticketData) {
-  if (socket) {
-    console.log('[SOCKET] Updating ticket:', ticketData);
-    socket.emit('updateTicket', ticketData);
   }
 }
 
