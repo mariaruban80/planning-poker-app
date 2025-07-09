@@ -219,7 +219,23 @@ io.on('connection', (socket) => {
     }
   });
 
+  
   console.log(`[SERVER] New client connected: ${socket.id}`);
+socket.on('editStory', ({ storyId, newText }) => {
+  const roomId = socket.data.roomId;
+  if (!roomId || !rooms[roomId] || !storyId || !newText) return;
+
+  const story = rooms[roomId].tickets.find(t => t.id === storyId);
+  if (story) {
+    story.text = newText;
+
+    // Broadcast the updated story to all users in the room
+    io.to(roomId).emit('storyEdited', { storyId, newText });
+
+    console.log(`[SERVER] Story edited in room ${roomId}: ${storyId} => "${newText}"`);
+  }
+});
+
   
   // New handler for username-based vote restoration
   socket.on('restoreUserVoteByUsername', ({ storyId, vote, userName }) => {
