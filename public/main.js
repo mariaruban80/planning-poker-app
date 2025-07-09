@@ -3256,31 +3256,30 @@ function setupStoryNavigation() {
 /**
  * Set up story card interactions based on user role
  */
+
 function setupStoryCardInteractions() {
   const storyList = document.getElementById('storyList');
   if (!storyList) return;
 
-  // Iterate over all current story cards
   const storyCards = storyList.querySelectorAll('.story-card');
   storyCards.forEach(card => {
     const storyId = card.id;
 
-    // Only allow editing/deleting for host users
     if (isCurrentUserHost()) {
-      // Add edit (pencil) button
+      // === EDIT BUTTON ===
       const editButton = document.createElement('div');
       editButton.className = 'story-edit-btn';
       editButton.innerHTML = '✏️';
       editButton.title = 'Edit story';
 
-      editButton.onclick = function(e) {
+      editButton.onclick = function (e) {
         e.stopPropagation();
         e.preventDefault();
 
         const titleDiv = card.querySelector('.story-title');
         if (!titleDiv) return;
 
-        // Replace title with an input field
+        // Create input for editing
         const input = document.createElement('input');
         input.type = 'text';
         input.value = titleDiv.textContent;
@@ -3294,15 +3293,12 @@ function setupStoryCardInteractions() {
             titleDiv.textContent = newText;
             input.replaceWith(titleDiv);
 
-            // ✅ Emit update to server
-            if (socket && socket.connected) {
-              socket.emit('editStory', {
-                storyId: card.id,
-                newText: newText
-              });
+            // ✅ Use existing infrastructure to sync
+            if (typeof emitUpdateTicket === 'function') {
+              emitUpdateTicket({ id: card.id, text: newText });
             }
           } else {
-            input.replaceWith(titleDiv);
+            input.replaceWith(titleDiv); // Restore original
           }
         };
       };
@@ -3310,7 +3306,7 @@ function setupStoryCardInteractions() {
       card.appendChild(editButton);
     }
 
-    // Enable selecting the story card
+    // === SELECT STORY ===
     card.addEventListener('click', () => {
       const index = [...storyList.children].indexOf(card);
       if (!deletedStoryIds.has(card.id)) {
