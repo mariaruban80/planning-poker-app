@@ -2092,27 +2092,7 @@ function setupStoryCardObserver() {
   });
 }
 
-/**
- * Apply guest restrictions to all story cards
- * This ensures manually added cards are also properly restricted
- */
-function applyGuestRestrictions() {
-  if (!isGuestUser()) return; // Only apply to guests
-  
-  // Select all story cards
-  const storyCards = document.querySelectorAll('.story-card');
-  
-  storyCards.forEach(card => {
-    // Make sure the card has the disabled class
-    card.classList.add('disabled-story');
-    
-    // Remove all click events by cloning and replacing
-    const newCard = card.cloneNode(true);
-    if (card.parentNode) {
-      card.parentNode.replaceChild(newCard, card);
-    }
-  });
-}
+
 
 /**
  * Process multiple tickets at once (used when receiving all tickets from server)
