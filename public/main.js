@@ -622,8 +622,20 @@ function appendRoomIdToURL(roomId) {
  */
 function initializeApp(roomId) {
   // Check if user is the room creator
-  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
-  
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';   
+  if (isRoomCreator) {
+    console.log('[APP] Room creator detected - showing host UI immediately');
+    sessionStorage.setItem('isHost', 'true'); 
+    const currentUser = {
+      id: 'temp-id',
+      name: userName,
+      isOwner: true
+    };   
+    setTimeout(() => {
+      updateUserList([currentUser]);
+      enableHostControls();
+    }, 50);
+  }
   // Initialize socket with userName from sessionStorage and creator flag
   socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
   
