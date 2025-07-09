@@ -2120,14 +2120,15 @@ function processAllTickets(tickets) {
       selectStory(0, false);
     } else {
       console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
-      // 🛠️ Add this line to re-highlight the story in UI
       selectStory(currentStoryIndex, false);
     }
   }
 
-  if (isGuestUser()) {
-    applyGuestRestrictions();
-  }
+  // REMOVE THIS LINE - DON'T AUTOMATICALLY APPLY GUEST RESTRICTIONS
+  // The server will tell us the correct role via ownershipStatus events
+  // if (isGuestUser()) {
+  //   applyGuestRestrictions();
+  // }
 }
 
 // Get storyId from selected card
@@ -3428,13 +3429,13 @@ function handleSocketMessage(message) {
       break;
 
     case 'allTickets':
-      // Handle receiving all tickets (used when joining a room)
+     // Handle receiving all tickets (used when joining a room)
       if (Array.isArray(message.tickets)) {
         // Filter out any deleted tickets
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
         processAllTickets(filteredTickets);
-        applyGuestRestrictions();
+  
       }
       break;
       
