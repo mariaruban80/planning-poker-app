@@ -702,6 +702,36 @@ socket.on('claimOwnership', ({ roomId, userName }) => {
   }
 });
 
+  // Handle ticket updates
+socket.on('updateTicket', (ticketData) => {
+  const roomId = socket.data.roomId;
+  if (roomId && rooms[roomId] && ticketData) {
+    console.log(`[SERVER] Ticket updated in room ${roomId}:`, ticketData.id);
+    
+    // Update room activity timestamp
+    rooms[roomId].lastActivity = Date.now();
+    
+    // Don't update deleted tickets
+    if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(ticketData.id)) {
+      console.log(`[SERVER] Ignoring update for deleted ticket: ${ticketData.id}`);
+      return;
+    }
+    
+    // Update the ticket in the server's tickets array
+    if (rooms[roomId].tickets) {
+      const ticketIndex = rooms[roomId].tickets.findIndex(ticket => ticket.id === ticketData.id);
+      if (ticketIndex !== -1) {
+        rooms[roomId].tickets[ticketIndex] = ticketData;
+        console.log(`[SERVER] Updated ticket in server state: ${ticketData.id}`);
+      }
+    }
+    
+    // Broadcast the updated ticket to all OTHER clients in the room (not the sender)
+    socket.broadcast.to(roomId).emit('updateTicket', { ticketData });
+    
+    console.log(`[SERVER] Broadcasted ticket update to room ${roomId}`);
+  }
+});
   
   
   // Handle explicit vote restoration requests
