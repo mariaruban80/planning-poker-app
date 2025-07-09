@@ -161,7 +161,25 @@ socket.on('connect', () => {
         });
       }, 200);
     }
-  
+  socket.on('storyEdited', ({ storyId, newText }) => {
+  console.log('[SOCKET] Story edited:', storyId, newText);
+
+  // Update DOM title on the story card
+  const card = document.getElementById(storyId);
+  if (card) {
+    const title = card.querySelector('.story-title');
+    if (title) {
+      title.textContent = newText;
+    }
+  }
+
+  // Update local state if applicable
+  const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
+  if (ticket) {
+    ticket.text = newText;
+  }
+});
+
   
   // Listen for votes updates from server
   socket.on('votesUpdate', (votesData) => {
