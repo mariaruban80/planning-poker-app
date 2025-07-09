@@ -3542,7 +3542,29 @@ function handleSocketMessage(message) {
         }
       }
       break;
-
+    case 'updateTicket':
+    // Handle ticket update from another user
+    if (message.ticketData) {
+      console.log('[SOCKET] Ticket update received:', message.ticketData);
+      
+      // Update the DOM
+      const storyCard = document.getElementById(message.ticketData.id);
+      if (storyCard) {
+        const storyTitle = storyCard.querySelector('.story-title');
+        if (storyTitle) {
+          storyTitle.textContent = message.ticketData.text;
+        }
+      }
+      
+      // Update local arrays
+      if (typeof manuallyAddedTickets !== 'undefined') {
+        const ticketIndex = manuallyAddedTickets.findIndex(t => t.id === message.ticketData.id);
+        if (ticketIndex !== -1) {
+          manuallyAddedTickets[ticketIndex] = message.ticketData;
+        }
+      }
+    }
+    break;
     case 'allTickets':
      // Handle receiving all tickets (used when joining a room)
       if (Array.isArray(message.tickets)) {
