@@ -823,42 +823,42 @@
         }, 800);
       }, 1000);
     }
-    
-    function createRoom() {
-      const name = document.getElementById("createNameInput").value.trim();
-      const sessionName = document.getElementById("sessionNameInput").value.trim();
-      
-      if (!name) {
-        alert("Please enter your name.");
-        return;
-      }
-      
-      if (!sessionName) {
-        alert("Please enter a session name.");
-        return;
-      }
-      
-      // Get selected voting system
-      const selectedScale = document.querySelector('input[name="scale"]:checked').value;
-      // Check if members can manage session
-      const allowMemberManage = document.getElementById("allowManage").checked;
-      
-      // Generate room ID
-      const roomId = Math.random().toString(36).substring(2, 10); 
-      
-      // Store session data in sessionStorage
-      sessionStorage.setItem("userName", name);
-      sessionStorage.setItem("sessionName", sessionName);
-      sessionStorage.setItem("votingSystem", selectedScale);
-      sessionStorage.setItem("allowMemberManage", allowMemberManage);
-      sessionStorage.setItem("isHost", "true");
-      
-      // Navigate to the room with the generated ID
-     window.location.href = `/index.html?roomId=${roomId}&host=true`;
-    //  window.location.href = `/index.html?roomId=${roomId}`;
 
-      
-    }
+function createRoom() {
+  const name = document.getElementById("createNameInput").value.trim();
+  const sessionName = document.getElementById("sessionNameInput").value.trim();
+  
+  if (!name) {
+    alert("Please enter your name.");
+    return;
+  }
+  
+  if (!sessionName) {
+    alert("Please enter a session name.");
+    return;
+  }
+  
+  // Get selected voting system
+  const selectedScale = document.querySelector('input[name="scale"]:checked').value;
+  const allowMemberManage = document.getElementById("allowManage").checked;
+  
+  // Generate room ID
+  const roomId = Math.random().toString(36).substring(2, 10); 
+  
+  // Store session data in sessionStorage
+  sessionStorage.setItem("userName", name);
+  sessionStorage.setItem("sessionName", sessionName);
+  sessionStorage.setItem("votingSystem", selectedScale);
+  sessionStorage.setItem("allowMemberManage", allowMemberManage);
+  sessionStorage.setItem("isHost", "true"); // Keep this for initial detection
+  sessionStorage.setItem("isRoomCreator", "true"); // New flag for room creation
+  
+  // Navigate WITHOUT host parameter - URL will be clean
+  window.location.href = `/index.html?roomId=${roomId}`;
+}
+
+
+    
     
     function joinRoom() {
       const name = document.getElementById("joinNameInput").value.trim();
