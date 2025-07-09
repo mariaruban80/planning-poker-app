@@ -3337,6 +3337,11 @@ function handleSocketMessage(message) {
         applyGuestRestrictions();
       }
       break;
+
+     case 'ownershipStatus':
+      // Update UI based on ownership status
+      updateUIForOwnership(message.isOwner);
+      break;
       
     case 'votingSystemUpdate':
       console.log('[DEBUG] Got voting system update:', message.votingSystem);
