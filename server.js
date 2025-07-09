@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const app = express();
+const roomOwners = {};
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: '*' },
@@ -367,7 +368,11 @@ if (existingVote !== vote) {
   
   // Handle room joining with enhanced state management
 
-socket.on('joinRoom', ({ roomId, userName }) => {
+// Add this at the top of server.js with other global variables
+const roomOwners = {}; // roomId → { ownerId, ownerName, createdAt }
+
+// Updated joinRoom handler
+socket.on('joinRoom', ({ roomId, userName, isCreator }) => {
   if (!userName) return socket.emit('error', { message: 'Username is required' });
 
   socket.data.roomId = roomId;
@@ -394,6 +399,31 @@ socket.on('joinRoom', ({ roomId, userName }) => {
 
   // Update room activity timestamp
   rooms[roomId].lastActivity = Date.now();
+
+  // STEP 0: HANDLE ROOM OWNERSHIP
+  // Track room creator/owner
+  if (isCreator && !roomOwners[roomId]) {
+    roomOwners[roomId] = {
+      ownerId: socket.id,
+      ownerName: userName,
+      createdAt: Date.now()
+    };
+    console.log(`[SERVER] User ${userName} created and owns room ${roomId}`);
+  }
+
+  // Check if user is the owner (either by creation or by username match)
+  let isOwner = false;
+  if (roomOwners[roomId]) {
+    if (roomOwners[roomId].ownerName === userName) {
+      // Update owner's socket ID (for reconnections)
+      roomOwners[roomId].ownerId = socket.id;
+      isOwner = true;
+      console.log(`[SERVER] Owner ${userName} ${isCreator ? 'created' : 'reconnected to'} room ${roomId}`);
+    }
+  }
+
+  // Send ownership status to client immediately
+  socket.emit('ownershipStatus', { isOwner });
 
   // Track user name to socket ID mapping for vote persistence
   if (!userNameToIdMap[userName]) {
@@ -465,8 +495,12 @@ socket.on('joinRoom', ({ roomId, userName }) => {
   // This ensures only one entry per user
   rooms[roomId].users = rooms[roomId].users.filter(u => u.name !== userName);
   
-  // Add the current user
-  rooms[roomId].users.push({ id: socket.id, name: userName });
+  // Add the current user with ownership flag
+  rooms[roomId].users.push({ 
+    id: socket.id, 
+    name: userName, 
+    isOwner: isOwner 
+  });
   socket.join(roomId);
 
   // STEP 3: RESTORE USER VOTES FROM USERNAME-BASED STORAGE
@@ -526,12 +560,12 @@ socket.on('joinRoom', ({ roomId, userName }) => {
     tickets: activeTickets,
     votesPerStory: activeVotes,
     votesRevealed: revealedVotes,
-    deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds)
+    deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds),
+    isOwner: isOwner  // Include ownership status in sync
   });
 
   // Send voting system
   socket.emit('votingSystemUpdate', { votingSystem: roomVotingSystems[roomId] || 'fibonacci' });
-  
   
   // Final deduplication and update broadcast after all joins and restores
   const changed = cleanupRoomVotes(roomId);
@@ -540,7 +574,7 @@ socket.on('joinRoom', ({ roomId, userName }) => {
     io.to(roomId).emit('votesUpdate', rooms[roomId].votesPerStory);
   }
 
-// STEP 5: BROADCAST UPDATES TO ALL CLIENTS
+  // STEP 5: BROADCAST UPDATES TO ALL CLIENTS
   // Broadcast updated user list
   io.to(roomId).emit('userList', rooms[roomId].users);
   
@@ -643,7 +677,30 @@ socket.on('joinRoom', ({ roomId, userName }) => {
     }
   }, 2000);
 });
-  
+
+// Add handler for ownership claims (for reconnections)
+socket.on('claimOwnership', ({ roomId, userName }) => {
+  if (roomOwners[roomId]?.ownerName === userName) {
+    roomOwners[roomId].ownerId = socket.id;
+    socket.emit('ownershipStatus', { isOwner: true });
+    
+    // Update user in room to reflect ownership
+    const room = rooms[roomId];
+    if (room) {
+      const user = room.users.find(u => u.id === socket.id);
+      if (user) {
+        user.isOwner = true;
+      }
+      
+      // Broadcast updated user list
+      io.to(roomId).emit('userList', room.users);
+    }
+    
+    console.log(`[SERVER] Owner ${userName} reclaimed ownership of room ${roomId}`);
+  } else {
+    socket.emit('ownershipStatus', { isOwner: false });
+  }
+});
 
   
   
