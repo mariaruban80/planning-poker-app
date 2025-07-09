@@ -73,6 +73,11 @@ socket.on('reconnect', () => {
 socket.on('disconnect', (reason) => {
   console.warn('[SOCKET] Disconnected. Reason:', reason);
 });
+socket.on('updateTicket', ({ ticketData }) => {
+  console.log('[SOCKET] Ticket updated from another user:', ticketData);
+  handleMessage({ type: 'updateTicket', ticketData });
+});
+
 
 socket.on('connect_error', (error) => {
   console.error('[SOCKET] Connection error:', error);
