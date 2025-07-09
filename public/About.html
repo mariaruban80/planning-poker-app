@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Planning Poker | Agile Estimation Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #673ab7;
+      --primary-light: #e1d4f9;
+      --primary-dark: #5c33a4;
+      --primary-gradient: linear-gradient(135deg, #673ab7, #9c27b0);
+      --text: #2d2d2d;
+      --text-light: #5e5e5e;
+      --background: #ffffff;
+      --section-bg: #F8F9FE;
+      --card: #ffffff;
+      --card-hover: #f9f7fe;
+      --border: #e8e8e8;
+      --accent: #FF6B6B;
+      --success: #4CAF50;
+      --info: #2196F3;
+      --warning: #FF9800;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+      --border-radius-sm: 6px;
+      --border-radius-md: 10px;
+      --border-radius-lg: 16px;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+      background-color: var(--background);
+      overflow-x: hidden;
+    }
+    
+    h1, h2, h3, h4, h5 {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text);
+    }
+    
+    h1 {
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      margin-bottom: 1.5rem;
+    }
+    
+    h2 {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      margin: 3rem 0 2rem;
+    }
+    
+    h3 {
+      font-size: clamp(1.2rem, 3vw, 1.6rem);
+      margin: 1.5rem 0 1rem;
+      font-weight: 600;
+    }
+    
+    p {
+      margin-bottom: 1.5rem;
+      font-size: 1.05rem;
+      color: var(--text-light);
+      line-height: 1.7;
+    }
+    
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    
+    .section-title h2 {
+      display: inline-block;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .section-title h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      width: 80px;
+      height: 4px;
+      background: var(--primary-gradient);
+      transform: translateX(-50%);
+      border-radius: 2px;
+    }
+    
+    .section-title p {
+      max-width: 700px;
+      margin: 1rem auto;
+      color: var(--text-light);
+    }
+    
+    a {
+      text-decoration: none;
+      color: var(--primary);
+      transition: color 0.3s;
+    }
+    
+    a:hover {
+      color: var(--primary-dark);
+    }
+    
+    ul, ol {
+      margin-bottom: 1.5rem;
+      padding-left: 1.5rem;
+    }
+    
+    li {
+      margin-bottom: 0.5rem;
+    }
+    
+    button, .button {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-md);
+    }
+    
+    /* Header Styles */
+    header {
+      background-color: var(--background);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    
+    .logo img {
+      width: 36px;
+      height: auto;
+      box-shadow: none;
+    }
+    
+    .logo-text {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    nav a {
+      font-weight: 500;
+      color: var(--text);
+      padding: 0.5rem 0.2rem;
+      position: relative;
+    }
+    
+    nav a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary-gradient);
+      transition: width 0.3s;
+    }
+    
+    nav a:hover::after {
+      width: 100%;
+    }
+    
+    .mobile-nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    
+    /* Hero section */
+    .hero {
+      position: relative;
+      background-color: var(--section-bg);
+      padding: 4rem 2rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(103, 58, 183, 0.05) 0%, rgba(156, 39, 176, 0.05) 100%);
+      z-index: 0;
+    }
+    
+    .hero-content {
+      max-width: 800px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .hero h1 {
+      margin-bottom: 1.2rem;
+      color: var(--text);
+    }
+    
+    .hero p {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    /* CTA Buttons */
+    .cta-button {
+      display: inline-block;
+      padding: 0.9rem 2rem;
+      background-image: var(--primary-gradient);
+      color: white;
+      border-radius: 30px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 12px rgba(103, 58, 183, 0.3);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .cta-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(103, 58, 183, 0.4);
+      color: white;
+    }
+    
+    .cta-button-secondary {
+      display: inline-block;
+      padding: 0.9rem 2rem;
+      background-color: white;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      border-radius: 30px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-left: 1rem;
+      transition: background-color 0.3s, transform 0.3s;
+    }
+    
+    .cta-button-secondary:hover {
+      background-color: var(--primary-light);
+      transform: translateY(-3px);
+      color: var(--primary-dark);
+    }
+    
+    .cta-center {
+      text-align: center;
+      margin: 3rem 0;
+    }
+    
+    /* Main container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    /* Introduction section */
+    .introduction {
+      padding: 5rem 2rem;
+      text-align: center;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    /* Zigzag sections */
+    .zigzag-section {
+      padding: 5rem 2rem;
+    }
+    
+    .zigzag-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .zigzag-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8rem;
+      gap: 4rem;
+    }
+    
+    .zigzag-row:last-child {
+      margin-bottom: 3rem;
+    }
+    
+    .zigzag-row:nth-child(even) {
+      flex-direction: row-reverse;
+    }
+    
+    .zigzag-image {
+      flex: 1;
+      position: relative;
+      transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+      transition: transform 0.5s;
+    }
+    
+    .zigzag-image:hover {
+      transform: perspective(1000px) rotateY(-5deg) rotateX(5deg);
+    }
+    
+    .zigzag-image img {
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .zigzag-content {
+      flex: 1;
+    }
+    
+    .zigzag-content h3 {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+    }
+    
+    .zigzag-content h3::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background-image: var(--primary-gradient);
+      border-radius: 3px;
+    }
+    
+    .zigzag-content p {
+      margin-bottom: 1.5rem;
+    }
+    
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 2rem 0;
+    }
+    
+    .feature-list li {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+    
+    .feature-list li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: bold;
+    }
+    
+    /* Card scale section */
+    .card-scales {
+      padding: 4rem 2rem;
+      background-color: var(--section-bg);
+    }
+    
+    .scale-type-container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    
+    .scale-tabs {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .scale-tab {
+      padding: 0.8rem 1.5rem;
+      background-color: white;
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .scale-tab.active {
+      background-color: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    
+    .scale-content {
+      display: none;
+      padding: 2rem;
+      background-color: white;
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-md);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .scale-content.active {
+      display: block;
+    }
+    
+    .card-examples {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 2rem 0;
+    }
+    
+    .poker-card {
+      width: 60px;
+      height: 90px;
+      background-color: var(--primary-light);
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: var(--primary-dark);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .poker-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    /* Feature grid section */
+    .features-grid {
+      padding: 5rem 2rem;
+    }
+    
+    .feature-grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .feature-card {
+      padding: 2rem;
+      background-color: white;
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-md);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      background-image: var(--primary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      margin-bottom: 1.5rem;
+    }
+    
+    .feature-icon i {
+      font-size: 1.8rem;
+      color: white;
+    }
+    
+    /* FAQ Section */
+    .faq-section {
+      background-color: var(--section-bg);
+      padding: 5rem 2rem;
+    }
+    
+    .faq-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .faq-item {
+      background-color: var(--card);
+      margin-bottom: 1rem;
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    
+    .faq-question {
+      padding: 1.5rem;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+      transition: background-color 0.3s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .faq-question:hover {
+      background-color: var(--card-hover);
+    }
+    
+    .faq-question::after {
+      content: '+';
+      font-size: 1.5rem;
+      transition: transform 0.3s;
+    }
+    
+    .faq-question.active::after {
+      transform: rotate(45deg);
+    }
+    
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out, padding 0.4s ease;
+      padding: 0 1.5rem;
+    }
+    
+    .faq-question.active + .faq-answer {
+      max-height: 500px;
+      padding: 0 1.5rem 1.5rem;
+    }
+    
+    /* Testimonial section */
+    .testimonials {
+      padding: 5rem 2rem;
+    }
+    
+    .testimonial-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+    
+    .testimonial-card {
+      background-color: var(--card);
+      border-radius: var(--border-radius-md);
+      padding: 2rem;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      transition: transform 0.3s;
+    }
+    
+    .testimonial-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .testimonial-card::before {
+      content: '"';
+      font-size: 5rem;
+      color: var(--primary-light);
+      position: absolute;
+      top: -0.5rem;
+      left: 1rem;
+      font-family: serif;
+      z-index: 0;
+    }
+    
+    .testimonial-content {
+      position: relative;
+      z-index: 1;
+    }
+    
+    .testimonial-quote {
+      font-style: italic;
+      margin-bottom: 1.5rem;
+    }
+    
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+    }
+    
+    .testimonial-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin-right: 1rem;
+      background-color: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    
+    .testimonial-info {
+      flex: 1;
+    }
+    
+    .testimonial-name {
+      font-weight: 600;
+    }
+    
+    .testimonial-role {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+    
+    /* Final CTA Section */
+    .final-cta {
+      padding: 5rem 2rem;
+      background-color: var(--section-bg);
+      text-align: center;
+    }
+    
+    .final-cta h2 {
+      margin-bottom: 1.5rem;
+    }
+    
+    .final-cta p {
+      max-width: 700px;
+      margin: 0 auto 2rem;
+    }
+    
+    /* Footer */
+    footer {
+      background-color: var(--text);
+      color: white;
+      padding: 3rem 2rem;
+    }
+    
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+    }
+    
+    .footer-column h4 {
+      color: white;
+      margin-bottom: 1.5rem;
+      position: relative;
+      display: inline-block;
+    }
+    
+    .footer-column h4::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 40px;
+      height: 2px;
+      background-color: var(--primary);
+    }
+    
+    .footer-column ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .footer-column ul li {
+      margin-bottom: 0.8rem;
+    }
+    
+    .footer-column a {
+      color: rgba(255, 255, 255, 0.8);
+      transition: color 0.3s;
+    }
+    
+    .footer-column a:hover {
+      color: white;
+    }
+    
+    .copyright {
+      margin-top: 3rem;
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    /* Animation classes */
+    .animate-fade-in {
+      animation: fadeIn 1s forwards;
+    }
+    
+    .animate-slide-up {
+      animation: slideUp 0.8s forwards;
+    }
+    
+    .animate-slide-left {
+      animation: slideLeft 0.8s forwards;
+    }
+    
+    .animate-slide-right {
+      animation: slideRight 0.8s forwards;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideLeft {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    /* Responsive styles */
+    @media (max-width: 1024px) {
+      .zigzag-row {
+        gap: 2rem;
+      }
+      
+      .cta-button-secondary {
+        margin-left: 0;
+        margin-top: 1rem;
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .cta-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      header {
+        padding: 1rem;
+      }
+      
+      nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: var(--background);
+        flex-direction: column;
+        padding: 1rem 2rem;
+        box-shadow: var(--shadow-md);
+      }
+      
+      nav.active {
+        display: flex;
+      }
+      
+      .mobile-nav-toggle {
+        display: block;
+      }
+      
+      .zigzag-row {
+        flex-direction: column !important;
+        text-align: center;
+        margin-bottom: 4rem;
+      }
+      
+      .zigzag-content {
+        order: 2;
+      }
+      
+      .zigzag-image {
+        order: 1;
+        margin-bottom: 2rem;
+      }
+      
+      .zigzag-content h3::after {
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      
+      .feature-list li {
+        text-align: left;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .hero, .introduction, .zigzag-section, .features-grid,
+      .testimonials, .final-cta, .faq-section, .card-scales {
+        padding: 3rem 1rem;
+      }
+      
+      .scale-tab {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+      }
+      
+      .card-examples {
+        gap: 0.5rem;
+      }
+      
+      .poker-card {
+        width: 50px;
+        height: 75px;
+        font-size: 1rem;
+      }
+      
+      .feature-grid-container {
+        grid-template-columns: 1fr;
+      }
+      
+      footer {
+        padding: 2rem 1rem;
+      }
+      
+      .footer-container {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      
+      .footer-column h4::after {
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <header>
+    <div class="logo">
+
+      <img src="spade.png" alt="Planning Poker" />
+      <span class="logo-text">Planning Poker</span>
+
+    </div>
+    <nav id="mainNav">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="#card-types">Card Types</a>
+      <a href="#faq">FAQ</a>
+      <a href="#testimonials">Testimonials</a>
+    </nav>
+    <button class="mobile-nav-toggle" aria-label="Toggle navigation menu">☰</button>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <h1>Estimate Projects with Confidence Using Planning Poker</h1>
+      <p>A collaborative estimation tool for agile teams to make faster, more accurate estimations together—even when working remotely.</p>
+      <a href="main.html" class="cta-button">Start Your Session</a>
+      <a href="#how-it-works" class="cta-button-secondary">Learn More</a>
+    </div>
+  </section>
+
+  <section class="introduction">
+    <div class="container animate-fade-in">
+      <h2>What is Planning Poker?</h2>
+      <p>Planning Poker is a consensus-based estimation technique used by agile teams to estimate the complexity of user stories or tasks. It brings together multiple perspectives from your team members, creating more accurate estimates while fostering engaging discussions about requirements.</p>
+      <p>Our digital Planning Poker app brings this collaborative experience online, allowing distributed teams to estimate together in real-time—whether you're in the office or working remotely from anywhere in the world.</p>
+    </div>
+  </section>
+
+  <section class="zigzag-section" id="how-it-works">
+    <div class="section-title">
+      <h2>How Planning Poker Works</h2>
+      <p>Simple, intuitive, and effective—just like your sprint planning should be.</p>
+    </div>
+    <div class="zigzag-container">
+      <div class="zigzag-row animate-slide-right">
+        <div class="zigzag-content">
+          <h3>Create Your Session</h3>
+          <p>Start by creating a Planning Poker session in seconds. Choose your preferred voting scale, enter your name, and you're ready to go. As the host, you'll have full control over the session and can invite others to join.</p>
+          <ul class="feature-list">
+            <li>Multiple voting systems to choose from</li>
+            <li>Simple, no-signup session creation</li>
+            <li>Secure, unique session links</li>
+            <li>Optional settings for team customization</li>
+          </ul>
+        </div>
+        <div class="zigzag-image">
+          <img src="New session1.jpg" alt="Create a Planning Poker session">
+        </div>
+      </div>
+
+      <div class="zigzag-row animate-slide-left">
+        <div class="zigzag-content">
+          <h3>Invite Your Team</h3>
+          <p>Share the invitation link with your team members and they can join instantly with just their name. No accounts required. Everyone can see who's in the session in real-time.</p>
+          <ul class="feature-list">
+            <li>One-click shareable invitation links</li>
+            <li>No account creation required</li>
+            <li>Real-time participant list</li>
+            <li>Works on all browsers and devices</li>
+          </ul>
+        </div>
+        <div class="zigzag-image">
+
+          <img src="invite team members.jpg" alt="Invite team members">
+        </div>
+      </div>
+
+      <div class="zigzag-row animate-slide-right">
+        <div class="zigzag-content">
+          <h3>Add User Stories</h3>
+          <p>Import your user stories or tasks either one by one or all at once with our CSV import feature. Keep track of your entire sprint's estimation process in one place.</p>
+          <ul class="feature-list">
+            <li>Manual or CSV import options</li>
+            <li>Easy story management interface</li>
+            <li>Simple navigation between stories</li>
+            <li>Persistent story tracking</li>
+          </ul>
+        </div>
+        <div class="zigzag-image">
+          <img src="add user stories.jpg" alt="Add user stories">
+        </div>
+      </div>
+
+      <div class="zigzag-row animate-slide-left">
+        <div class="zigzag-content">
+          <h3>Vote Together</h3>
+          <p>Team members select estimation values from their card deck simultaneously. Votes remain hidden until all participants have voted, preventing bias while showing who has and hasn't voted yet.</p>
+          <ul class="feature-list">
+            <li>Anonymous voting prevents anchoring bias</li>
+            <li>Visual indicators of vote status</li>
+            <li>Draggable cards for intuitive interaction</li>
+            <li>Automatic vote tallying</li>
+          </ul>
+        </div>
+        <div class="zigzag-image">
+          <img src="vote on stories.jpg" alt="Team voting process">
+        </div>
+      </div>
+
+      <div class="zigzag-row animate-slide-right">
+        <div class="zigzag-content">
+          <h3>Reveal and Discuss</h3>
+          <p>Once everyone has voted, reveal all votes simultaneously. Immediately see voting patterns, averages, and levels of agreement. Discussing major differences in estimates helps uncover misaligned assumptions and leads to better understanding.</p>
+          <ul class="feature-list">
+            <li>Single-click vote reveal</li>
+            <li>Automatic statistics calculation</li>
+            <li>Clear visualization of estimation consensus</li>
+            <li>Facilitates focused discussions</li>
+          </ul>
+        </div>
+        <div class="zigzag-image">
+          <img src="Reveal and discuss votes.jpg" alt="Revealed votes with statistics">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-scales" id="card-types">
+    <div class="section-title">
+      <h2>Choose Your Estimation Scale</h2>
+      <p>Select from multiple estimation scales to match your team's preferred approach.</p>
+    </div>
+    
+    <div class="scale-type-container">
+      <div class="scale-tabs">
+        <button class="scale-tab active" onclick="showScale('fibonacci')">Fibonacci</button>
+        <button class="scale-tab" onclick="showScale('shortFib')">Short Fibonacci</button>
+        <button class="scale-tab" onclick="showScale('tshirt')">T-Shirt Sizes</button>
+        <button class="scale-tab" onclick="showScale('tshirtNum')">T-Shirt & Numbers</button>
+      </div>
+      
+      <div id="fibonacci" class="scale-content active">
+        <h3>Fibonacci Sequence</h3>
+        <p>The classic Fibonacci sequence is commonly used for agile estimation. The non-linear progression reflects the inherent uncertainty in estimating larger items.</p>
+        <div class="card-examples">
+          <div class="poker-card">0</div>
+          <div class="poker-card">1</div>
+          <div class="poker-card">2</div>
+          <div class="poker-card">3</div>
+          <div class="poker-card">5</div>
+          <div class="poker-card">8</div>
+          <div class="poker-card">13</div>
+          <div class="poker-card">21</div>
+        </div>
+        <p>Perfect for teams used to point-based estimation with an emphasis on relative sizing.</p>
+      </div>
+      
+      <div id="shortFib" class="scale-content">
+        <h3>Short Fibonacci</h3>
+        <p>A modified Fibonacci sequence with smaller increments, useful for teams working with smaller, more granular stories.</p>
+        <div class="card-examples">
+          <div class="poker-card">0</div>
+          <div class="poker-card">½</div>
+          <div class="poker-card">1</div>
+          <div class="poker-card">2</div>
+          <div class="poker-card">3</div>
+        </div>
+        <p>Ideal for teams that focus on smaller story sizes or need finer-grained estimation.</p>
+      </div>
+      
+      <div id="tshirt" class="scale-content">
+        <h3>T-Shirt Sizes</h3>
+        <p>T-shirt sizes provide an intuitive, relative sizing model that's easy for both technical and non-technical stakeholders to understand.</p>
+        <div class="card-examples">
+          <div class="poker-card">XXS</div>
+          <div class="poker-card">XS</div>
+          <div class="poker-card">S</div>
+          <div class="poker-card">M</div>
+          <div class="poker-card">L</div>
+          <div class="poker-card">XL</div>
+          <div class="poker-card">XXL</div>
+        </div>
+        <p>Great for teams that prefer non-numeric sizing or when involving business stakeholders in the estimation process.</p>
+      </div>
+      
+      <div id="tshirtNum" class="scale-content">
+        <h3>T-Shirt Sizes with Numbers</h3>
+        <p>Combines t-shirt sizes with numeric values, providing both intuitive naming and numeric equivalents for tracking.</p>
+        <div class="card-examples">
+          <div class="poker-card">XS (1)</div>
+          <div class="poker-card">S (2)</div>
+          <div class="poker-card">M (3)</div>
+          <div class="poker-card">L (5)</div>
+          <div class="poker-card">XL (8)</div>
+          <div class="poker-card">XXL (13)</div>
+        </div>
+        <p>Bridges the gap between intuitive sizing and numeric tracking in your project management tools.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="features-grid" id="features">
+    <div class="section-title">
+      <h2>Powerful Features for Effective Estimation</h2>
+      <p>Everything you need for smooth, efficient planning poker sessions.</p>
+    </div>
+    
+    <div class="feature-grid-container">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-users"></i>
+        </div>
+        <h3>Real-Time Collaboration</h3>
+        <p>See who's in the session, who has voted, and reveal votes to everyone simultaneously. Changes sync automatically across all participants.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-file-import"></i>
+        </div>
+        <h3>CSV Import/Export</h3>
+        <p>Quickly import your product backlog via CSV file and export estimation results back to your project management tool.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-chart-bar"></i>
+        </div>
+        <h3>Vote Statistics</h3>
+        <p>Get instant calculations of average, most common vote, and agreement levels to facilitate meaningful discussions.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-mobile-alt"></i>
+        </div>
+        <h3>Device Friendly</h3>
+        <p>Works seamlessly on desktop, tablet, and mobile devices so your team can participate from anywhere.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-server"></i>
+        </div>
+        <h3>No Installation</h3>
+        <p>Nothing to download or install. Planning Poker runs in your web browser with no software to maintain.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">
+          <i class="fas fa-shield-alt"></i>
+        </div>
+        <h3>Session Privacy</h3>
+        <p>Your session data is private and temporary, stored only for the duration of your active session.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq-section" id="faq">
+    <div class="section-title">
+      <h2>Frequently Asked Questions</h2>
+    </div>
+    
+    <div class="faq-container">
+      <div class="faq-item">
+        <div class="faq-question">What is Planning Poker and why should we use it?</div>
+        <div class="faq-answer">
+          <p>Planning Poker is a consensus-based estimation technique used by agile teams. Team members make estimates individually, reducing influence bias. It's effective because it:</p>
+          <ul>
+            <li>Brings multiple perspectives into the estimation process</li>
+            <li>Reduces anchoring bias by revealing all votes simultaneously</li>
+            <li>Encourages discussion when estimates differ</li>
+            <li>Creates team ownership of the estimates</li>
+            <li>Makes the estimation process more engaging and interactive</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">How many people can join a Planning Poker session?</div>
+        <div class="faq-answer">
+          <p>The Planning Poker app supports teams of all sizes. We've optimized for 3-12 participants, which is typical for most agile teams, but larger groups are supported as well. The interface automatically adapts to accommodate the number of participants in your session.</p>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">Is my data stored on your servers?</div>
+        <div class="faq-answer">
+          <p>Session data is temporarily stored only for the duration of the active session. We don't permanently store your stories or votes. For added privacy, you can export your results at the end of the session if you need to keep a record.</p>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">What's the difference between the various voting scales?</div>
+        <div class="faq-answer">
+          <p>Different teams prefer different scales based on their workflow:</p>
+          <ul>
+            <li><strong>Fibonacci (0, 1, 2, 3, 5, 8, 13, 21...)</strong>: Reflects the uncertainty in larger estimates with bigger gaps between higher numbers.</li>
+            <li><strong>Short Fibonacci (0, ½, 1, 2, 3)</strong>: Better for teams working with smaller, more granular stories.</li>
+            <li><strong>T-Shirt Sizes (XXS to XXL)</strong>: Intuitive for teams that prefer non-numeric, relative sizing.</li>
+            <li><strong>T-Shirt & Numbers</strong>: Combines the intuitiveness of t-shirt sizes with numeric values for easier tracking.</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">How can I import my backlog from Jira or other tools?</div>
+        <div class="faq-answer">
+          <p>Export your stories from Jira or other tools as a CSV file, then use the "Upload Ticket" feature to import them. The CSV format should have one story per line, with details separated by commas. After your planning session, you can export the estimates back to update your project management tool.</p>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">What happens if someone gets disconnected during a session?</div>
+        <div class="faq-answer">
+          <p>The app automatically attempts to reconnect users who lose their connection. When they rejoin, they'll see the current state of the session and their previous votes will be preserved, ensuring a smooth experience even with occasional connectivity issues.</p>
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">Can I customize the estimation scales?</div>
+        <div class="faq-answer">
+          <p>Yes, in addition to the pre-defined scales (Fibonacci, Short Fibonacci, T-shirt sizes, and T-shirt sizes with numbers), you can also select the Custom option to define your own estimation values that best fit your team's needs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="testimonials" id="testimonials">
+    <div class="section-title">
+      <h2>What Teams Say About Planning Poker</h2>
+      <p>Don't just take our word for it—hear from teams who have transformed their estimation process.</p>
+    </div>
+    
+    <div class="testimonial-container">
+      <div class="testimonial-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            <p class="testimonial-quote">Planning Poker completely transformed our estimation process. Our remote team members now feel just as engaged as those in the office, and we've seen much more accurate sprint planning.</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">JM</div>
+              <div class="testimonial-info">
+                <div class="testimonial-name">Jennifer Miller</div>
+                <div class="testimonial-role">Scrum Master</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            <p class="testimonial-quote">We were struggling with estimation consistency across our distributed team. This app solved that problem instantly. The interface is intuitive and the real-time collaboration features are excellent.</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">DT</div>
+              <div class="testimonial-info">
+                <div class="testimonial-name">David Thompson</div>
+                <div class="testimonial-role">Product Owner.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            <p class="testimonial-quote">The ability to import stories directly from our backlog and the visualized consensus data have made our planning sessions much more productive. We love how easy it is to get everyone involved.</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar">AS</div>
+              <div class="testimonial-info">
+                <div class="testimonial-name">Amanda Singh</div>
+                <div class="testimonial-role">Agile Coach</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="final-cta" id="start-session">
+    <div class="container">
+      <h2>Ready to improve your team's estimation process?</h2>
+      <p>Join thousands of agile teams who have made their estimations more accurate, consistent, and collaborative with Planning Poker.</p>
+      <a href="main.html" class="cta-button">Start Your Free Session Now</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-container">
+      <div class="footer-column">
+        <h4>Planning Poker</h4>
+        <ul>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#card-types">Card Types</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      
+      <div class="footer-column">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="#">Agile Estimation Guide</a></li>
+          <li><a href="#">Story Point Best Practices</a></li>
+          <li><a href="#">Remote Team Collaboration</a></li>
+          <li><a href="#">Planning Poker Facilitator Tips</a></li>
+        </ul>
+      </div>
+      
+      <div class="footer-column">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About Us</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Contact Us</a></li>
+        </ul>
+      </div>
+      
+      <div class="footer-column">
+        <h4>Connect</h4>
+<!-- <ul>
+          <li><a href="#"><i class="fab fa-twitter"></i> Twitter</a></li>
+          <li><a href="#"><i class="fab fa-linkedin"></i> LinkedIn</a></li>
+          <li><a href="#"><i class="fab fa-github"></i> GitHub</a></li>
+          <li><a href="#"><i class="fab fa-slack"></i> Community Slack</a></li>
+        </ul> -->
+      </div>
+    </div>
+    
+    <div class="copyright">
+      <p>© 2025 Planning Poker. All rights reserved.</p>
+      <p>A collaborative estimation tool for agile teams.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile navigation toggle
+    const mobileNavToggle = document.querySelector('.mobile-nav-toggle');
+    const mainNav = document.getElementById('mainNav');
+    
+    if (mobileNavToggle) {
+      mobileNavToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('active');
+      });
+    }
+    
+    // Card scale tabs
+    function showScale(scaleId) {
+      // Hide all scale content sections
+      document.querySelectorAll('.scale-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Deactivate all tabs
+      document.querySelectorAll('.scale-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected scale content
+      document.getElementById(scaleId).classList.add('active');
+      
+      // Activate selected tab
+      document.querySelector(`.scale-tab[onclick="showScale('${scaleId}')"]`).classList.add('active');
+    }
+    
+    // FAQ toggles
+    document.querySelectorAll('.faq-question').forEach(question => {
+      question.addEventListener('click', () => {
+        question.classList.toggle('active');
+      });
+    });
+    
+    // Intersection Observer for animations
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+    
+    const intersectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-fade-in');
+          intersectionObserver.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+    
+    // Observe elements with animation classes
+    document.querySelectorAll('.zigzag-row, .feature-card, .testimonial-card').forEach(el => {
+      intersectionObserver.observe(el);
+      // Remove pre-added animation classes so they can be added when in view
+      el.classList.remove('animate-slide-right', 'animate-slide-left', 'animate-fade-in');
+    });
+    
+    // Spade logo hover animation
+    const logo = document.querySelector('.logo img');
+    if (logo) {
+      logo.addEventListener('mouseover', () => {
+        logo.style.transform = 'rotate(20deg)';
+        setTimeout(() => {
+          logo.style.transform = 'rotate(0deg)';
+        }, 500);
+      });
+    }
+  </script>
+</body>
+</html>
