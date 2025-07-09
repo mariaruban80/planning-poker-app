@@ -25,7 +25,7 @@ let lastKnownRoomState = {
  * @param {Function} handleMessage - Callback to handle incoming messages
  * @returns {Object} - Socket instance for external reference
  */
-export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
+export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage, isCreator = false) {
   // First verify that we have a valid username
   if (!userNameValue) {
     console.error('[SOCKET] Cannot initialize without a username');
@@ -140,32 +140,61 @@ socket.on('connect_error', (error) => {
         socket.emit('requestStoryVotes', { storyId });
       }
     });
-  socket.on('connect', () => {
-    console.log('[SOCKET] Connected to server with ID:', socket.id);
-    reconnectAttempts = 0;
-    clearTimeout(reconnectTimer);
+socket.on('connect', () => {
+  console.log('[SOCKET] Connected to server with ID:', socket.id);
+  reconnectAttempts = 0;
+  clearTimeout(reconnectTimer);
 
-    // When connecting, explicitly join the room
-    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
+  // When connecting, explicitly join the room with creator flag
+  socket.emit('joinRoom', { 
+    roomId: roomIdentifier, 
+    userName: userNameValue,
+    isCreator: isCreator  // Pass the creator flag to server
+  });
 
-    // Listen for votes updates from server
-    socket.on('votesUpdate', (votesData) => {
-      console.log('[SOCKET] votesUpdate received:', votesData);
-    //  updateVoteVisuals(votesData);  // Your function to update UI with new votes
-    });
+    // If returning user might be owner but isn't creator, claim ownership
+    if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
+      setTimeout(() => {
+        socket.emit('claimOwnership', { 
+          roomId: roomIdentifier, 
+          userName: userNameValue 
+        });
+      }, 200);
+    }
+  
+  
+  // Listen for votes updates from server
+  socket.on('votesUpdate', (votesData) => {
+    console.log('[SOCKET] votesUpdate received:', votesData);
+    // updateVoteVisuals(votesData);  // Your function to update UI with new votes
+  });
 
-    // Request votes by username after initial connection
-    setTimeout(() => {
-      if (socket && socket.connected && userNameValue) {
-        socket.emit('requestVotesByUsername', { userName: userNameValue });
-      }
-    }, 1000);
+  // Request votes by username after initial connection
+  setTimeout(() => {
+    if (socket && socket.connected && userNameValue) {
+      socket.emit('requestVotesByUsername', { userName: userNameValue });
+    }
+  }, 1000);
 
-    // Notify UI of successful connection
-    handleMessage({ type: 'connect' });
+  // Notify UI of successful connection
+  handleMessage({ type: 'connect' });
 
-    // Apply any saved votes from session storage
-    // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
+  // Apply any saved votes from session storage
+  // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
+});
+
+  // Handle ownership status from server
+  socket.on('ownershipStatus', ({ isOwner }) => {
+    console.log('[SOCKET] Ownership status received:', isOwner);
+    
+    // Update sessionStorage based on server response
+    sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
+    
+    // Remove creator flag after first connection
+    sessionStorage.removeItem('isRoomCreator');
+    
+    // Notify UI of ownership change
+    handleMessage({ type: 'ownershipStatus', isOwner });
   });
 
 
