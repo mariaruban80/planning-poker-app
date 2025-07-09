@@ -571,16 +571,33 @@ function setupGuestModeRestrictions() {
 /**
  * Extract room ID from URL parameters
  */
+/**
+ * Extract room ID from URL parameters and handle URL cleanup
+ */
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const isHost = urlParams.get('host') === 'true';
 
-  // ✅ Store host status in sessionStorage
-  if (isHost) {
+  // Check if user is creating a new room (from main.html)
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
+  
+  // Determine initial host status
+  if (isHost || isRoomCreator) {
     sessionStorage.setItem('isHost', 'true');
   } else {
-    sessionStorage.setItem('isHost', 'false');
+    // Only set to false if not already determined to be host
+    // This prevents overriding server-determined ownership status
+    if (sessionStorage.getItem('isHost') === null) {
+      sessionStorage.setItem('isHost', 'false');
+    }
+  }
+
+  // Clean up the URL immediately to remove host parameter
+  if (roomId) {
+    const cleanUrl = `${window.location.pathname}?roomId=${roomId}`;
+    window.history.replaceState({}, document.title, cleanUrl);
+    console.log('[URL] Cleaned URL, removed host parameter');
   }
 
   // Fallback: generate a room if not present
@@ -604,13 +621,23 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-  // Initialize socket with userName from sessionStorage
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  // Check if user is the room creator
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
+  
+  // Initialize socket with userName from sessionStorage and creator flag
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+  
   socket.on('connect', () => {
-  // Immediately map own socket ID to username
-  if (!window.userMap) window.userMap = {};
-  window.userMap[socket.id] = userName;
-});
+    // Immediately map own socket ID to username
+    if (!window.userMap) window.userMap = {};
+    window.userMap[socket.id] = userName;
+  });
+
+  // Handle ownership status from server - ADD THIS NEW HANDLER
+  socket.on('ownershipStatus', ({ isOwner }) => {
+    console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
+    updateUIForOwnership(isOwner);
+  });
 
   if (socket && socket.io) {
     socket.io.reconnectionAttempts = 10;
@@ -619,7 +646,7 @@ function initializeApp(roomId) {
   }
 
   // Setup heartbeat mechanism to prevent timeouts
-//  setupHeartbeat();
+  // setupHeartbeat();
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     const name = userName || userId;
@@ -668,9 +695,15 @@ function initializeApp(roomId) {
     refreshVoteDisplay();
   });
   
-  // Updated resyncState handler to restore votes
-  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
+  // Updated resyncState handler to restore votes - ENHANCED FOR OWNERSHIP
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
     console.log('[SOCKET] Received resyncState from server');
+
+    // Handle ownership status if provided in resync
+    if (typeof isOwner === 'boolean') {
+      console.log('[RESYNC] Ownership status from resync:', isOwner);
+      updateUIForOwnership(isOwner);
+    }
 
     // Update local deleted stories tracking
     if (Array.isArray(serverDeletedIds)) {
@@ -713,9 +746,8 @@ function initializeApp(roomId) {
         }
       }
     }
-console.log('[RESTORE] Skipped manual session restoration — server handles vote recovery');
+    console.log('[RESTORE] Skipped manual session restoration — server handles vote recovery');
 
-   
     window.currentVotesPerStory = votesPerStory;
     refreshVoteDisplay();
   });
@@ -765,7 +797,7 @@ console.log('[RESTORE] Skipped manual session restoration — server handles vot
     
     // Log action for debugging
     console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
-  })
+  });
 
   socket.on('votesReset', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
@@ -794,42 +826,42 @@ console.log('[RESTORE] Skipped manual session restoration — server handles vot
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
   
-// Improve the storySelected event handler
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  clearAllVoteVisuals();
-  // If storyId is provided directly, use it
-  if (storyId) {
-    // Select the story
-    selectStory(storyIndex, false);
-    return;
-  }
-  
-  // If no storyId was provided, try to resolve it from the index
-  if (typeof storyIndex === 'number') {
-    // Try to find the story card by index
-    const storyCards = document.querySelectorAll('.story-card');
-    if (storyIndex >= 0 && storyIndex < storyCards.length) {
-      const targetCard = storyCards[storyIndex];
-      if (targetCard && targetCard.id) {
-        console.log(`[SOCKET] Resolved storyId from index ${storyIndex}: ${targetCard.id}`);
+  // Improve the storySelected event handler
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    // If storyId is provided directly, use it
+    if (storyId) {
+      // Select the story
+      selectStory(storyIndex, false);
+      return;
+    }
+    
+    // If no storyId was provided, try to resolve it from the index
+    if (typeof storyIndex === 'number') {
+      // Try to find the story card by index
+      const storyCards = document.querySelectorAll('.story-card');
+      if (storyIndex >= 0 && storyIndex < storyCards.length) {
+        const targetCard = storyCards[storyIndex];
+        if (targetCard && targetCard.id) {
+          console.log(`[SOCKET] Resolved storyId from index ${storyIndex}: ${targetCard.id}`);
+          selectStory(storyIndex, false);
+          return;
+        }
+      }
+      
+      // If we still can't find the story, try one more approach:
+      // Find any story card with the matching data-index attribute
+      const indexCard = document.querySelector(`.story-card[data-index="${storyIndex}"]`);
+      if (indexCard && indexCard.id) {
+        console.log(`[SOCKET] Found story card using data-index=${storyIndex}: ${indexCard.id}`);
         selectStory(storyIndex, false);
         return;
       }
     }
     
-    // If we still can't find the story, try one more approach:
-    // Find any story card with the matching data-index attribute
-    const indexCard = document.querySelector(`.story-card[data-index="${storyIndex}"]`);
-    if (indexCard && indexCard.id) {
-      console.log(`[SOCKET] Found story card using data-index=${storyIndex}: ${indexCard.id}`);
-      selectStory(storyIndex, false);
-      return;
-    }
-  }
-  
-  console.warn(`[SOCKET] Could not resolve story for index ${storyIndex}`);
-});
+    console.warn(`[SOCKET] Could not resolve story for index ${storyIndex}`);
+  });
   
   // Add reconnection handlers for socket
   if (socket) {
@@ -914,6 +946,200 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   // Refresh votes periodically to ensure everyone sees the latest votes
   setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
 }
+
+// ADD THESE NEW FUNCTIONS TO HANDLE OWNERSHIP UI UPDATES:
+
+/**
+ * Update UI based on server-determined ownership status
+ * @param {boolean} isOwner - Whether the current user owns the room
+ */
+function updateUIForOwnership(isOwner) {
+  // Update sessionStorage with server-authoritative status
+  sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
+  
+  console.log(`[UI] Updating interface for ${isOwner ? 'host' : 'guest'} mode`);
+  
+  if (isOwner) {
+    // Enable all host controls
+    enableHostControls();
+  } else {
+    // Apply guest restrictions
+    applyGuestRestrictions();
+  }
+  
+  // Update any UI indicators
+  updateOwnershipIndicators(isOwner);
+  
+  // Remove the creator flag since we've now been assigned proper ownership
+  sessionStorage.removeItem('isRoomCreator');
+}
+
+/**
+ * Enable all host controls and remove guest restrictions
+ */
+function enableHostControls() {
+  console.log('[UI] Enabling host controls');
+  
+  // Show all previously hidden host elements
+  document.querySelectorAll('.hide-for-guests').forEach(el => {
+    el.classList.remove('hide-for-guests');
+    el.style.display = '';
+  });
+  
+  // Enable reveal/reset buttons in sidebar
+  const revealBtn = document.getElementById('revealVotesBtn');
+  const resetBtn = document.getElementById('resetVotesBtn');
+  if (revealBtn) {
+    revealBtn.disabled = false;
+    revealBtn.style.display = 'block';
+    revealBtn.classList.remove('hide-for-guests');
+  }
+  if (resetBtn) {
+    resetBtn.disabled = false;
+    resetBtn.style.display = 'block';
+    resetBtn.classList.remove('hide-for-guests');
+  }
+  
+  // Enable upload and add ticket buttons
+  const fileInputContainer = document.getElementById('fileInputContainer');
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (fileInputContainer) {
+    fileInputContainer.style.display = '';
+    fileInputContainer.classList.remove('hide-for-guests');
+  }
+  if (addTicketBtn) {
+    addTicketBtn.style.display = '';
+    addTicketBtn.classList.remove('hide-for-guests');
+  }
+  
+  // Enable navigation buttons
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+  if (nextButton) {
+    nextButton.disabled = false;
+    nextButton.classList.remove('disabled-nav');
+  }
+  if (prevButton) {
+    prevButton.disabled = false;
+    prevButton.classList.remove('disabled-nav');
+  }
+  
+  // Enable story card interactions
+  document.querySelectorAll('.story-card').forEach(card => {
+    card.classList.remove('disabled-story');
+  });
+  
+  // Re-setup story card interactions for hosts
+  setupStoryCardInteractions();
+  
+  // Remove any guest mode indicators
+  const guestIndicator = document.getElementById('guestModeIndicator');
+  if (guestIndicator) {
+    guestIndicator.remove();
+  }
+  
+  console.log('[UI] Host controls enabled successfully');
+}
+
+/**
+ * Apply guest restrictions to UI elements
+ */
+function applyGuestRestrictions() {
+  console.log('[UI] Applying guest restrictions');
+  
+  // Hide control buttons in sidebar
+  const controlElements = [
+    'revealVotesBtn',
+    'resetVotesBtn', 
+    'fileInputContainer',
+    'addTicketBtn'
+  ];
+  
+  controlElements.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.classList.add('hide-for-guests');
+      element.style.display = 'none';
+    }
+  });
+  
+  // Hide the center REVEAL VOTES button
+  const centerRevealButton = document.querySelector('.reveal-votes-button');
+  if (centerRevealButton) {
+    centerRevealButton.classList.add('hide-for-guests');
+    centerRevealButton.style.display = 'none';
+  }
+  
+  // Disable navigation buttons
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+  if (nextButton) {
+    nextButton.disabled = true;
+    nextButton.classList.add('disabled-nav');
+  }
+  if (prevButton) {
+    prevButton.disabled = true;
+    prevButton.classList.add('disabled-nav');
+  }
+  
+  // Disable story card interactions
+  document.querySelectorAll('.story-card').forEach(card => {
+    card.classList.add('disabled-story');
+  });
+  
+  // Add guest mode indicator
+  addGuestModeIndicator();
+  
+  console.log('[UI] Guest restrictions applied successfully');
+}
+
+/**
+ * Add visual indicator for guest mode
+ */
+function addGuestModeIndicator() {
+  if (!document.getElementById('guestModeIndicator')) {
+    const header = document.querySelector('header .nav-links');
+    if (header) {
+      const indicator = document.createElement('div');
+      indicator.id = 'guestModeIndicator';
+      indicator.style.cssText = `
+        color: #673ab7;
+        font-size: 14px;
+        font-weight: 500;
+        margin-right: 15px;
+        padding: 4px 12px;
+        border: 1px solid #673ab7;
+        border-radius: 12px;
+        background-color: rgba(103, 58, 183, 0.1);
+        white-space: nowrap;
+      `;
+      indicator.textContent = 'Guest Mode';
+      
+      // Insert before the LOG OFF button
+      const logOffBtn = document.getElementById('logOffBtn');
+      if (logOffBtn) {
+        header.insertBefore(indicator, logOffBtn);
+      } else {
+        header.appendChild(indicator);
+      }
+    }
+  }
+}
+
+/**
+ * Update ownership indicators in the UI
+ * @param {boolean} isOwner - Whether the current user is the owner
+ */
+function updateOwnershipIndicators(isOwner) {
+  // Update header username display
+  const headerUsername = document.getElementById('headerUsername');
+  if (headerUsername) {
+    const currentText = headerUsername.textContent.replace(' (Host)', '').replace(' (Guest)', '');
+    headerUsername.textContent = `${currentText}${isOwner ? ' (Host)' : ''}`;
+  }
+}
+
+
 
 /**
  * Periodically refresh votes for the current story
