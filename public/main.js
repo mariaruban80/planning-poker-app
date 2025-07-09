@@ -3271,38 +3271,45 @@ function setupStoryCardInteractions() {
       editButton.className = 'story-edit-btn';
       editButton.innerHTML = '✏️';
       editButton.title = 'Edit story';
+editButton.onclick = function (e) {
+  e.stopPropagation();
+  e.preventDefault();
 
-      editButton.onclick = function (e) {
-        e.stopPropagation();
-        e.preventDefault();
+  // Always re-query the current title directly from the DOM
+  const latestTitleDiv = card.querySelector('.story-title');
+  if (!latestTitleDiv) return;
 
-        const titleDiv = card.querySelector('.story-title');
-        if (!titleDiv) return;
+  const latestText = latestTitleDiv.textContent.trim();
 
-        // Create input for editing
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = titleDiv.textContent;
-        input.className = 'story-edit-input';
-        titleDiv.replaceWith(input);
-        input.focus();
+  // Replace the title div with an editable input
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = latestText;
+  input.className = 'story-edit-input';
+  latestTitleDiv.replaceWith(input);
+  input.focus();
 
-        input.onblur = () => {
-          const newText = input.value.trim();
-          if (newText && newText !== titleDiv.textContent) {
-            titleDiv.textContent = newText;
-            input.replaceWith(titleDiv);
+  input.onblur = () => {
+    const newText = input.value.trim();
+    const storyId = card.id;
 
-            // ✅ Use existing infrastructure to sync
-            if (typeof emitUpdateTicket === 'function') {
-              emitUpdateTicket({ id: card.id, text: newText });
-            }
-          } else {
-            input.replaceWith(titleDiv); // Restore original
-          }
-        };
-      };
+    // If text changed, update DOM and sync
+    if (newText && newText !== latestText) {
+      const updatedTitleDiv = document.createElement('div');
+      updatedTitleDiv.className = 'story-title';
+      updatedTitleDiv.textContent = newText;
+      input.replaceWith(updatedTitleDiv);
 
+      // ✅ Emit update to server using emitUpdateTicket
+      if (typeof emitUpdateTicket === 'function') {
+        emitUpdateTicket({ id: storyId, text: newText });
+      }
+    } else {
+      // No change, just restore original
+      input.replaceWith(latestTitleDiv);
+    }
+  };
+};
       card.appendChild(editButton);
     }
 
