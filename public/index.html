@@ -95,6 +95,35 @@
       border-color: #4285f4; /* Google blue border */
       color: #333;
     }
+
+     .story-edit-btn {
+       position: absolute;
+       right: 35px; /* Position it next to the delete button */
+       top: 8px;
+       width: 20px;
+       height: 20px;
+       background-color: #2196F3;
+       color: white;
+       border-radius: 50%;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       font-size: 12px;
+       cursor: pointer;
+       opacity: 0.7;
+       transition: opacity 0.2s, transform 0.2s;
+       z-index: 2;
+     }
+     .story-edit-btn:hover {
+       opacity: 1;
+       transform: scale(1.1);
+     }
+
+/* Update story card padding to accommodate both buttons */
+.story-card {
+  position: relative;
+  padding-right: 65px; /* Increased to fit both edit and delete buttons */
+}
     
     .story-card.active { 
       background-color: #e8f0fe; /* Light blue color for active state */
@@ -1991,14 +2020,37 @@ document.addEventListener('DOMContentLoaded', function() {
     newBtn.addEventListener('click', showAddTicketModal);
   }
   
-  // Set up modal buttons
-  document.getElementById('cancelAddTicket').addEventListener('click', hideAddTicketModal);
-  document.getElementById('confirmAddTicket').addEventListener('click', handleAddTicketSubmit);
+  // Set up modal buttons - UPDATED TO HANDLE BOTH ADD AND EDIT
+  document.getElementById('cancelAddTicket').addEventListener('click', function() {
+    const isEditing = document.getElementById('addTicketModalCustom').hasAttribute('data-editing-id');
+    
+    if (isEditing) {
+      hideEditTicketModal();
+    } else {
+      hideAddTicketModal();
+    }
+  });
   
-  // Set up enter key in description field
+  document.getElementById('confirmAddTicket').addEventListener('click', function() {
+    const isEditing = document.getElementById('addTicketModalCustom').hasAttribute('data-editing-id');
+    
+    if (isEditing) {
+      handleEditTicketSubmit();
+    } else {
+      handleAddTicketSubmit();
+    }
+  });
+  
+  // Set up enter key in description field - UPDATED TO HANDLE BOTH ADD AND EDIT
   document.getElementById('ticketDescriptionInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
-      handleAddTicketSubmit();
+      const isEditing = document.getElementById('addTicketModalCustom').hasAttribute('data-editing-id');
+      
+      if (isEditing) {
+        handleEditTicketSubmit();
+      } else {
+        handleAddTicketSubmit();
+      }
     }
   });
 });
@@ -3175,9 +3227,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <script type="module" src="main.js"></script>
 
      <script>
-  document.getElementById('joinSessionWithName').addEventListener('click', function () {
-    const nameInput = document.getElementById('userNameInput');
-    const userName = nameInput.value.trim();
+     document.getElementById('joinSessionWithName').addEventListener('click', function () {
+     const nameInput = document.getElementById('userNameInput');
+     const userName = nameInput.value.trim();
 
     if (!userName) {
       alert('Please enter your name to join.');
@@ -3205,9 +3257,116 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('loginModalCustom').style.display = 'none';
   });
 </script>
+<script>
+     // Edit Ticket Modal Functions
+     function showEditTicketModal(ticketId, ticketText) {
+       console.log('[EDIT] Opening edit modal for ticket:', ticketId);
+       
+       // Parse the ticket text to separate name and description
+       let ticketName = ticketText;
+       let ticketDescription = '';
+       
+       // Check if the text contains a colon (indicating name: description format)
+       const colonIndex = ticketText.indexOf(':');
+       if (colonIndex !== -1) {
+         ticketName = ticketText.substring(0, colonIndex).trim();
+         ticketDescription = ticketText.substring(colonIndex + 1).trim();
+       }
+       
+       // Pre-fill the modal with current values
+       document.getElementById('ticketNameInput').value = ticketName;
+       document.getElementById('ticketDescriptionInput').value = ticketDescription;
+       
+       // Show the modal
+       document.getElementById('addTicketModalCustom').style.display = 'flex';
+       
+       // Store the ticket ID for editing
+       document.getElementById('addTicketModalCustom').setAttribute('data-editing-id', ticketId);
+       
+       // Change the button text to indicate we're editing
+       document.getElementById('confirmAddTicket').innerHTML = '<span class="plus-icon">✏️</span> UPDATE';
+       
+       // Change the modal title
+       document.querySelector('#addTicketModalCustom .add-ticket-modal h3').textContent = 'Edit Ticket';
+       
+       // Focus on the name input
+       setTimeout(() => {
+         document.getElementById('ticketNameInput').focus();
+       }, 100);
+     }
 
-  
+     function handleEditTicketSubmit() {
+       const ticketName = document.getElementById('ticketNameInput').value.trim();
+       const ticketDescription = document.getElementById('ticketDescriptionInput').value.trim();
+       const editingId = document.getElementById('addTicketModalCustom').getAttribute('data-editing-id');
+       
+       // Validate input
+       if (!ticketName) {
+         const nameInput = document.getElementById('ticketNameInput');
+         nameInput.classList.add('shake');
+         nameInput.style.borderColor = '#ff4d4f';
+         
+         setTimeout(() => {
+           nameInput.classList.remove('shake');
+         }, 500);
+         
+         return;
+       }
+       
+       // Prepare ticket text (combine name and description if provided)
+       let ticketText = ticketName;
+       if (ticketDescription) {
+         ticketText = ticketName + ': ' + ticketDescription;
+       }
+       
+       // Create updated ticket data
+       const updatedTicketData = {
+         id: editingId,
+         text: ticketText
+       };
+       
+       // Hide the modal
+       hideEditTicketModal();
+       
+       // Update the ticket
+       if (window.updateTicketFromModal) {
+         window.updateTicketFromModal(updatedTicketData);
+       } else {
+         // Fallback: Update the DOM directly
+         const storyCard = document.getElementById(editingId);
+         if (storyCard) {
+           const storyTitle = storyCard.querySelector('.story-title');
+           if (storyTitle) {
+             storyTitle.textContent = ticketText;
+           }
+         }
+         
+         // Emit to socket if available
+         if (window.socket) {
+           window.socket.emit('updateTicket', updatedTicketData);
+         }
+       }
+     }
      
+     function hideEditTicketModal() {
+       document.getElementById('addTicketModalCustom').style.display = 'none';
+       
+       // Reset the modal for next use
+       document.getElementById('addTicketModalCustom').removeAttribute('data-editing-id');
+       document.getElementById('confirmAddTicket').innerHTML = '<span class="plus-icon">+</span> ADD';
+       document.querySelector('#addTicketModalCustom .add-ticket-modal h3').textContent = 'Add New Ticket';
+       
+       // Clear the form
+       document.getElementById('ticketNameInput').value = '';
+       document.getElementById('ticketDescriptionInput').value = '';
+     }
+     
+     // Expose functions for main.js to use
+     window.showEditTicketModal = showEditTicketModal;
+     window.handleEditTicketSubmit = handleEditTicketSubmit;
+     window.hideEditTicketModal = hideEditTicketModal;
+     
+</script>     
 </body>
 </html>
         
