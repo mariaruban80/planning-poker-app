@@ -3304,6 +3304,8 @@ editButton.onclick = function (e) {
       if (typeof emitUpdateTicket === 'function') {
         emitUpdateTicket({ id: storyId, text: newText });
       }
+window.notifyStoriesUpdated?.();
+      
     } else {
       // No change, just restore original
       input.replaceWith(latestTitleDiv);
