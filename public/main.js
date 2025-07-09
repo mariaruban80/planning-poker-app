@@ -2796,7 +2796,7 @@ function updateUserList(users) {
     topVoteRow.appendChild(voteCard);
   });
 
-  // Create reveal button
+  // Create reveal button container
   const revealButtonContainer = document.createElement('div');
   revealButtonContainer.classList.add('reveal-button-container');
   
@@ -2804,10 +2804,17 @@ function updateUserList(users) {
   revealBtn.textContent = 'REVEAL VOTES';
   revealBtn.classList.add('reveal-votes-button');
   
-  // Handle guest mode for the reveal button
-  if (isGuestUser()) {
-    revealBtn.classList.add('hide-for-guests');
-  } else {
+  // FIXED: Check host status properly and add debug logging
+  const isCurrentlyHost = sessionStorage.getItem('isHost') === 'true';
+  console.log(`[REVEAL] Creating center reveal button - isHost: ${isCurrentlyHost}, sessionStorage: ${sessionStorage.getItem('isHost')}`);
+
+  if (isCurrentlyHost) {
+    // Show for hosts
+    revealBtn.classList.remove('hide-for-guests');
+    revealBtn.style.display = 'block';
+    revealBtn.style.visibility = 'visible';
+    console.log('[REVEAL] Center reveal button enabled for host');
+    
     revealBtn.onclick = () => {
       // Get the current story ID
       const storyId = getCurrentStoryId();
@@ -2847,6 +2854,12 @@ function updateUserList(users) {
         console.warn('[UI] Cannot reveal votes: No story selected');
       }
     };
+  } else {
+    // Hide for guests
+    revealBtn.classList.add('hide-for-guests');
+    revealBtn.style.display = 'none';
+    revealBtn.style.visibility = 'hidden';
+    console.log('[REVEAL] Center reveal button hidden for guest');
   }
   
   revealButtonContainer.appendChild(revealBtn);
