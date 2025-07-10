@@ -2075,9 +2075,13 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
     // Add click handler for edit button
     editButton.addEventListener('click', (e) => {
       e.stopPropagation(); // Prevent story selection when clicking edit
-      if (window.showEditTicketModal) {
-        window.showEditTicketModal(ticketData.id, ticketData.text);
+       const card = document.getElementById(ticketData.id);
+      let latestText = '';
+      if (card) {
+          const titleDiv = card.querySelector('.story-title');
+          if (titleDiv) latestText = titleDiv.textContent;
       }
+        window.showEditTicketModal(ticketData.id, ticketData.text);      
     });
     
     storyCard.appendChild(editButton);
