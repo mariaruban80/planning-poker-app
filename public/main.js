@@ -3260,7 +3260,6 @@ function setupStoryNavigation() {
 /**
  * Set up story card interactions based on user role
  */
-
 function setupStoryCardInteractions() {
   const storyList = document.getElementById('storyList');
   if (!storyList) return;
@@ -3275,47 +3274,69 @@ function setupStoryCardInteractions() {
       editButton.className = 'story-edit-btn';
       editButton.innerHTML = '✏️';
       editButton.title = 'Edit story';
-editButton.onclick = function (e) {
-  e.stopPropagation();
-  e.preventDefault();
-
-  // Always re-query the current title directly from the DOM
-  const latestTitleDiv = card.querySelector('.story-title');
-  if (!latestTitleDiv) return;
-
-  const latestText = latestTitleDiv.textContent.trim();
-
-  // Replace the title div with an editable input
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = latestText;
-  input.className = 'story-edit-input';
-  latestTitleDiv.replaceWith(input);
-  input.focus();
-
-  input.onblur = () => {
-    const newText = input.value.trim();
-    const storyId = card.id;
-
-    // If text changed, update DOM and sync
-    if (newText && newText !== latestText) {
-      const updatedTitleDiv = document.createElement('div');
-      updatedTitleDiv.className = 'story-title';
-      updatedTitleDiv.textContent = newText;
-      input.replaceWith(updatedTitleDiv);
-
-      // ✅ Emit update to server using emitUpdateTicket
-      if (typeof emitUpdateTicket === 'function') {
-        emitUpdateTicket({ id: storyId, text: newText });
-      }
-window.notifyStoriesUpdated?.();
       
-    } else {
-      // No change, just restore original
-      input.replaceWith(latestTitleDiv);
-    }
-  };
-};
+      editButton.onclick = function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Always re-query the current title directly from the DOM
+        const latestTitleDiv = card.querySelector('.story-title');
+        if (!latestTitleDiv) return;
+
+        const currentText = latestTitleDiv.textContent.trim();
+        
+        console.log(`[EDIT] Opening edit modal for ticket: ${storyId} with current text: "${currentText}"`);
+
+        // Check if modal edit function exists
+        if (typeof window.showEditTicketModal === 'function') {
+          // Use modal editing with current text from DOM
+          window.showEditTicketModal(storyId, currentText);
+        } else {
+          // Fallback to inline editing if modal doesn't exist
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = currentText;
+          input.className = 'story-edit-input';
+          latestTitleDiv.replaceWith(input);
+          input.focus();
+
+          input.onblur = () => {
+            const newText = input.value.trim();
+
+            // If text changed, update DOM and sync
+            if (newText && newText !== currentText) {
+              const updatedTitleDiv = document.createElement('div');
+              updatedTitleDiv.className = 'story-title';
+              updatedTitleDiv.textContent = newText;
+              input.replaceWith(updatedTitleDiv);
+
+              // Emit update to server
+              if (typeof emitUpdateTicket === 'function') {
+                emitUpdateTicket({ id: storyId, text: newText });
+              }
+              window.notifyStoriesUpdated?.();
+            } else {
+              // No change, just restore original
+              input.replaceWith(latestTitleDiv);
+            }
+          };
+
+          // Also handle Enter key to confirm edit
+          input.onkeypress = (event) => {
+            if (event.key === 'Enter') {
+              input.blur(); // Trigger the onblur handler
+            }
+          };
+
+          // Handle Escape key to cancel edit
+          input.onkeydown = (event) => {
+            if (event.key === 'Escape') {
+              input.replaceWith(latestTitleDiv); // Cancel edit
+            }
+          };
+        }
+      };
+      
       card.appendChild(editButton);
     }
 
@@ -3328,7 +3349,6 @@ window.notifyStoriesUpdated?.();
     });
   });
 }
-
 
 
 /**
