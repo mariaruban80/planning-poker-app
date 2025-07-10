@@ -3279,61 +3279,22 @@ function setupStoryCardInteractions() {
         e.stopPropagation();
         e.preventDefault();
 
-        // Always re-query the current title directly from the DOM
+        // ✅ CRITICAL FIX: Always get the CURRENT text from the DOM
         const latestTitleDiv = card.querySelector('.story-title');
-        if (!latestTitleDiv) return;
+        if (!latestTitleDiv) {
+          console.error('[EDIT] Could not find story title element');
+          return;
+        }
 
         const currentText = latestTitleDiv.textContent.trim();
         
         console.log(`[EDIT] Opening edit modal for ticket: ${storyId} with current text: "${currentText}"`);
 
-        // Check if modal edit function exists
+        // ✅ Pass the current text from DOM, not any cached data
         if (typeof window.showEditTicketModal === 'function') {
-          // Use modal editing with current text from DOM
           window.showEditTicketModal(storyId, currentText);
         } else {
-          // Fallback to inline editing if modal doesn't exist
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.value = currentText;
-          input.className = 'story-edit-input';
-          latestTitleDiv.replaceWith(input);
-          input.focus();
-
-          input.onblur = () => {
-            const newText = input.value.trim();
-
-            // If text changed, update DOM and sync
-            if (newText && newText !== currentText) {
-              const updatedTitleDiv = document.createElement('div');
-              updatedTitleDiv.className = 'story-title';
-              updatedTitleDiv.textContent = newText;
-              input.replaceWith(updatedTitleDiv);
-
-              // Emit update to server
-              if (typeof emitUpdateTicket === 'function') {
-                emitUpdateTicket({ id: storyId, text: newText });
-              }
-              window.notifyStoriesUpdated?.();
-            } else {
-              // No change, just restore original
-              input.replaceWith(latestTitleDiv);
-            }
-          };
-
-          // Also handle Enter key to confirm edit
-          input.onkeypress = (event) => {
-            if (event.key === 'Enter') {
-              input.blur(); // Trigger the onblur handler
-            }
-          };
-
-          // Handle Escape key to cancel edit
-          input.onkeydown = (event) => {
-            if (event.key === 'Escape') {
-              input.replaceWith(latestTitleDiv); // Cancel edit
-            }
-          };
+          console.error('[EDIT] showEditTicketModal function not found');
         }
       };
       
@@ -3349,7 +3310,6 @@ function setupStoryCardInteractions() {
     });
   });
 }
-
 
 /**
  * Generate avatar URL
