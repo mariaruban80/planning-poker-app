@@ -2081,7 +2081,7 @@ function addTicketToUI(ticketData, selectAfterAdd = false) {
           const titleDiv = card.querySelector('.story-title');
           if (titleDiv) latestText = titleDiv.textContent;
       }
-        window.showEditTicketModal(ticketData.id, ticketData.text);      
+       window.showEditTicketModal(ticketData.id, latestText);
     });
     
     storyCard.appendChild(editButton);
