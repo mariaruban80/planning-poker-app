@@ -137,45 +137,41 @@ window.initializeSocketWithName = function(roomId, name) {
   // Setup heartbeat to prevent idle timeouts
 //  setupHeartbeat();
 };
-/**
- * Save host status to session storage with timestamp
- */
-function saveHostStatusToStorage(isHost, roomId, userName) {
-  try {
-    const hostData = {
-      isHost: isHost,
-      roomId: roomId,
-      userName: userName,
-      timestamp: Date.now()
-    };
-    sessionStorage.setItem('hostStatus', JSON.stringify(hostData));
-    sessionStorage.setItem('isHost', isHost ? 'true' : 'false');
-    console.log(`[STORAGE] Saved host status: ${isHost} for user ${userName} in room ${roomId}`);
-  } catch (err) {
-    console.warn('[STORAGE] Error saving host status:', err);
-  }
-}
 
 /**
- * Load host status from session storage
- */
-function loadHostStatusFromStorage() {
-  try {
-    const hostData = sessionStorage.getItem('hostStatus');
-    if (hostData) {
-      const parsed = JSON.parse(hostData);
-      // Check if the data is recent (within 24 hours)
-      const oneDay = 24 * 60 * 60 * 1000;
-      if (Date.now() - parsed.timestamp < oneDay) {
-        return parsed;
+ * Set up heartbeat mechanism to prevent connection timeouts
+ 
+function setupHeartbeat() {
+  // Clear any existing heartbeat interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+  
+  // Send heartbeat every 20 seconds to keep the connection alive
+  heartbeatInterval = setInterval(() => {
+    if (socket && socket.connected) {
+      socket.emit('heartbeat');
+      console.log('[SOCKET] Heartbeat sent');
+    } else if (reconnectingInProgress) {
+      console.log('[SOCKET] Skipping heartbeat during reconnection');
+    } else {
+      console.warn('[SOCKET] Cannot send heartbeat - socket disconnected');
+      // Try to reinitialize if disconnected unexpectedly
+      if (!reconnectingInProgress) {
+        console.log('[SOCKET] Attempting to reinitialize connection...');
+        const roomId = getRoomIdFromURL();
+        if (roomId) {
+          socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+        }
       }
     }
-  } catch (err) {
-    console.warn('[STORAGE] Error loading host status:', err);
-  }
-  return null;
-}
+  }, 20000); // 20 seconds interval
 
+  // Clear interval on page unload
+  window.addEventListener('beforeunload', () => {
+    clearInterval(heartbeatInterval);
+  });
+}*/
 
 /**
  * Load deleted story IDs from sessionStorage
@@ -313,23 +309,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if we're waiting for a username (joining via invite)
   if (window.userNameReady === false) {
     console.log('[APP] Waiting for username before initializing app');
-    return;
+    return; // Exit early, we'll initialize after username is provided
   }
   
+  // Normal initialization for users who already have a name
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
   }
   appendRoomIdToURL(roomId);
-  
-  // IMPORTANT: Load host status before initializing
-  const savedHostStatus = loadHostStatusFromStorage();
-  if (savedHostStatus && savedHostStatus.roomId === roomId) {
-    console.log('[APP] Pre-loading host status from storage:', savedHostStatus.isHost);
-    sessionStorage.setItem('isHost', savedHostStatus.isHost ? 'true' : 'false');
-  }
-  
+  //  window.history.replaceState({}, document.title, window.location.pathname);
+  // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
+  
   initializeApp(roomId);
 });
 
@@ -617,30 +609,18 @@ function getRoomIdFromURL() {
   const roomId = urlParams.get('roomId');
   const isHost = urlParams.get('host') === 'true';
 
-  // Load previous host status from storage
-  const savedHostStatus = loadHostStatusFromStorage();
-  
   // Check if user is creating a new room (from main.html)
   const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
   
-  // Determine host status with priority:
-  // 1. URL parameter (for new room creation)
-  // 2. Saved host status (for page refresh)
-  // 3. Default to false
-  let userIsHost = false;
-  
+  // Determine initial host status
   if (isHost || isRoomCreator) {
-    userIsHost = true;
-    console.log('[URL] User is host via URL parameter or room creation');
-  } else if (savedHostStatus && savedHostStatus.roomId === roomId) {
-    userIsHost = savedHostStatus.isHost;
-    console.log('[URL] User host status restored from storage:', userIsHost);
-  }
-  
-  // Save the determined host status
-  if (roomId) {
-    const userName = sessionStorage.getItem('userName');
-    saveHostStatusToStorage(userIsHost, roomId, userName);
+    sessionStorage.setItem('isHost', 'true');
+  } else {
+    // Only set to false if not already determined to be host
+    // This prevents overriding server-determined ownership status
+    if (sessionStorage.getItem('isHost') === null) {
+      sessionStorage.setItem('isHost', 'false');
+    }
   }
 
   // Clean up the URL immediately to remove host parameter
@@ -650,6 +630,7 @@ function getRoomIdFromURL() {
     console.log('[URL] Cleaned URL, removed host parameter');
   }
 
+  // Fallback: generate a room if not present
   return roomId || 'room-' + Math.floor(Math.random() * 10000);
 }
 
@@ -670,30 +651,24 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-   const userName = sessionStorage.getItem('userName');
-  if (!userName) {
-    console.error('[APP] No username found, cannot initialize');
-    return;
-  }
   // Check if user is the room creator
-  const savedHostStatus = loadHostStatusFromStorage();
   const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';   
-  let shouldBeHost = false;
- if (isRoomCreator) {
-    shouldBeHost = true;
-    console.log('[APP] User is room creator - should be host');
-  } else if (savedHostStatus && savedHostStatus.roomId === roomId && savedHostStatus.userName === userName) {
-    shouldBeHost = savedHostStatus.isHost;
-    console.log('[APP] Host status restored from storage:', shouldBeHost);
+  if (isRoomCreator) {
+    console.log('[APP] Room creator detected - showing host UI immediately');
+    sessionStorage.setItem('isHost', 'true'); 
+    const currentUser = {
+      id: 'temp-id',
+      name: userName,
+      isOwner: true
+    };   
+    setTimeout(() => {
+      updateUserList([currentUser]);
+      enableHostControls();
+    }, 50);
   }
-  sessionStorage.setItem('isHost', shouldBeHost ? 'true' : 'false');
- if (shouldBeHost) {
-    console.log('[APP] Showing host UI immediately');
-    enableHostControls();
-  }
-  
   // Initialize socket with userName from sessionStorage and creator flag
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator, shouldBeHost);
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+  
   socket.on('connect', () => {
     // Immediately map own socket ID to username
     if (!window.userMap) window.userMap = {};
@@ -1021,27 +996,25 @@ function initializeApp(roomId) {
  * @param {boolean} isOwner - Whether the current user owns the room
  */
 function updateUIForOwnership(isOwner) {
-  const roomId = getRoomIdFromURL();
-  const userName = sessionStorage.getItem('userName');
-  
-  // Save the host status to storage
-  saveHostStatusToStorage(isOwner, roomId, userName);
-  
   // Update sessionStorage with server-authoritative status
   sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
   
   console.log(`[UI] Updating interface for ${isOwner ? 'host' : 'guest'} mode`);
   
   if (isOwner) {
+    // Enable all host controls
     enableHostControls();
   } else {
+    // Apply guest restrictions
     applyGuestRestrictions();
   }
   
+  // Update any UI indicators
   updateOwnershipIndicators(isOwner);
+  
+  // Remove the creator flag since we've now been assigned proper ownership
   sessionStorage.removeItem('isRoomCreator');
 }
-
 
 /**
  * Enable all host controls and remove guest restrictions
@@ -2511,57 +2484,59 @@ function displayCSVData(data) {
     });
     
     // Then add CSV data
-let startIndex = existingStories.length;
-data.forEach((row, index) => {
-  const storyItem = document.createElement('div');
-  storyItem.classList.add('story-card');
-  
-  const csvStoryId = `story_csv_${index}`;
-
-  // Skip if this CSV story ID is in our deleted set
-  if (deletedStoryIds.has(csvStoryId)) {
-    console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
-    return;
-  }
-  
-  storyItem.id = csvStoryId;
-  storyItem.dataset.index = startIndex + index;
-  
-  const storyTitle = document.createElement('div');
-  storyTitle.classList.add('story-title');
-  storyTitle.textContent = row.join(' | ');
-  
-  storyItem.appendChild(storyTitle);
-
-  if (isCurrentUserHost()) {
-    // Host: Add delete (and optionally edit) button, and allow click
-    console.log('[CSV] Adding delete button to CSV story:', csvStoryId);
-    const deleteButton = document.createElement('div'); // Changed to div
-    deleteButton.className = 'story-delete-btn';
-    deleteButton.innerHTML = '🗑'; // dustbin symbol
-    deleteButton.title = 'Delete CSV story';
-    
-    deleteButton.onclick = function(e) {
-      e.stopPropagation(); // Prevent story selection
-      e.preventDefault();
-      console.log('[DELETE] Delete button clicked for CSV story:', csvStoryId);
-      deleteStory(csvStoryId);
-    };
-    storyItem.appendChild(deleteButton);
-
-    // Optional: Add edit button if needed here (similar to delete)
-
-    // Allow hosts to select stories
-    storyItem.addEventListener('click', () => {
-      selectStory(startIndex + index);
+    let startIndex = existingStories.length;
+    data.forEach((row, index) => {
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card');
+      
+      const csvStoryId = `story_csv_${index}`;
+      
+      // Skip if this CSV story ID is in our deleted set
+      if (deletedStoryIds.has(csvStoryId)) {
+        console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
+        return;
+      }
+      
+      storyItem.id = csvStoryId;
+      storyItem.dataset.index = startIndex + index;
+      
+      const storyTitle = document.createElement('div');
+      storyTitle.classList.add('story-title');
+      storyTitle.textContent = row.join(' | ');
+      
+      storyItem.appendChild(storyTitle);
+      
+      // Add delete button for hosts only
+      if (isCurrentUserHost()) {
+        console.log('[CSV] Adding delete button to CSV story:', csvStoryId);
+        const deleteButton = document.createElement('div'); // Changed to div
+        deleteButton.className = 'story-delete-btn';
+        deleteButton.innerHTML = '🗑'; // dustbin symbol
+        deleteButton.title = 'Delete CSV story';
+        
+        // Add direct click handler that references the correct ID
+        deleteButton.onclick = function(e) {
+          e.stopPropagation(); // Prevent story selection
+          e.preventDefault();
+          console.log('[DELETE] Delete button clicked for CSV story:', csvStoryId);
+          deleteStory(csvStoryId);
+        };
+        
+        storyItem.appendChild(deleteButton);
+      }
+      
+      storyListContainer.appendChild(storyItem);
+      
+      // For guests, add 'disabled-story' class and no click handler
+      if (isGuestUser()) {
+        storyItem.classList.add('disabled-story');
+      } else {
+        // Only hosts can select stories
+        storyItem.addEventListener('click', () => {
+          selectStory(startIndex + index);
+        });
+      }
     });
-  } else {
-    // Guest: Just add disabled class, don't add any buttons
-    storyItem.classList.add('disabled-story');
-  }
-
-  storyListContainer.appendChild(storyItem);
-});
     
     // Update preserved tickets list
     preservedManualTickets = existingStories;
