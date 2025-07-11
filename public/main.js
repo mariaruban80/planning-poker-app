@@ -2484,59 +2484,57 @@ function displayCSVData(data) {
     });
     
     // Then add CSV data
-    let startIndex = existingStories.length;
-    data.forEach((row, index) => {
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      
-      const csvStoryId = `story_csv_${index}`;
-      
-      // Skip if this CSV story ID is in our deleted set
-      if (deletedStoryIds.has(csvStoryId)) {
-        console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
-        return;
-      }
-      
-      storyItem.id = csvStoryId;
-      storyItem.dataset.index = startIndex + index;
-      
-      const storyTitle = document.createElement('div');
-      storyTitle.classList.add('story-title');
-      storyTitle.textContent = row.join(' | ');
-      
-      storyItem.appendChild(storyTitle);
-      
-      // Add delete button for hosts only
-      if (isCurrentUserHost()) {
-        console.log('[CSV] Adding delete button to CSV story:', csvStoryId);
-        const deleteButton = document.createElement('div'); // Changed to div
-        deleteButton.className = 'story-delete-btn';
-        deleteButton.innerHTML = '🗑'; // dustbin symbol
-        deleteButton.title = 'Delete CSV story';
-        
-        // Add direct click handler that references the correct ID
-        deleteButton.onclick = function(e) {
-          e.stopPropagation(); // Prevent story selection
-          e.preventDefault();
-          console.log('[DELETE] Delete button clicked for CSV story:', csvStoryId);
-          deleteStory(csvStoryId);
-        };
-        
-        storyItem.appendChild(deleteButton);
-      }
-      
-      storyListContainer.appendChild(storyItem);
-      
-      // For guests, add 'disabled-story' class and no click handler
-      if (isGuestUser()) {
-        storyItem.classList.add('disabled-story');
-      } else {
-        // Only hosts can select stories
-        storyItem.addEventListener('click', () => {
-          selectStory(startIndex + index);
-        });
-      }
+let startIndex = existingStories.length;
+data.forEach((row, index) => {
+  const storyItem = document.createElement('div');
+  storyItem.classList.add('story-card');
+  
+  const csvStoryId = `story_csv_${index}`;
+
+  // Skip if this CSV story ID is in our deleted set
+  if (deletedStoryIds.has(csvStoryId)) {
+    console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
+    return;
+  }
+  
+  storyItem.id = csvStoryId;
+  storyItem.dataset.index = startIndex + index;
+  
+  const storyTitle = document.createElement('div');
+  storyTitle.classList.add('story-title');
+  storyTitle.textContent = row.join(' | ');
+  
+  storyItem.appendChild(storyTitle);
+
+  if (isCurrentUserHost()) {
+    // Host: Add delete (and optionally edit) button, and allow click
+    console.log('[CSV] Adding delete button to CSV story:', csvStoryId);
+    const deleteButton = document.createElement('div'); // Changed to div
+    deleteButton.className = 'story-delete-btn';
+    deleteButton.innerHTML = '🗑'; // dustbin symbol
+    deleteButton.title = 'Delete CSV story';
+    
+    deleteButton.onclick = function(e) {
+      e.stopPropagation(); // Prevent story selection
+      e.preventDefault();
+      console.log('[DELETE] Delete button clicked for CSV story:', csvStoryId);
+      deleteStory(csvStoryId);
+    };
+    storyItem.appendChild(deleteButton);
+
+    // Optional: Add edit button if needed here (similar to delete)
+
+    // Allow hosts to select stories
+    storyItem.addEventListener('click', () => {
+      selectStory(startIndex + index);
     });
+  } else {
+    // Guest: Just add disabled class, don't add any buttons
+    storyItem.classList.add('disabled-story');
+  }
+
+  storyListContainer.appendChild(storyItem);
+});
     
     // Update preserved tickets list
     preservedManualTickets = existingStories;
