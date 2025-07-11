@@ -137,41 +137,45 @@ window.initializeSocketWithName = function(roomId, name) {
   // Setup heartbeat to prevent idle timeouts
 //  setupHeartbeat();
 };
+/**
+ * Save host status to session storage with timestamp
+ */
+function saveHostStatusToStorage(isHost, roomId, userName) {
+  try {
+    const hostData = {
+      isHost: isHost,
+      roomId: roomId,
+      userName: userName,
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem('hostStatus', JSON.stringify(hostData));
+    sessionStorage.setItem('isHost', isHost ? 'true' : 'false');
+    console.log(`[STORAGE] Saved host status: ${isHost} for user ${userName} in room ${roomId}`);
+  } catch (err) {
+    console.warn('[STORAGE] Error saving host status:', err);
+  }
+}
 
 /**
- * Set up heartbeat mechanism to prevent connection timeouts
- 
-function setupHeartbeat() {
-  // Clear any existing heartbeat interval
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval);
-  }
-  
-  // Send heartbeat every 20 seconds to keep the connection alive
-  heartbeatInterval = setInterval(() => {
-    if (socket && socket.connected) {
-      socket.emit('heartbeat');
-      console.log('[SOCKET] Heartbeat sent');
-    } else if (reconnectingInProgress) {
-      console.log('[SOCKET] Skipping heartbeat during reconnection');
-    } else {
-      console.warn('[SOCKET] Cannot send heartbeat - socket disconnected');
-      // Try to reinitialize if disconnected unexpectedly
-      if (!reconnectingInProgress) {
-        console.log('[SOCKET] Attempting to reinitialize connection...');
-        const roomId = getRoomIdFromURL();
-        if (roomId) {
-          socket = initializeWebSocket(roomId, userName, handleSocketMessage);
-        }
+ * Load host status from session storage
+ */
+function loadHostStatusFromStorage() {
+  try {
+    const hostData = sessionStorage.getItem('hostStatus');
+    if (hostData) {
+      const parsed = JSON.parse(hostData);
+      // Check if the data is recent (within 24 hours)
+      const oneDay = 24 * 60 * 60 * 1000;
+      if (Date.now() - parsed.timestamp < oneDay) {
+        return parsed;
       }
     }
-  }, 20000); // 20 seconds interval
+  } catch (err) {
+    console.warn('[STORAGE] Error loading host status:', err);
+  }
+  return null;
+}
 
-  // Clear interval on page unload
-  window.addEventListener('beforeunload', () => {
-    clearInterval(heartbeatInterval);
-  });
-}*/
 
 /**
  * Load deleted story IDs from sessionStorage
@@ -609,18 +613,30 @@ function getRoomIdFromURL() {
   const roomId = urlParams.get('roomId');
   const isHost = urlParams.get('host') === 'true';
 
+  // Load previous host status from storage
+  const savedHostStatus = loadHostStatusFromStorage();
+  
   // Check if user is creating a new room (from main.html)
   const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
   
-  // Determine initial host status
+  // Determine host status with priority:
+  // 1. URL parameter (for new room creation)
+  // 2. Saved host status (for page refresh)
+  // 3. Default to false
+  let userIsHost = false;
+  
   if (isHost || isRoomCreator) {
-    sessionStorage.setItem('isHost', 'true');
-  } else {
-    // Only set to false if not already determined to be host
-    // This prevents overriding server-determined ownership status
-    if (sessionStorage.getItem('isHost') === null) {
-      sessionStorage.setItem('isHost', 'false');
-    }
+    userIsHost = true;
+    console.log('[URL] User is host via URL parameter or room creation');
+  } else if (savedHostStatus && savedHostStatus.roomId === roomId) {
+    userIsHost = savedHostStatus.isHost;
+    console.log('[URL] User host status restored from storage:', userIsHost);
+  }
+  
+  // Save the determined host status
+  if (roomId) {
+    const userName = sessionStorage.getItem('userName');
+    saveHostStatusToStorage(userIsHost, roomId, userName);
   }
 
   // Clean up the URL immediately to remove host parameter
@@ -630,7 +646,6 @@ function getRoomIdFromURL() {
     console.log('[URL] Cleaned URL, removed host parameter');
   }
 
-  // Fallback: generate a room if not present
   return roomId || 'room-' + Math.floor(Math.random() * 10000);
 }
 
@@ -651,24 +666,30 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-  // Check if user is the room creator
-  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';   
-  if (isRoomCreator) {
-    console.log('[APP] Room creator detected - showing host UI immediately');
-    sessionStorage.setItem('isHost', 'true'); 
-    const currentUser = {
-      id: 'temp-id',
-      name: userName,
-      isOwner: true
-    };   
-    setTimeout(() => {
-      updateUserList([currentUser]);
-      enableHostControls();
-    }, 50);
+   const userName = sessionStorage.getItem('userName');
+  if (!userName) {
+    console.error('[APP] No username found, cannot initialize');
+    return;
   }
-  // Initialize socket with userName from sessionStorage and creator flag
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+  // Check if user is the room creator
+  const savedHostStatus = loadHostStatusFromStorage();
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';   
+  let shouldBeHost = false;
+ if (isRoomCreator) {
+    shouldBeHost = true;
+    console.log('[APP] User is room creator - should be host');
+  } else if (savedHostStatus && savedHostStatus.roomId === roomId && savedHostStatus.userName === userName) {
+    shouldBeHost = savedHostStatus.isHost;
+    console.log('[APP] Host status restored from storage:', shouldBeHost);
+  }
+  sessionStorage.setItem('isHost', shouldBeHost ? 'true' : 'false');
+ if (shouldBeHost) {
+    console.log('[APP] Showing host UI immediately');
+    enableHostControls();
+  }
   
+  // Initialize socket with userName from sessionStorage and creator flag
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator, shouldBeHost);
   socket.on('connect', () => {
     // Immediately map own socket ID to username
     if (!window.userMap) window.userMap = {};
