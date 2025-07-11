@@ -25,7 +25,7 @@ let lastKnownRoomState = {
  * @param {Function} handleMessage - Callback to handle incoming messages
  * @returns {Object} - Socket instance for external reference
  */
-export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage, isCreator = false) {
+export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage, isCreator = false, shouldBeHost = false) {
   // First verify that we have a valid username
   if (!userNameValue) {
     console.error('[SOCKET] Cannot initialize without a username');
@@ -145,47 +145,51 @@ socket.on('connect_error', (error) => {
         socket.emit('requestStoryVotes', { storyId });
       }
     });
+
 socket.on('connect', () => {
   console.log('[SOCKET] Connected to server with ID:', socket.id);
   reconnectAttempts = 0;
   clearTimeout(reconnectTimer);
 
-  // When connecting, explicitly join the room with creator flag
+  // When connecting, explicitly join the room with creator flag and host status
   socket.emit('joinRoom', { 
     roomId: roomIdentifier, 
     userName: userNameValue,
-    isCreator: isCreator  // Pass the creator flag to server
+    isCreator: isCreator,  // Pass the creator flag to server
+    shouldBeHost: shouldBeHost  // Pass the host status from storage
   });
 
-    // If returning user might be owner but isn't creator, claim ownership
-    if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
-      setTimeout(() => {
-        socket.emit('claimOwnership', { 
-          roomId: roomIdentifier, 
-          userName: userNameValue 
-        });
-      }, 200);
-    }
+  // If returning user might be owner but isn't creator, claim ownership
+  if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
+    setTimeout(() => {
+      console.log('[SOCKET] Claiming ownership for returning host');
+      socket.emit('claimOwnership', { 
+        roomId: roomIdentifier, 
+        userName: userNameValue 
+      });
+    }, 500); // Increased delay to ensure room join is processed first
+  }
+
+  // Handle story edited events
   socket.on('storyEdited', ({ storyId, newText }) => {
-  console.log('[SOCKET] Story edited:', storyId, newText);
+    console.log('[SOCKET] Story edited:', storyId, newText);
 
-  // Update DOM title on the story card
-  const card = document.getElementById(storyId);
-  if (card) {
-    const title = card.querySelector('.story-title');
-    if (title) {
-      title.textContent = newText;
+    // Update DOM title on the story card
+    const card = document.getElementById(storyId);
+    if (card) {
+      const title = card.querySelector('.story-title');
+      if (title) {
+        title.textContent = newText;
+      }
     }
-  }
 
-  // Update local state if applicable
-  const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
-  if (ticket) {
-    ticket.text = newText;
-  }
-});
+    // Update local state if applicable
+    const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
+    if (ticket) {
+      ticket.text = newText;
+    }
+  });
 
-  
   // Listen for votes updates from server
   socket.on('votesUpdate', (votesData) => {
     console.log('[SOCKET] votesUpdate received:', votesData);
@@ -205,6 +209,8 @@ socket.on('connect', () => {
   // Apply any saved votes from session storage
   // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
 });
+
+  
 
   // Handle ownership status from server
   socket.on('ownershipStatus', ({ isOwner }) => {
