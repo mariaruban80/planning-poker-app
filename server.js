@@ -388,7 +388,7 @@ if (existingVote !== vote) {
 const roomOwners = {}; // roomId → { ownerId, ownerName, createdAt }
 
 // Updated joinRoom handler
-socket.on('joinRoom', ({ roomId, userName, isCreator, shouldBeHost }) => {
+socket.on('joinRoom', ({ roomId, userName, isCreator }) => {
   if (!userName) return socket.emit('error', { message: 'Username is required' });
 
   socket.data.roomId = roomId;
@@ -415,7 +415,7 @@ socket.on('joinRoom', ({ roomId, userName, isCreator, shouldBeHost }) => {
 
   // Update room activity timestamp
   rooms[roomId].lastActivity = Date.now();
-  let isOwner = false;
+
   // STEP 0: HANDLE ROOM OWNERSHIP
   // Track room creator/owner
   if (isCreator && !roomOwners[roomId]) {
@@ -424,19 +424,18 @@ socket.on('joinRoom', ({ roomId, userName, isCreator, shouldBeHost }) => {
       ownerName: userName,
       createdAt: Date.now()
     };
-     isOwner = true;
     console.log(`[SERVER] User ${userName} created and owns room ${roomId}`);
-  } else if (roomOwners[roomId] && roomOwners[roomId].ownerName === userName) {
-    // Existing owner reconnecting
-    roomOwners[roomId].ownerId = socket.id;
-    isOwner = true;
-    console.log(`[SERVER] Owner ${userName} reconnected to room ${roomId}`);
   }
-  else if (shouldBeHost && roomOwners[roomId] && roomOwners[roomId].ownerName === userName) {
-    // Owner restoring from stored session
-    roomOwners[roomId].ownerId = socket.id;
-    isOwner = true;
-    console.log(`[SERVER] Owner ${userName} restored from stored session for room ${roomId}`);
+
+  // Check if user is the owner (either by creation or by username match)
+  let isOwner = false;
+  if (roomOwners[roomId]) {
+    if (roomOwners[roomId].ownerName === userName) {
+      // Update owner's socket ID (for reconnections)
+      roomOwners[roomId].ownerId = socket.id;
+      isOwner = true;
+      console.log(`[SERVER] Owner ${userName} ${isCreator ? 'created' : 'reconnected to'} room ${roomId}`);
+    }
   }
 
   // Send ownership status to client immediately
