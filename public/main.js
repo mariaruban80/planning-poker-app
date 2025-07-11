@@ -313,19 +313,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if we're waiting for a username (joining via invite)
   if (window.userNameReady === false) {
     console.log('[APP] Waiting for username before initializing app');
-    return; // Exit early, we'll initialize after username is provided
+    return;
   }
   
-  // Normal initialization for users who already have a name
   let roomId = getRoomIdFromURL();
   if (!roomId) {
     roomId = 'room-' + Math.floor(Math.random() * 10000);
   }
   appendRoomIdToURL(roomId);
-  //  window.history.replaceState({}, document.title, window.location.pathname);
-  // Load deleted stories from sessionStorage first
-  loadDeletedStoriesFromStorage(roomId);
   
+  // IMPORTANT: Load host status before initializing
+  const savedHostStatus = loadHostStatusFromStorage();
+  if (savedHostStatus && savedHostStatus.roomId === roomId) {
+    console.log('[APP] Pre-loading host status from storage:', savedHostStatus.isHost);
+    sessionStorage.setItem('isHost', savedHostStatus.isHost ? 'true' : 'false');
+  }
+  
+  loadDeletedStoriesFromStorage(roomId);
   initializeApp(roomId);
 });
 
@@ -1017,25 +1021,27 @@ function initializeApp(roomId) {
  * @param {boolean} isOwner - Whether the current user owns the room
  */
 function updateUIForOwnership(isOwner) {
+  const roomId = getRoomIdFromURL();
+  const userName = sessionStorage.getItem('userName');
+  
+  // Save the host status to storage
+  saveHostStatusToStorage(isOwner, roomId, userName);
+  
   // Update sessionStorage with server-authoritative status
   sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
   
   console.log(`[UI] Updating interface for ${isOwner ? 'host' : 'guest'} mode`);
   
   if (isOwner) {
-    // Enable all host controls
     enableHostControls();
   } else {
-    // Apply guest restrictions
     applyGuestRestrictions();
   }
   
-  // Update any UI indicators
   updateOwnershipIndicators(isOwner);
-  
-  // Remove the creator flag since we've now been assigned proper ownership
   sessionStorage.removeItem('isRoomCreator');
 }
+
 
 /**
  * Enable all host controls and remove guest restrictions
