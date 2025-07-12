@@ -102,6 +102,16 @@ window.updateTicketFromModal = function(ticketData) {
   }
 };
 
+function safeInsertBefore(parent, newNode, referenceNode) {
+  if (!parent || !newNode) return;
+  if (referenceNode && !parent.contains(referenceNode)) {
+    parent.appendChild(newNode);
+  } else {
+    parent.insertBefore(newNode, referenceNode || null);
+  }
+}
+
+
 function attachActionsMenu(storyCard, storyId, currentTextGetter) {
   if (storyCard.querySelector('.story-actions-menu')) return;
   const menu = document.createElement('div');
