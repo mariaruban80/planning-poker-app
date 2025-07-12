@@ -1519,6 +1519,49 @@ white-space: nowrap;
   position: relative;
   z-index: 1001;
 }
+
+.story-menu-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.story-menu-trigger {
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #888;
+}
+
+.story-menu-trigger:hover {
+  background-color: #f0f0f0;
+}
+
+.story-menu-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 20px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  min-width: 100px;
+  font-size: 13px;
+  z-index: 100;
+}
+
+.story-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.story-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
      </style>
 
 </head>
