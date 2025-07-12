@@ -2029,120 +2029,117 @@ function getVoteEmoji(vote) {
  */
 function addTicketToUI(ticketData, selectAfterAdd = false) {
   if (!ticketData || !ticketData.id || !ticketData.text) return;
-  
-  // Check if this ticket is in our deleted set
+
   if (deletedStoryIds.has(ticketData.id)) {
     console.log('[ADD] Not adding deleted ticket to UI:', ticketData.id);
     return;
   }
-  
+
   const storyList = document.getElementById('storyList');
   if (!storyList) return;
-  
-  // Check if this ticket already exists (to avoid duplicates)
+
   const existingTicket = document.getElementById(ticketData.id);
   if (existingTicket) return;
-  
-  // Create new story card
+
   const storyCard = document.createElement('div');
   storyCard.className = 'story-card';
   storyCard.id = ticketData.id;
-  
-  // Set data index attribute (for selection)
+
   const newIndex = storyList.children.length;
   storyCard.dataset.index = newIndex;
-  
-  // Create the story title element
+
   const storyTitle = document.createElement('div');
   storyTitle.className = 'story-title';
   storyTitle.textContent = ticketData.text;
-  
-  // Add to DOM
   storyCard.appendChild(storyTitle);
-  
-  // Get current user host status
+
   const isHost = sessionStorage.getItem('isHost') === 'true';
   console.log(`[ADD] Adding ticket for ${isHost ? 'host' : 'guest'} user`);
-  
-  // Add edit and delete buttons for hosts only
+
   if (isHost) {
-    // Create edit button
-    const editButton = document.createElement('div');
-    editButton.className = 'story-edit-btn';
-    editButton.innerHTML = '✏️'; // pencil icon
-    editButton.title = 'Edit story';
-    
-    // Add click handler for edit button
-    editButton.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent story selection when clicking edit
-       const card = document.getElementById(ticketData.id);
-      let latestText = '';
-      if (card) {
-          const titleDiv = card.querySelector('.story-title');
-          if (titleDiv) latestText = titleDiv.textContent;
-      }
-       window.showEditTicketModal(ticketData.id, latestText);
+    // === Three-dot menu with dropdown ===
+    const actionsMenu = document.createElement('div');
+    actionsMenu.className = 'story-actions-menu';
+    actionsMenu.innerHTML = `
+      <button class="menu-button" title="More actions">⋮</button>
+      <div class="dropdown-menu hidden">
+        <div class="dropdown-item edit">✏️ Edit</div>
+        <div class="dropdown-item delete">🗑️ Delete</div>
+      </div>
+    `;
+
+    // Add click event to dropdown items
+    actionsMenu.querySelector('.edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const titleDiv = storyCard.querySelector('.story-title');
+      const latestText = titleDiv ? titleDiv.textContent : '';
+      window.showEditTicketModal(ticketData.id, latestText);
     });
-    
-    storyCard.appendChild(editButton);
-    
-    // Create delete button
-    const deleteButton = document.createElement('div');
-    deleteButton.className = 'story-delete-btn';
-    deleteButton.innerHTML = '🗑'; // dustbin symbol
-    deleteButton.title = 'Delete story';
-    
-    // Add click handler for delete button
-    deleteButton.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent story selection when clicking delete
+
+    actionsMenu.querySelector('.delete').addEventListener('click', (e) => {
+      e.stopPropagation();
       deleteStory(ticketData.id);
     });
-    
-    storyCard.appendChild(deleteButton);
+
+    // Toggle dropdown
+    actionsMenu.querySelector('.menu-button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close all open menus first
+      document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+      const dropdown = actionsMenu.querySelector('.dropdown-menu');
+      dropdown.classList.toggle('hidden');
+    });
+
+    storyCard.appendChild(actionsMenu);
   }
-  
+
   storyList.appendChild(storyCard);
-  
-  // Handle click events based on user role
+
+  // Host interaction
   if (isHost) {
-    // Enable for hosts
     storyCard.classList.remove('disabled-story');
     storyCard.style.opacity = '1';
     storyCard.style.pointerEvents = 'auto';
     storyCard.style.cursor = 'pointer';
-    
-    // Add click event listener
+
     storyCard.addEventListener('click', () => {
       console.log(`[ADD] Host clicked story at index ${newIndex}`);
       selectStory(newIndex);
     });
   } else {
-    // Disable for guests
     storyCard.classList.add('disabled-story');
     storyCard.style.opacity = '0.6';
     storyCard.style.pointerEvents = 'none';
     storyCard.style.cursor = 'not-allowed';
   }
-  
-  // Select the new story if requested (only for hosts)
+
   if (selectAfterAdd && isHost) {
     selectStory(newIndex);
   }
-  
-  // Check for stories message
+
   const noStoriesMessage = document.getElementById('noStoriesMessage');
   if (noStoriesMessage) {
     noStoriesMessage.style.display = 'none';
   }
-  
-  // Enable planning cards if they were disabled
+
   document.querySelectorAll('#planningCards .card').forEach(card => {
     card.classList.remove('disabled');
     card.setAttribute('draggable', 'true');
   });
-  
+
   normalizeStoryIndexes();
 }
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Set up a mutation observer to catch any newly added story cards
  */
@@ -3929,3 +3926,33 @@ window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
   }
 });
+document.addEventListener('click', function (event) {
+  const isMenuButton = event.target.closest('.menu-button');
+  const isDropdownItem = event.target.closest('.dropdown-item');
+
+  // Close all dropdowns by default
+  document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+
+  if (isMenuButton) {
+    const menu = isMenuButton.nextElementSibling;
+    if (menu) {
+      menu.classList.toggle('hidden');
+      event.stopPropagation();
+    }
+  } else if (isDropdownItem) {
+    const card = event.target.closest('.story-card');
+    const storyId = card?.id;
+
+    if (event.target.classList.contains('edit')) {
+      // Replace this with your existing edit modal function
+      openEditModal(storyId);
+    } else if (event.target.classList.contains('delete')) {
+      // Replace with your existing delete confirmation logic
+      confirmAndDeleteStory(storyId);
+    }
+  } else {
+    // Click outside dropdown
+    document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+  }
+});
+
