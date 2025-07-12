@@ -2027,112 +2027,59 @@ function getVoteEmoji(vote) {
  * @param {Object} ticketData - Ticket data { id, text }
  * @param {boolean} selectAfterAdd - Whether to select the ticket after adding
  */
-function addTicketToUI(ticketData, selectAfterAdd = false) {
-  if (!ticketData || !ticketData.id || !ticketData.text) return;
-
-  if (deletedStoryIds.has(ticketData.id)) {
-    console.log('[ADD] Not adding deleted ticket to UI:', ticketData.id);
-    return;
-  }
-
+function addTicketToUI(ticketData, isManual = false) {
   const storyList = document.getElementById('storyList');
-  if (!storyList) return;
+  if (!storyList || !ticketData || !ticketData.id || !ticketData.text) return;
 
-  const existingTicket = document.getElementById(ticketData.id);
-  if (existingTicket) return;
+  const card = document.createElement('div');
+  card.className = 'story-card';
+  card.id = ticketData.id;
 
-  const storyCard = document.createElement('div');
-  storyCard.className = 'story-card';
-  storyCard.id = ticketData.id;
+  // Create story text
+  const title = document.createElement('div');
+  title.className = 'story-title';
+  title.textContent = ticketData.text;
+  card.appendChild(title);
 
-  const newIndex = storyList.children.length;
-  storyCard.dataset.index = newIndex;
+  // Create the dropdown menu container
+  const menuContainer = document.createElement('div');
+  menuContainer.className = 'story-menu-container';
+  menuContainer.innerHTML = `
+    <div class="story-menu-trigger">⋮</div>
+    <div class="story-menu-dropdown">
+      <div class="story-menu-item edit-story">Edit</div>
+      <div class="story-menu-item delete-story">Delete</div>
+    </div>
+  `;
+  card.appendChild(menuContainer);
 
-  const storyTitle = document.createElement('div');
-  storyTitle.className = 'story-title';
-  storyTitle.textContent = ticketData.text;
-  storyCard.appendChild(storyTitle);
+  // Toggle menu visibility
+  const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+  const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
 
-  const isHost = sessionStorage.getItem('isHost') === 'true';
-  console.log(`[ADD] Adding ticket for ${isHost ? 'host' : 'guest'} user`);
-
-  if (isHost) {
-    // === Three-dot menu with dropdown ===
-    const actionsMenu = document.createElement('div');
-    actionsMenu.className = 'story-actions-menu';
-    actionsMenu.innerHTML = `
-      <button class="menu-button" title="More actions">⋮</button>
-      <div class="dropdown-menu hidden">
-        <div class="dropdown-item edit">✏️ Edit</div>
-        <div class="dropdown-item delete">🗑️ Delete</div>
-      </div>
-    `;
-
-    // Add click event to dropdown items
-    actionsMenu.querySelector('.edit').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const titleDiv = storyCard.querySelector('.story-title');
-      const latestText = titleDiv ? titleDiv.textContent : '';
-      window.showEditTicketModal(ticketData.id, latestText);
-    });
-
-    actionsMenu.querySelector('.delete').addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteStory(ticketData.id);
-    });
-
-    // Toggle dropdown
-    actionsMenu.querySelector('.menu-button').addEventListener('click', (e) => {
-      e.stopPropagation();
-      // Close all open menus first
-      document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
-      const dropdown = actionsMenu.querySelector('.dropdown-menu');
-      dropdown.classList.toggle('hidden');
-    });
-
-    storyCard.appendChild(actionsMenu);
-  }
-
-  storyList.appendChild(storyCard);
-
-  // Host interaction
-  if (isHost) {
-    storyCard.classList.remove('disabled-story');
-    storyCard.style.opacity = '1';
-    storyCard.style.pointerEvents = 'auto';
-    storyCard.style.cursor = 'pointer';
-
-    storyCard.addEventListener('click', () => {
-      console.log(`[ADD] Host clicked story at index ${newIndex}`);
-      selectStory(newIndex);
-    });
-  } else {
-    storyCard.classList.add('disabled-story');
-    storyCard.style.opacity = '0.6';
-    storyCard.style.pointerEvents = 'none';
-    storyCard.style.cursor = 'not-allowed';
-  }
-
-  if (selectAfterAdd && isHost) {
-    selectStory(newIndex);
-  }
-
-  const noStoriesMessage = document.getElementById('noStoriesMessage');
-  if (noStoriesMessage) {
-    noStoriesMessage.style.display = 'none';
-  }
-
-  document.querySelectorAll('#planningCards .card').forEach(card => {
-    card.classList.remove('disabled');
-    card.setAttribute('draggable', 'true');
+  menuTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+    menuDropdown.style.display = 'block';
   });
 
-  normalizeStoryIndexes();
+  // Hide the menu when clicking elsewhere
+  document.addEventListener('click', () => {
+    menuDropdown.style.display = 'none';
+  });
+
+  // Hook up edit and delete actions
+  menuDropdown.querySelector('.edit-story')?.addEventListener('click', () => {
+    openEditModal(ticketData);
+  });
+
+  menuDropdown.querySelector('.delete-story')?.addEventListener('click', () => {
+    confirmDeleteTicket(ticketData.id);
+  });
+
+  // Append card to the list
+  storyList.appendChild(card);
 }
-
-
-
-
 
 
 
