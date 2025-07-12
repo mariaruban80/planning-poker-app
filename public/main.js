@@ -2334,11 +2334,12 @@ function normalizeStoryIndexes() {
 /**
  * Display CSV data in the story list
  */
-function displayCSVData(data) {
+ function displayCSVData(data) {
   if (processingCSVData) {
     console.log('[CSV] Already processing CSV data, ignoring reentrant call');
     return;
   }
+
   processingCSVData = true;
 
   try {
@@ -2347,11 +2348,13 @@ function displayCSVData(data) {
 
     console.log(`[CSV] Displaying ${data.length} rows of CSV data`);
 
-    // Save manually added stories (not deleted)
+    // Saved the existing manual stories
     const existingStories = [];
     const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+
     manualStories.forEach(card => {
-      if (deletedStoryIds.has(card.id)) return;
+      if (deletedStoryIds.has(card.id)) return;  // Skip deleted ones!
+
       const title = card.querySelector('.story-title');
       if (title) {
         existingStories.push({
@@ -2361,156 +2364,138 @@ function displayCSVData(data) {
       }
     });
 
-    // Clear the entire story list to guarantee clean re-render
+    // Clear ALL existing story cards, CSV + manual
     storyListContainer.innerHTML = '';
 
-    // ----- Add back manually added stories -----
-    existingStories.forEach((story, index) => {
-      if (deletedStoryIds.has(story.id)) {
-        console.log('[CSV] Not re-adding deleted manual story:', story.id);
-        return;
-      }
+    let currentIndex = 0;
+
+    // ------ Function to Create a Story Item -----
+    /** Creates common attributes to story item
+    */
+    const createStoryItem = (story, isCsv, index) => {
       const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      storyItem.id = story.id;
+      storyItem.classList.add('story-card'); // All stories are story-cards
+
+      storyItem.id = isCsv ? `story_csv_${index}` : story.id;
       storyItem.dataset.index = index;
 
       const storyTitle = document.createElement('div');
       storyTitle.classList.add('story-title');
-      storyTitle.textContent = story.text;
+      storyTitle.textContent = story.text || story;  // Added handling when story is string
+
       storyItem.appendChild(storyTitle);
+      return storyItem;
+    }
 
-      // Host: edit/delete menu (identical to code below)
-      if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
-        const menuContainer = document.createElement('div');
-        menuContainer.className = 'story-menu-container';
-        menuContainer.innerHTML = `
-          <div class="story-menu-trigger">⋮</div>
-          <div class="story-menu-dropdown">
-            <div class="story-menu-item edit-story">Edit</div>
-            <div class="story-menu-item delete-story">Delete</div>
-          </div>
-        `;
-        storyItem.appendChild(menuContainer);
+    const addHostMenu = (storyItem, csvStoryId, storyTitle) => {
+      const menuContainer = document.createElement('div');
+      menuContainer.className = 'story-menu-container';
+      menuContainer.innerHTML = `
+            <div class="story-menu-trigger">⋮</div>
+            <div class="story-menu-dropdown">
+              <div class="story-menu-item edit-story">Edit</div>
+              <div class="story-menu-item delete-story">Delete</div>
+            </div>
+          `;
+      storyItem.appendChild(menuContainer);
 
-        const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
-        const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
-        menuTrigger.addEventListener('click', (e) => {
-          e.stopPropagation();
-          document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
-          menuDropdown.style.display = 'block';
-        });
-        document.addEventListener('click', () => {
-          menuDropdown.style.display = 'none';
-        });
-        menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const currentText = storyTitle.textContent;
-          if (typeof window.showEditTicketModal === 'function') {
-            window.showEditTicketModal(story.id, currentText);
-          }
-          menuDropdown.style.display = 'none';
-        });
-        menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (typeof deleteStory === 'function') {
-            deleteStory(story.id);
-          }
-          menuDropdown.style.display = 'none';
-        });
-      }
+      const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+      const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
 
-      storyListContainer.appendChild(storyItem);
+      menuTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();  // Prevent close if click is on trigger
+        document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+        menuDropdown.style.display = 'block';
+      });
 
+      document.addEventListener('click', () => {
+        menuDropdown.style.display = 'none';
+      });
+
+      // Edit action
+      menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
+        e.stopPropagation();  // Prevent click on edit from propagating to outside
+        const currentText = storyTitle.textContent;
+        if (typeof window.showEditTicketModal === 'function') {
+          window.showEditTicketModal(csvStoryId ? csvStoryId : storyItem.id, currentText);
+        }
+        menuDropdown.style.display = 'none';
+      });
+
+      // Delete action
+      menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent propagation
+        if (typeof deleteStory === 'function') {
+          deleteStory(csvStoryId ? csvStoryId : storyItem.id);
+        }
+        menuDropdown.style.display = 'none';
+      });
+    };
+
+    const addStoryEvents = (storyItem, index) => {
       if (isGuestUser()) {
-        storyItem.classList.add('disabled-story');
+        storyItem.classList.add('disabled-story');  // Guests can't interact, just look
       } else {
-        storyItem.addEventListener('click', () => {
-          selectStory(index);
-        });
+
+        storyItem.addEventListener('click', () => { selectStory(index); });// Now the handler uses selectStory
       }
+
+    }
+    // ------ Function to append a story item to story list -----
+    const appendStory = (storyItem) => {
+      storyListContainer.appendChild(storyItem);
+    }
+    // ----- Render  Manually Added Stories -----
+
+    existingStories.forEach((story, index) => {
+      if (deletedStoryIds.has(story.id)) {  // Ignore deleted one
+        console.log('[CSV] Not re-adding deleted manual story:', story.id);
+        return;
+      }
+      const storyItem = createStoryItem(story,  false, index);  // is csv false
+      const storyTextIndexDisplayManual = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item
+      if (isCurrentUserHost()) {
+        addHostMenu(storyItem, null, storyTextIndexDisplayManual);
+      }
+
+      addStoryEvents(storyItem, index );
+      appendStory(storyItem);// Add to container
+
+      currentIndex++; // Increment the index
     });
 
-    // ----- Add uploaded/CSV stories -----
-    let startIndex = existingStories.length;
+    // ------ Render CSV data -------
     data.forEach((row, index) => {
+
       const csvStoryId = `story_csv_${index}`;
-      if (deletedStoryIds.has(csvStoryId)) {
+      if (deletedStoryIds.has(csvStoryId)) { // Skip the deleted
         console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
         return;
       }
 
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      storyItem.id = csvStoryId;
-      storyItem.dataset.index = startIndex + index;
+      const storyItem = createStoryItem(row.join(' | '),  true, existingStories.length + index)
 
-      const storyTitle = document.createElement('div');
-      storyTitle.classList.add('story-title');
-      storyTitle.textContent = row.join(' | ');
-      storyItem.appendChild(storyTitle);
+      const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
 
-      // Host: edit/delete menu (same as above)
-      if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
-        const menuContainer = document.createElement('div');
-        menuContainer.className = 'story-menu-container';
-        menuContainer.innerHTML = `
-          <div class="story-menu-trigger">⋮</div>
-          <div class="story-menu-dropdown">
-            <div class="story-menu-item edit-story">Edit</div>
-            <div class="story-menu-item delete-story">Delete</div>
-          </div>
-        `;
-        storyItem.appendChild(menuContainer);
+      if (isCurrentUserHost()) {
+        addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
+      } // All of these elements append even for read access users
 
-        const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
-        const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
-        menuTrigger.addEventListener('click', (e) => {
-          e.stopPropagation();
-          document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
-          menuDropdown.style.display = 'block';
-        });
-        document.addEventListener('click', () => {
-          menuDropdown.style.display = 'none';
-        });
-        menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const currentText = storyTitle.textContent;
-          if (typeof window.showEditTicketModal === 'function') {
-            window.showEditTicketModal(csvStoryId, currentText);
-          }
-          menuDropdown.style.display = 'none';
-        });
-        menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (typeof deleteStory === 'function') {
-            deleteStory(csvStoryId);
-          }
-          menuDropdown.style.display = 'none';
-        });
-      }
+      addStoryEvents(storyItem, existingStories.length + index); //  Event after menu for guest users!
 
-      storyListContainer.appendChild(storyItem);
+      appendStory(storyItem);
 
-      if (isGuestUser()) {
-        storyItem.classList.add('disabled-story');
-      } else {
-        storyItem.addEventListener('click', () => {
-          selectStory(startIndex + index);
-        });
-      }
+      currentIndex++;     // Update correct new index to DOMS
     });
 
-    // Update preserved tickets list
+    // Update any listeners with all the last versions
     preservedManualTickets = existingStories;
 
-    // Hide/show "no stories" message
-    const noStoriesMessage = document.getElementById('noStoriesMessage');
+    const noStoriesMessage = document.getElementById('noStoriesMessage'); // Set correct states
     if (noStoriesMessage) {
       noStoriesMessage.style.display = storyListContainer.children.length === 0 ? 'block' : 'none';
     }
 
-    // Enable/disable planning cards based on stories available
     const planningCards = document.querySelectorAll('#planningCards .card');
     planningCards.forEach(card => {
       if (storyListContainer.children.length === 0) {
@@ -2522,21 +2507,73 @@ function displayCSVData(data) {
       }
     });
 
-    // Auto-select first story, if none selected
-    const selectedStory = storyListContainer.querySelector('.story-card.selected');
-    if (!selectedStory && storyListContainer.children.length > 0) {
-      storyListContainer.children[0].classList.add('selected');
-      currentStoryIndex = 0;
-    }
+    // Call select first stories when other story cards are appended already
+    const selectFirstStory = () => {
+      const firstStory = storyListContainer.querySelector('.story-card');
 
+      if (firstStory) {
+        firstStory.classList.add('selected');
+        currentStoryIndex = 0
+        selectStory(0, true) // This should only run one single time
+        // This makes sure that when there's more story index it doesn't keep running
+        selectFirstStory = () => { };
+      }
+    };
+
+    selectFirstStory();
     cleanupDeleteButtonHandlers();
     setupCSVDeleteButtons();
   } finally {
-    normalizeStoryIndexes();
-    setupStoryCardInteractions();
-    processingCSVData = false;
+    normalizeStoryIndexes(); // Run this at the **very end**, ensures clean DOM 1 time
+    setupStoryCardInteractions(); // Update story card Interactions
+    processingCSVData = false;    // After everything is ok
   }
 }
+
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  // Always force selection for remote (host-to-guest) updates!
+  // This guarantees retries if DOM is not ready yet, and doesn't apply extra updates!
+  selectStory(storyIndex, false, true);
+});
+
+  socket.on('allTickets', ({ tickets }) => {
+    console.log('[SOCKET] Received all tickets:', tickets.length);
+    
+    // Filter out any deleted tickets first
+    const filteredTickets = tickets.filter(ticket => 
+      !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+    );
+    
+    // Store filtered tickets in last known state
+    lastKnownRoomState.tickets = filteredTickets || [];
+    
+     // Make sure allTickets properly update to story card even you reconnected or refreshed
+    const allStoryListContainer = document.getElementById('storyList');
+    if(tickets != null && tickets.length > 0) {
+        // Clear existing child story
+        allStoryListContainer.innerHTML = ''
+
+        tickets.map((story, index) => {
+            const storyItem = document.createElement('div');
+          storyItem.classList.add('story-card');
+          
+          
+          storyItem.dataset.index = index;
+            const eachStoryTitle = document.createElement('div');
+            eachStoryTitle.className="story-title";
+            eachStoryTitle.textContent = story.text;
+            storyItem.appendChild(eachStoryTitle)
+
+             allStoryListContainer.appendChild(storyItem)
+             socket.emit('requestCurrentStory')
+        })
+        normalizeStoryIndexes()
+    }
+    handleMessage({ type: 'allTickets', tickets: filteredTickets });
+  });
 
 
 
