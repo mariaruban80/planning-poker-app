@@ -875,7 +875,7 @@ function initializeApp(roomId) {
     // If storyId is provided directly, use it
     if (storyId) {
       // Select the story
-      selectStory(storyIndex, false);
+       selectStory(storyIndex, false, true);
       return;
     }
     
