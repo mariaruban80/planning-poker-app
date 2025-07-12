@@ -1519,66 +1519,6 @@ white-space: nowrap;
   position: relative;
   z-index: 1001;
 }
-
-.story-actions-menu {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 10;
-}
-
-.menu-button {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #999;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.menu-button:hover {
-  background-color: #f0f0f0;
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: 26px;
-  right: 0;
-  background-color: white;
-  border: 1px solid #ccc;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  min-width: 100px;
-  padding: 5px 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.dropdown-menu.hidden {
-  display: none;
-}
-
-.dropdown-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.dropdown-item:hover {
-  background-color: #f5f5f5;
-}
-
-.dropdown-item.edit {
-  color: #2196f3;
-}
-
-.dropdown-item.delete {
-  color: #f44336;
-}
-
-          
      </style>
 
 </head>
@@ -2140,46 +2080,47 @@ window.showAddTicketModal = showAddTicketModal;
   return sessionStorage.getItem('isHost') === 'true';
 }
 
-function setupGuestModeOnLoad() {
-  if (isGuestUser()) {
-    console.log('Guest mode activated - hiding control elements');
-    
-    // Hide control buttons in sidebar
-    const revealVotesBtn = document.getElementById('revealVotesBtn');
-    const resetVotesBtn = document.getElementById('resetVotesBtn');
-    if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
-    if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
-    
-    // Hide upload ticket button
-    const fileInputContainer = document.getElementById('fileInputContainer');
-    if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
-    
-    // Hide add ticket button 
-    const addTicketBtn = document.getElementById('addTicketBtn');
-    if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
-    
-    // Add guest mode indicator if not already present
-    if (!document.getElementById('guestModeIndicator')) {
-      const header = document.querySelector('header');
-      if (header) {
-        const indicator = document.createElement('div');
-        indicator.id = 'guestModeIndicator';
-        indicator.style.marginLeft = 'auto';
-        indicator.style.marginRight = '15px';
-        indicator.style.color = '#673ab7';
-        indicator.style.fontSize = '14px';
-        indicator.style.fontWeight = '500';
-        indicator.textContent = 'Guest Mode';
+    function setupGuestModeOnLoad() {
+      if (isGuestUser()) {
+        console.log('Guest mode activated - hiding control elements');
         
-        const logOffBtn = document.getElementById('logOffBtn');
-
-        // ✅ Use safe insert to avoid NotFoundError
-        safeInsertBefore(header, indicator, logOffBtn);
+        // Hide control buttons in sidebar
+        const revealVotesBtn = document.getElementById('revealVotesBtn');
+        const resetVotesBtn = document.getElementById('resetVotesBtn');
+        if (revealVotesBtn) revealVotesBtn.classList.add('hide-for-guests');
+        if (resetVotesBtn) resetVotesBtn.classList.add('hide-for-guests');
+                // Hide upload ticket button
+        const fileInputContainer = document.getElementById('fileInputContainer');
+        if (fileInputContainer) fileInputContainer.classList.add('hide-for-guests');
+        
+        // Hide add ticket button 
+        const addTicketBtn = document.getElementById('addTicketBtn');
+        if (addTicketBtn) addTicketBtn.classList.add('hide-for-guests');
+        
+        // Add guest mode indicator if not already present
+        if (!document.getElementById('guestModeIndicator')) {
+          const header = document.querySelector('header');
+          if (header) {
+            const indicator = document.createElement('div');
+            indicator.id = 'guestModeIndicator';
+            indicator.style.marginLeft = 'auto';
+            indicator.style.marginRight = '15px';
+            indicator.style.color = '#673ab7';
+            indicator.style.fontSize = '14px';
+            indicator.style.fontWeight = '500';
+            indicator.textContent = 'Guest Mode';
+            
+            // Insert before the LOG OFF button
+            const logOffBtn = document.getElementById('logOffBtn');
+            if (logOffBtn) {
+              header.insertBefore(indicator, logOffBtn);
+            } else {
+              header.appendChild(indicator);
+            }
+          }
+        }
       }
     }
-  }
-}
-
 
     // Custom modal functions
     function showInviteModalCustom() {
