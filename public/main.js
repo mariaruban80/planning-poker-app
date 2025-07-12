@@ -2183,18 +2183,23 @@ function processAllTickets(tickets) {
 
   const storyList = document.getElementById('storyList');
   if (storyList) {
-    const manualCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-    manualCards.forEach(card => card.remove());
+    // ❗ Remove all story cards — not just manual ones
+    storyList.querySelectorAll('.story-card').forEach(card => card.remove());
   }
 
   filtered.forEach(ticket => {
     if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false);
+      addTicketToUI(ticket, false); // ✅ Ensures host/guest logic and dropdown menu
     }
   });
 
   if (filtered.length > 0) {
-    if (currentStoryIndex === null || currentStoryIndex === undefined || currentStoryIndex < 0 || currentStoryIndex >= filtered.length) {
+    if (
+      currentStoryIndex === null ||
+      currentStoryIndex === undefined ||
+      currentStoryIndex < 0 ||
+      currentStoryIndex >= filtered.length
+    ) {
       currentStoryIndex = 0;
       selectStory(0, false);
     } else {
@@ -2203,17 +2208,14 @@ function processAllTickets(tickets) {
     }
   }
 
-  // REMOVE THIS LINE - DON'T AUTOMATICALLY APPLY GUEST RESTRICTIONS
-  // The server will tell us the correct role via ownershipStatus events
-  // if (isGuestUser()) {
-  //   applyGuestRestrictions();
-  // }
+  // Let server determine role — DO NOT apply guest restrictions here
 
+  // Setup interactions (like hover, selection) after render
   setTimeout(() => {
     setupStoryCardInteractions();
   }, 200);
-  
 }
+
 
 // Get storyId from selected card
 function getCurrentStoryId() {
