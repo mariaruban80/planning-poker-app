@@ -869,41 +869,14 @@ function initializeApp(roomId) {
   });
   
   // Improve the storySelected event handler
-  socket.on('storySelected', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-    clearAllVoteVisuals();
-    // If storyId is provided directly, use it
-    if (storyId) {
-      // Select the story
-       selectStory(storyIndex, false, true);
-      return;
-    }
-    
-    // If no storyId was provided, try to resolve it from the index
-    if (typeof storyIndex === 'number') {
-      // Try to find the story card by index
-      const storyCards = document.querySelectorAll('.story-card');
-      if (storyIndex >= 0 && storyIndex < storyCards.length) {
-        const targetCard = storyCards[storyIndex];
-        if (targetCard && targetCard.id) {
-          console.log(`[SOCKET] Resolved storyId from index ${storyIndex}: ${targetCard.id}`);
-          selectStory(storyIndex, false);
-          return;
-        }
-      }
-      
-      // If we still can't find the story, try one more approach:
-      // Find any story card with the matching data-index attribute
-      const indexCard = document.querySelector(`.story-card[data-index="${storyIndex}"]`);
-      if (indexCard && indexCard.id) {
-        console.log(`[SOCKET] Found story card using data-index=${storyIndex}: ${indexCard.id}`);
-        selectStory(storyIndex, false);
-        return;
-      }
-    }
-    
-    console.warn(`[SOCKET] Could not resolve story for index ${storyIndex}`);
-  });
+socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  // Always force selection for remote (host-to-guest) updates!
+  // This guarantees retries if DOM is not ready yet
+  selectStory(storyIndex, false, true);
+});
   
   // Add reconnection handlers for socket
   if (socket) {
