@@ -3229,36 +3229,13 @@ function setupStoryCardInteractions() {
     const storyId = card.id;
 
     if (isCurrentUserHost()) {
-      // === EDIT BUTTON ===
-      const editButton = document.createElement('div');
-      editButton.className = 'story-edit-btn';
-      editButton.innerHTML = '✏️';
-      editButton.title = 'Edit story';
-      
-      editButton.onclick = function (e) {
-        e.stopPropagation();
-        e.preventDefault();
-
-        // ✅ CRITICAL FIX: Always get the CURRENT text from the DOM
-        const latestTitleDiv = card.querySelector('.story-title');
-        if (!latestTitleDiv) {
-          console.error('[EDIT] Could not find story title element');
-          return;
-        }
-
-        const currentText = latestTitleDiv.textContent.trim();
-        
-        console.log(`[EDIT] Opening edit modal for ticket: ${storyId} with current text: "${currentText}"`);
-
-        // ✅ Pass the current text from DOM, not any cached data
-        if (typeof window.showEditTicketModal === 'function') {
-          window.showEditTicketModal(storyId, currentText);
-        } else {
-          console.error('[EDIT] showEditTicketModal function not found');
-        }
-      };
-      
-      card.appendChild(editButton);
+      // ✅ Only attach if not already present
+      if (!card.querySelector('.story-actions-menu')) {
+        attachActionsMenu(card, storyId, () => {
+          const title = card.querySelector('.story-title');
+          return title ? title.textContent.trim() : '';
+        });
+      }
     }
 
     // === SELECT STORY ===
