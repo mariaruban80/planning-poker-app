@@ -2066,6 +2066,7 @@ function addTicketToUI(ticketData, isManual = false) {
 
   // Append card to the list
   storyList.appendChild(card);
+  normalizeStoryIndexes();
 
   // ----------- NEW FEATURE: Auto-select newly added ticket if host -----------
   // Only the host should run this. If this is a CSV story, you may want to skip,
