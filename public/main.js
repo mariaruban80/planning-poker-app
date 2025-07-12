@@ -104,7 +104,6 @@ window.updateTicketFromModal = function(ticketData) {
 
 function attachActionsMenu(storyCard, storyId, currentTextGetter) {
   if (storyCard.querySelector('.story-actions-menu')) return;
-
   const menu = document.createElement('div');
   menu.className = 'story-actions-menu';
   menu.innerHTML = `
@@ -113,27 +112,21 @@ function attachActionsMenu(storyCard, storyId, currentTextGetter) {
       <div class="dropdown-item edit">✏️ Edit</div>
       <div class="dropdown-item delete">🗑️ Delete</div>
     </div>`;
-
   menu.querySelector('.edit').onclick = e => {
     e.stopPropagation();
-    const latest = currentTextGetter();
-    window.showEditTicketModal(storyId, latest);
+    window.showEditTicketModal(storyId, currentTextGetter());
   };
-
   menu.querySelector('.delete').onclick = e => {
     e.stopPropagation();
     deleteStory(storyId);
   };
-
   menu.querySelector('.menu-button').onclick = e => {
     e.stopPropagation();
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
     menu.querySelector('.dropdown-menu').classList.toggle('hidden');
   };
-
   storyCard.appendChild(menu);
 }
-
 
 
 
@@ -572,15 +565,15 @@ function createFixedVoteDisplay(votes) {
 function isGuestUser() {
 //  const urlParams = new URLSearchParams(window.location.search);
 //  return urlParams.has('roomId') && (!urlParams.has('host') || urlParams.get('host') !== 'true');
-   return sessionStorage.getItem('isHost') !== 'true';
+    return sessionStorage.getItem('isHost') !== 'true';
 }
 
 /**
  * Determines if current user is the host
  */
 function isCurrentUserHost() {
-  //return sessionStorage.getItem('isHost') === 'true';
-   return !isGuestUser();
+  return sessionStorage.getItem('isHost') === 'true';
+  // return !isGuestUser();
 }
 
 function setupPlanningCards() {
@@ -2424,122 +2417,75 @@ function normalizeStoryIndexes() {
     card.onclick = () => selectStory(index); // ensure correct click behavior
   });
 }
+function buildStoryCard(storyId, text, index) {
+  const storyItem = document.createElement('div');
+  storyItem.className = 'story-card';
+  storyItem.id = storyId;
+  storyItem.dataset.index = index;
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'story-title';
+  titleDiv.textContent = text;
+  storyItem.appendChild(titleDiv);
+
+  if (isCurrentUserHost()) {
+    attachActionsMenu(storyItem, storyId, () => titleDiv.textContent.trim());
+  } else {
+    storyItem.classList.add('disabled-story');
+  }
+  return storyItem;
+}
 
 /**
  * Display CSV data in the story list
  */
 function displayCSVData(data) {
-  // Prevent re‑entrant calls that could cause flicker or data loss
-  if (processingCSVData) {
-    console.log('[CSV] Already processing CSV data, ignoring re‑entrant call');
-    return;
-  }
+  if (processingCSVData) return;
   processingCSVData = true;
-
   try {
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) return;
 
     console.log(`[CSV] Displaying ${data.length} rows of CSV data`);
-    const existingManualStories = [];
-    const manualCards = storyListContainer.querySelectorAll(
-      '.story-card[id^="story_"]:not([id^="story_csv_"])'
-    );
-    manualCards.forEach(card => {
-      if (deletedStoryIds.has(card.id)) return; // skip deleted
-      const titleEl = card.querySelector('.story-title');
-      if (titleEl) {
-        existingManualStories.push({ id: card.id, text: titleEl.textContent });
-      }
-    });
-    console.log(`[CSV] Saved ${existingManualStories.length} existing manual stories`);
-    storyListContainer.querySelectorAll('.story-card[id^="story_csv_"]').forEach(c => c.remove());
-    storyListContainer.innerHTML = '';   
-    existingManualStories.forEach((story, index) => {
-      if (deletedStoryIds.has(story.id)) {
-        console.log('[CSV] Not re‑adding deleted manual story:', story.id);
-        return;
-      }
-      const card = document.createElement('div');
-      card.classList.add('story-card');
-      card.id = story.id;
-      card.dataset.index = index;
 
-      const title = document.createElement('div');
-      title.classList.add('story-title');
-      title.textContent = story.text;
-      card.appendChild(title);
+  
+    const existingManualStories = Array.from(
+      storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])')
+    ).filter(card => !deletedStoryIds.has(card.id))
+     .map(card => ({ id: card.id, text: card.querySelector('.story-title').textContent.trim() }));
 
-      if (isCurrentUserHost()) {
-        attachActionsMenu(card, story.id, () => card.querySelector('.story-title').textContent.trim());
-      }
+  
+    storyListContainer.querySelectorAll('.story-card[id^="story_csv_"]')
+      .forEach(card => card.remove());
 
+    storyListContainer.innerHTML = '';
+    existingManualStories.forEach((story, idx) => {
+      const card = buildStoryCard(story.id, story.text, idx);
       storyListContainer.appendChild(card);
-
-      // Host‑only click to select story
-      if (isCurrentUserHost()) {
-        card.addEventListener('click', () => selectStory(index));
-      } else {
-        card.classList.add('disabled-story');
-      }
     });
+
     const startIndex = existingManualStories.length;
     data.forEach((row, i) => {
-      const csvStoryId = `story_csv_${i}`;
-      if (deletedStoryIds.has(csvStoryId)) {
-        console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
-        return;
-      }
-
-      const card = document.createElement('div');
-      card.classList.add('story-card');
-      card.id = csvStoryId;
-      card.dataset.index = startIndex + i;
-
-      const title = document.createElement('div');
-      title.classList.add('story-title');
-      title.textContent = row.join(' | ');
-      card.appendChild(title);
-
-      if (isCurrentUserHost()) {
-        attachActionsMenu(card, csvStoryId, () => card.querySelector('.story-title').textContent.trim());
-        card.addEventListener('click', () => selectStory(startIndex + i));
-      } else {
-        card.classList.add('disabled-story');
-      }
-
+      const csvId = `story_csv_${i}`;
+      if (deletedStoryIds.has(csvId)) return;  // skip deleted
+      const text = row.join(' | ');
+      const card = buildStoryCard(csvId, text, startIndex + i);
       storyListContainer.appendChild(card);
     });
-  
-    preservedManualTickets = existingManualStories;
-    console.log(`[CSV] Display complete: ${existingManualStories.length} manual + ${data.length} CSV = ${storyListContainer.children.length} total`);
 
-   
-    const noStoriesMessage = document.getElementById('noStoriesMessage');
-    if (noStoriesMessage) {
-      noStoriesMessage.style.display = storyListContainer.children.length === 0 ? 'block' : 'none';
-    }
+    preservedManualTickets = existingManualStories; // keep track for future uploads
 
-    document.querySelectorAll('#planningCards .card').forEach(card => {
-      const hasStories = storyListContainer.children.length > 0;
-      card.classList.toggle('disabled', !hasStories);
-      card.setAttribute('draggable', hasStories ? 'true' : 'false');
-    });
+    console.log(`[CSV] Display complete: ${existingManualStories.length} manual + ${data.length} CSV`);
 
-    if (!storyListContainer.querySelector('.story-card.selected') && storyListContainer.children.length) {
-      storyListContainer.children[0].classList.add('selected');
-      currentStoryIndex = 0;
-    }
-
-    // Clean‑up old handlers and re‑establish where needed
-    cleanupDeleteButtonHandlers();    // existing helper in your codebase
-    setupCSVDeleteButtons();          // ditto (now only toggles visibility)
+    normalizeStoryIndexes();
+    setupStoryCardInteractions();
   } finally {
-    normalizeStoryIndexes();          // keep indexes contiguous
-    setupStoryCardInteractions();     // drag & drop etc.
-    processingCSVData = false;        // release lock
+    processingCSVData = false;
   }
 }
+
+
+
 /**
  * Select a story by index
  * @param {number} index - Story index to select
@@ -3224,27 +3170,17 @@ function setupStoryCardInteractions() {
   const storyList = document.getElementById('storyList');
   if (!storyList) return;
 
-  const storyCards = storyList.querySelectorAll('.story-card');
-  storyCards.forEach(card => {
+  storyList.querySelectorAll('.story-card').forEach(card => {
     const storyId = card.id;
 
-    if (isCurrentUserHost()) {
-      // ✅ Only attach if not already present
-      if (!card.querySelector('.story-actions-menu')) {
-        attachActionsMenu(card, storyId, () => {
-          const title = card.querySelector('.story-title');
-          return title ? title.textContent.trim() : '';
-        });
-      }
+    if (isCurrentUserHost() && !card.querySelector('.story-actions-menu')) {
+      attachActionsMenu(card, storyId, () => card.querySelector('.story-title').textContent.trim());
     }
 
-    // === SELECT STORY ===
-    card.addEventListener('click', () => {
-      const index = [...storyList.children].indexOf(card);
-      if (!deletedStoryIds.has(card.id)) {
-        selectStory(index);
-      }
-    });
+    card.onclick = () => {
+      if (deletedStoryIds.has(storyId)) return;
+      selectStory(parseInt(card.dataset.index, 10));
+    };
   });
 }
 
