@@ -2041,57 +2041,59 @@ function addTicketToUI(ticketData, isManual = false) {
   title.textContent = ticketData.text;
   card.appendChild(title);
 
-  // Create the dropdown menu container
-  const menuContainer = document.createElement('div');
-  menuContainer.className = 'story-menu-container';
-  menuContainer.innerHTML = `
-    <div class="story-menu-trigger">⋮</div>
-    <div class="story-menu-dropdown">
-      <div class="story-menu-item edit-story">Edit</div>
-      <div class="story-menu-item delete-story">Delete</div>
-    </div>
-  `;
-  card.appendChild(menuContainer);
+  // Only add the menu if current user is host
+  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
+    // Create the dropdown menu container
+    const menuContainer = document.createElement('div');
+    menuContainer.className = 'story-menu-container';
+    menuContainer.innerHTML = `
+      <div class="story-menu-trigger">⋮</div>
+      <div class="story-menu-dropdown">
+        <div class="story-menu-item edit-story">Edit</div>
+        <div class="story-menu-item delete-story">Delete</div>
+      </div>
+    `;
+    card.appendChild(menuContainer);
 
-  // Toggle menu visibility
-  const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
-  const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+    // Toggle menu visibility
+    const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+    const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
 
-  menuTrigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
-    menuDropdown.style.display = 'block';
-  });
+    menuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+      menuDropdown.style.display = 'block';
+    });
 
-  // Hide the menu when clicking elsewhere (once per open)
-  document.addEventListener('click', () => {
-    menuDropdown.style.display = 'none';
-  });
+    // Hide the menu when clicking elsewhere (once per open)
+    document.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
+    });
 
-  // Hook up edit and delete actions (FIXED)
-  menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    // Get the current text from the card (for latest content)
-    const titleDiv = card.querySelector('.story-title');
-    const currentText = titleDiv ? titleDiv.textContent : ticketData.text;
-    if (typeof window.showEditTicketModal === 'function') {
-      window.showEditTicketModal(ticketData.id, currentText);
-    }
-    menuDropdown.style.display = 'none';
-  });
+    // Hook up edit and delete actions (FIXED)
+    menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Get the current text from the card (for latest content)
+      const titleDiv = card.querySelector('.story-title');
+      const currentText = titleDiv ? titleDiv.textContent : ticketData.text;
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(ticketData.id, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
 
-  menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (typeof deleteStory === 'function') {
-      deleteStory(ticketData.id);
-    }
-    menuDropdown.style.display = 'none';
-  });
+    menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(ticketData.id);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  }
 
   // Append card to the list
   storyList.appendChild(card);
 }
-
 
 
 
