@@ -3893,11 +3893,18 @@ document.addEventListener('click', function (event) {
     const storyId = card?.id;
 
     if (event.target.classList.contains('edit')) {
-      // Replace this with your existing edit modal function
-      openEditModal(storyId);
+      // Get the current text from the card
+      const storyTitle = card.querySelector('.story-title');
+      const currentText = storyTitle ? storyTitle.textContent : '';
+
+      // Use the existing modal function
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(storyId, currentText);
+      }
     } else if (event.target.classList.contains('delete')) {
-      // Replace with your existing delete confirmation logic
-      confirmAndDeleteStory(storyId);
+      if (typeof deleteStory === 'function') {
+        deleteStory(storyId);
+      }
     }
   } else {
     // Click outside dropdown
