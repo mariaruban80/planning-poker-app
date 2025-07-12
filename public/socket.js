@@ -69,6 +69,12 @@ socket.on('reconnect', () => {
     socket.emit('requestFullStateResync');
   }, 500);
 });
+  function emitCsvUpdateToRoom(storiesArray) {
+  // Only the host should broadcast
+  if (sessionStorage.getItem('isHost') === 'true') {
+    socket.emit('csvStoriesUpdated', { roomId, stories: storiesArray });
+  }
+}
 
 socket.on('disconnect', (reason) => {
   console.warn('[SOCKET] Disconnected. Reason:', reason);
@@ -343,6 +349,14 @@ socket.on('connect', () => {
       }
     }, 100);
   });
+
+socket.on('csvStoriesUpdated', payload => {
+  if (!payload || !Array.isArray(payload.stories)) return;
+  console.log('[SOCKET] csvStoriesUpdated received:', payload.stories.length, 'rows');
+  // Re‑use the same handler you already use for initial sync
+  handleMessage({ type: 'syncCSVData', csvData: payload.stories });
+});
+
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
@@ -734,7 +748,10 @@ export function emitDeleteStory(storyId) {
 export function emitCSVData(data) {
   if (socket) {
     console.log('[SOCKET] Sending CSV data:', data.length, 'rows');
-    socket.emit('syncCSVData', data);
+    socket.emit('syncCSVData', data);          // existing line ✅
+
+    // NEW: tell the room we have fresh CSV so late guests get it
+    emitCsvUpdateToRoom(data);                 // add this line ✅
   }
 }
 
