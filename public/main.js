@@ -2066,8 +2066,19 @@ function addTicketToUI(ticketData, isManual = false) {
 
   // Append card to the list
   storyList.appendChild(card);
-}
 
+  // ----------- NEW FEATURE: Auto-select newly added ticket if host -----------
+  // Only the host should run this. If this is a CSV story, you may want to skip,
+  // or leave as is if you want ALL stories selected by default.
+  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
+    // Find the card's index in the storyList
+    const index = Array.from(storyList.children).findIndex(child => child.id === ticketData.id);
+    if (index !== -1) {
+      // Select the new ticket, and emit to server to broadcast to all (including guests)
+      selectStory(index, true); // emitToServer = true
+    }
+  }
+}
 
 
 
