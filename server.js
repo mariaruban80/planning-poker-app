@@ -1605,83 +1605,48 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
 socket.on('syncCSVData', (csvData) => {
   const roomId = socket.data.roomId;
-  if (roomId && rooms[roomId]) {
-    console.log(`[SERVER] Received CSV data for room ${roomId}, ${csvData.length} rows`);
+  if (!roomId || !rooms[roomId]) return;
 
-    // Update room activity timestamp
-    rooms[roomId].lastActivity = Date.now();
+  console.log(`[SERVER] Received CSV data for room ${roomId} – ${csvData.length} rows`);
+  rooms[roomId].lastActivity = Date.now();
+  rooms[roomId].csvData      = csvData;
+  rooms[roomId].selectedIndex = 0;
 
-    // Store the raw CSV data
-    rooms[roomId].csvData = csvData;
+  /* ─── 1. Preserve manual tickets ─── */
+  const manualTickets = (rooms[roomId].tickets || []).filter(
+    t => !t.id.startsWith('story_csv_')
+  );
+  console.log(`[SERVER]   ↳ preserved ${manualTickets.length} manual tickets`);
 
-    // Reset story selection index
-    rooms[roomId].selectedIndex = 0;
+  /* ─── 2. Build the new ticket array in one shot ─── */
+  rooms[roomId].tickets = [...manualTickets, ...csvData];   // ★ KEY LINE ★
 
-    // Preserve manually added tickets (non-CSV)
-    let manualTickets = [];
-    if (rooms[roomId].tickets) {
-      manualTickets = rooms[roomId].tickets.filter(ticket => 
-        !ticket.id.startsWith('story_csv_')
-      );
-      console.log(`[SERVER] Preserved ${manualTickets.length} manual tickets during CSV sync`);
-    }
-
-    // Replace ticket list with manual tickets only
-    rooms[roomId].tickets = manualTickets;
-
-    // ✅ Append new CSV tickets to the room
-    rooms[roomId].tickets.push(...csvData);
-
-    // Reset deleted CSV story IDs only
-    if (rooms[roomId].deletedStoryIds) {
-      const newDeletedSet = new Set();
-      rooms[roomId].deletedStoryIds.forEach(id => {
-        if (!id.startsWith('story_csv_')) {
-          newDeletedSet.add(id);
-        }
-      });
-      rooms[roomId].deletedStoryIds = newDeletedSet;
-    }
-
-    // Preserve votes only for non-CSV stories
-    const preservedVotes = {};
-    const preservedRevealed = {};
-    const preservedUsernameVotes = {};
-
-    if (rooms[roomId].votesPerStory) {
-      for (const storyId in rooms[roomId].votesPerStory) {
-        if (!storyId.startsWith('story_csv_')) {
-          preservedVotes[storyId] = rooms[roomId].votesPerStory[storyId];
-        }
-      }
-    }
-
-    if (rooms[roomId].votesRevealed) {
-      for (const storyId in rooms[roomId].votesRevealed) {
-        if (!storyId.startsWith('story_csv_')) {
-          preservedRevealed[storyId] = rooms[roomId].votesRevealed[storyId];
-        }
-      }
-    }
-
-    if (rooms[roomId].userNameVotes) {
-      for (const userName in rooms[roomId].userNameVotes) {
-        preservedUsernameVotes[userName] = {};
-        for (const storyId in rooms[roomId].userNameVotes[userName]) {
-          if (!storyId.startsWith('story_csv_')) {
-            preservedUsernameVotes[userName][storyId] = rooms[roomId].userNameVotes[userName][storyId];
-          }
-        }
-      }
-    }
-
-    rooms[roomId].votesPerStory = preservedVotes;
-    rooms[roomId].votesRevealed = preservedRevealed;
-    rooms[roomId].userNameVotes = preservedUsernameVotes;
-
-    // ✅ Broadcast the CSV tickets to all clients (host + guests)
-    io.to(roomId).emit('syncCSVData', csvData);
+  /* ─── 3. Clean deleted‑story tracking (keep non‑CSV only) ─── */
+  if (rooms[roomId].deletedStoryIds) {
+    rooms[roomId].deletedStoryIds = new Set(
+      [...rooms[roomId].deletedStoryIds].filter(id => !id.startsWith('story_csv_'))
+    );
   }
+
+  /* ─── 4. Preserve votes / revealed flags for non‑CSV stories ─── */
+  const keepNonCSV = obj => {
+    const out = {};
+    for (const key in obj) if (!key.startsWith('story_csv_')) out[key] = obj[key];
+    return out;
+  };
+  rooms[roomId].votesPerStory   = keepNonCSV(rooms[roomId].votesPerStory   || {});
+  rooms[roomId].votesRevealed   = keepNonCSV(rooms[roomId].votesRevealed   || {});
+  rooms[roomId].userNameVotes   = Object.fromEntries(
+    Object.entries(rooms[roomId].userNameVotes || {}).map(
+      ([u,v]) => [u, keepNonCSV(v)]
+    )
+  );
+
+  console.log(`[SERVER]   ↳ room now has ${rooms[roomId].tickets.length} total tickets`);
+
+  /* ─── 5. Notify all current clients ─── */
+  io.to(roomId).emit('syncCSVData', csvData);
+  io.to(roomId).emit('allTickets',  { tickets: rooms[roomId].tickets });
 });
 
 
