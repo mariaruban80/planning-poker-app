@@ -868,29 +868,15 @@ function initializeApp(roomId) {
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
   
+  // Improve the storySelected event handler
 socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
   clearAllVoteVisuals();
 
-  // Retry selection until DOM element exists
-  const maxRetries = 10;
-  let attempt = 0;
-
-  function trySelectStory() {
-    const cardExists = document.querySelectorAll('.story-card')[storyIndex];
-    if (cardExists) {
-      selectStory(storyIndex, false, true);
-    } else if (attempt < maxRetries) {
-      attempt++;
-      setTimeout(trySelectStory, 100); // Retry after delay
-    } else {
-      console.warn(`[STORY] Failed to select story at index ${storyIndex} after ${maxRetries} attempts.`);
-    }
-  }
-
-  trySelectStory();
+  // Always force selection for remote (host-to-guest) updates!
+  // This guarantees retries if DOM is not ready yet
+  selectStory(storyIndex, false, true);
 });
-
   
   // Add reconnection handlers for socket
   if (socket) {
@@ -2544,15 +2530,14 @@ function normalizeStoryIndexes() {
   }
 }
 
-if (socket && typeof socket.on === 'function') {
   socket.on('storySelected', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-    clearAllVoteVisuals();
-    selectStory(storyIndex, false, true);
-  });
-} else {
-  console.warn('[SOCKET] Cannot attach storySelected handler: socket not ready');
-};
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  // Always force selection for remote (host-to-guest) updates!
+  // This guarantees retries if DOM is not ready yet, and doesn't apply extra updates!
+  selectStory(storyIndex, false, true);
+});
 
   socket.on('allTickets', ({ tickets }) => {
     console.log('[SOCKET] Received all tickets:', tickets.length);
@@ -2590,11 +2575,13 @@ if (socket && typeof socket.on === 'function') {
     handleMessage({ type: 'allTickets', tickets: filteredTickets });
   });
 
+
+
 /**
- * Select a story card by index
- * @param {number} index - The index of the story to select
- * @param {boolean} [scrollIntoView=true] - Whether to scroll the story into view
- * @param {boolean} [force=false] - Whether to override current selection
+ * Select a story by index
+ * @param {number} index - Story index to select
+ * @param {boolean} emitToServer - Whether to emit to server (default: true)
+ * @param {boolean} forceSelection - Whether to force selection even after retries
  */
 function selectStory(index, emitToServer = true, forceSelection = false) {
     console.log('[UI] Story selected by user:', index, forceSelection ? '(forced)' : '');
@@ -2718,9 +2705,6 @@ function selectStory(index, emitToServer = true, forceSelection = false) {
         console.log(`[UI] Story card with index ${index} not found`);
     }
 }
-
-
-
 
 /**
  * Reset or restore votes for a story
@@ -3794,33 +3778,34 @@ case 'syncCSVData':
     csvData = message.csvData;
     csvDataLoaded = true;
 
+    // Save manual tickets only if storyList exists (i.e., DOM is ready)
     const storyList = document.getElementById('storyList');
-    if (!storyList) {
-      console.warn('[UI] Story list not ready yet — retrying syncCSVData in 200ms');
-      return setTimeout(() => handleMessage(message), 200);
-    }
-
     const manualTickets = [];
-    const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-    manualStoryCards.forEach(card => {
-      if (deletedStoryIds.has(card.id)) return;
 
-      const title = card.querySelector('.story-title');
-      if (title) {
-        manualTickets.push({
-          id: card.id,
-          text: title.textContent
-        });
-      }
-    });
+    if (storyList) {
+      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+      manualStoryCards.forEach(card => {
+        if (deletedStoryIds.has(card.id)) return;
+
+        const title = card.querySelector('.story-title');
+        if (title) {
+          manualTickets.push({
+            id: card.id,
+            text: title.textContent
+          });
+        }
+      });
+    }
 
     console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
 
+    // ✅ Ensure rendering even for late guests
     displayCSVData(csvData);
+
+    // ✅ Re-render current story to show vote cards
     renderCurrentStory();
   }
   break;
-
 
 
     case 'connect':
