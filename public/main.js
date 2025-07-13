@@ -868,15 +868,29 @@ function initializeApp(roomId) {
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
   
-  // Improve the storySelected event handler
 socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
   clearAllVoteVisuals();
 
-  // Always force selection for remote (host-to-guest) updates!
-  // This guarantees retries if DOM is not ready yet
-  selectStory(storyIndex, false, true);
+  // Retry selection until DOM element exists
+  const maxRetries = 10;
+  let attempt = 0;
+
+  function trySelectStory() {
+    const cardExists = document.querySelectorAll('.story-card')[storyIndex];
+    if (cardExists) {
+      selectStory(storyIndex, false, true);
+    } else if (attempt < maxRetries) {
+      attempt++;
+      setTimeout(trySelectStory, 100); // Retry after delay
+    } else {
+      console.warn(`[STORY] Failed to select story at index ${storyIndex} after ${maxRetries} attempts.`);
+    }
+  }
+
+  trySelectStory();
 });
+
   
   // Add reconnection handlers for socket
   if (socket) {
