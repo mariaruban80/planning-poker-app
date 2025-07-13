@@ -2595,53 +2595,127 @@ function normalizeStoryIndexes() {
  * @param {boolean} [scrollIntoView=true] - Whether to scroll the story into view
  * @param {boolean} [force=false] - Whether to override current selection
  */
-function selectStory(index, scrollIntoView = true, force = false) {
-  const storyList = document.getElementById('storyList');
-  if (!storyList) {
-    console.warn('[UI] Story list container not found');
-    return;
-  }
+function selectStory(index, emitToServer = true, forceSelection = false) {
+    console.log('[UI] Story selected by user:', index, forceSelection ? '(forced)' : '');
 
-  const storyCards = storyList.querySelectorAll('.story-card');
-  const totalCards = storyCards.length;
+    // Update UI first for responsiveness
+    document.querySelectorAll('.story-card').forEach(card => {
+        card.classList.remove('selected', 'active');
+    });
 
-  // Prevent invalid index
-  if (index < 0 || index >= totalCards) {
-    console.warn(`[UI] Invalid story index: ${index} (total: ${totalCards})`);
-    return;
-  }
-
-  const trySelect = (attempt = 0) => {
-    const storyCard = storyCards[index];
-
+    const storyCard = document.querySelector(`.story-card[data-index="${index}"]`);
     if (storyCard) {
-      // Remove 'selected' class from all cards
-      storyCards.forEach(card => card.classList.remove('selected'));
+        storyCard.classList.add('selected', 'active');
 
-      // Mark this card as selected
-      storyCard.classList.add('selected');
-      currentStoryIndex = index;
+        // Update local state
+        currentStoryIndex = index;
 
-      if (scrollIntoView) {
-        storyCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+        // Get the story ID from the selected card
+        let storyId = getCurrentStoryId();
 
-      console.log(`[UI] Story selected by user: ${index}`);
+        // Skip for deleted stories
+        if (storyId && deletedStoryIds.has(storyId)) {
+            console.log(`[UI] Selected story ${storyId} is marked as deleted, skipping further processing`);
+            return;
+        }
 
-      // Request latest votes for the story
-      const storyId = storyCard.id;
-      if (storyId) {
-        requestStoryVotes(storyId);
-      }
-    } else if (attempt < 10) {
-      // Retry if not yet rendered
-      setTimeout(() => trySelect(attempt + 1), 100);
+        // Initialize vote reveal state for this story
+        if (storyId && typeof votesRevealed[storyId] === 'undefined') {
+            votesRevealed[storyId] = false;
+        }
+
+        // Check if votes are revealed for this story
+        const areVotesRevealed = storyId && votesRevealed[storyId] === true;
+        
+        if (areVotesRevealed) {
+            // If votes are revealed, hide planning cards and show stats
+            const planningCardsSection = document.querySelector('.planning-cards-section');
+            if (planningCardsSection) {
+                planningCardsSection.classList.add('hidden-until-init');
+                planningCardsSection.style.display = 'none';
+            }
+            
+            // Show statistics for this story
+            setTimeout(() => {
+                handleVotesRevealed(storyId, votesPerStory[storyId] || {});
+            }, 100);
+        } else {
+            // Otherwise, ensure planning cards are visible and stats are hidden
+            const planningCardsSection = document.querySelector('.planning-cards-section');
+            if (planningCardsSection) {
+                planningCardsSection.classList.remove('hidden-until-init');
+                planningCardsSection.style.display = 'block';
+            }
+            
+            // Hide all vote statistics containers
+            const allStatsContainers = document.querySelectorAll('.vote-statistics-container');
+            allStatsContainers.forEach(container => {
+                container.style.display = 'none';
+            });
+        }
+
+        renderCurrentStory();
+        resetOrRestoreVotes(storyId);
+
+        // Notify server about selection if requested
+        const storyCards = document.querySelectorAll('.story-card');
+        const storyCardFromList = storyCards[index];
+        storyId = storyCardFromList ? storyCardFromList.id : null;
+
+        if (emitToServer && socket) {
+            console.log('[EMIT] Broadcasting story selection:', index);
+
+            // Emit both storyIndex and storyId
+            socket.emit('storySelected', { 
+                storyIndex: index, 
+                storyId: storyId 
+            });
+
+            // Request votes for this story
+            if (storyId) {
+                if (typeof requestStoryVotes === 'function') {
+                    requestStoryVotes(storyId);
+                } else {
+                    socket.emit('requestStoryVotes', { storyId });
+                }
+            }
+        }
+    } else if (forceSelection) {
+        console.log(`[UI] Story card with index ${index} not found yet, retrying selection soon...`);
+        // Retry selection after short delay
+        setTimeout(() => {
+            const retryCard = document.querySelector(`.story-card[data-index="${index}"]`);
+            if (retryCard) {
+                selectStory(index, emitToServer, false);
+            } else {
+                const allCards = document.querySelectorAll('.story-card');
+                let found = false;
+
+                allCards.forEach(card => {
+                    if (parseInt(card.dataset.index) === parseInt(index)) {
+                        card.classList.add('selected', 'active');
+                        currentStoryIndex = index;
+                        found = true;
+
+                        let storyId = card.id;
+                        if (storyId && !deletedStoryIds.has(storyId)) {
+                            if (typeof votesRevealed[storyId] === 'undefined') {
+                                votesRevealed[storyId] = false;
+                            }
+                            resetOrRestoreVotes(storyId);
+                        }
+                    }
+                });
+
+                if (!found) {
+                    console.log(`[UI] Could not find story with index ${index} after retries`);
+                    currentStoryIndex = index;
+                }
+            }
+        }, 300);
     } else {
-      console.warn(`[UI] Story card with index ${index} not found after multiple attempts`);
+        console.log(`[UI] Story card with index ${index} not found`);
     }
-  };
-
-  trySelect();
 }
 
 
