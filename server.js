@@ -1209,26 +1209,23 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   });
   
   // Handle getting all tickets
-  socket.on('requestAllTickets', () => {
-    const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId]) {
-      console.log(`[SERVER] Ticket request from client ${socket.id}`);
-      
-      // Update room activity timestamp
-      rooms[roomId].lastActivity = Date.now();
-      
-      // CRITICAL: Filter out deleted stories before sending
-      const filteredTickets = rooms[roomId].tickets.filter(ticket => 
-        !rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(ticket.id)
-      );
-      
-      console.log(`[SERVER] Sending ${filteredTickets.length} active tickets (filtered from ${rooms[roomId].tickets.length} total)`);
-      socket.emit('allTickets', { tickets: filteredTickets });
-    } else {
-      console.log(`[SERVER] No tickets available to send to client ${socket.id}`);
-      socket.emit('allTickets', { tickets: [] });
-    }
-  });
+ socket.on('requestAllTickets', () => {
+  const roomId = socket.data.roomId;
+  if (!roomId || !rooms[roomId]) return;
+
+  const allTickets = rooms[roomId].tickets || [];
+
+  console.log(`[SERVER] Sending all tickets to ${socket.id}: ${allTickets.length}`);
+  socket.emit('allTickets', { tickets: allTickets });
+
+  // Optionally also send selected story again
+  const selectedIndex = rooms[roomId].selectedIndex ?? 0;
+  const storyId = allTickets[selectedIndex]?.id;
+  if (storyId) {
+    socket.emit('storySelected', { storyIndex: selectedIndex, storyId });
+  }
+});
+
 
   // Handle CSV data loaded confirmation
   socket.on('csvDataLoaded', () => {
