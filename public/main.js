@@ -3223,6 +3223,7 @@ function setupStoryNavigation() {
     // Get all story cards and filter out deleted ones
     const allCards = [...document.querySelectorAll('.story-card')];
     return allCards.filter(card => !deletedStoryIds.has(card.id));
+    
   }
 
   function getSelectedCardIndex() {
@@ -3265,46 +3266,24 @@ function setupStoryCardInteractions() {
   storyCards.forEach(card => {
     const storyId = card.id;
 
+    // Host: Enable story card interactions
     if (isCurrentUserHost()) {
-      // === EDIT BUTTON ===
-      const editButton = document.createElement('div');
-      editButton.className = 'story-edit-btn';
-      editButton.innerHTML = '✏️';
-      editButton.title = 'Edit story';
-      
-      editButton.onclick = function (e) {
-        e.stopPropagation();
-        e.preventDefault();
-
-        // ✅ CRITICAL FIX: Always get the CURRENT text from the DOM
-        const latestTitleDiv = card.querySelector('.story-title');
-        if (!latestTitleDiv) {
-          console.error('[EDIT] Could not find story title element');
-          return;
-        }
-
-        const currentText = latestTitleDiv.textContent.trim();
-        
-        console.log(`[EDIT] Opening edit modal for ticket: ${storyId} with current text: "${currentText}"`);
-
-        // ✅ Pass the current text from DOM, not any cached data
-        if (typeof window.showEditTicketModal === 'function') {
-          window.showEditTicketModal(storyId, currentText);
-        } else {
-          console.error('[EDIT] showEditTicketModal function not found');
-        }
-      };
-      
-      card.appendChild(editButton);
+      card.classList.remove('disabled-story'); // Ensure it's enabled
+    } else {
+      // Guest: Disable clicking and apply styling
+      card.classList.add('disabled-story');
+      card.onclick = null; // remove any inline click handlers added
     }
 
-    // === SELECT STORY ===
+
+    // == STORY SELECTION ==
     card.addEventListener('click', () => {
-      const index = [...storyList.children].indexOf(card);
-      if (!deletedStoryIds.has(card.id)) {
-        selectStory(index);
-      }
-    });
+        const index = [...storyList.children].indexOf(card);
+        const cards = getOrderedCards();
+        if (!isGuestUser()  && (cards[index] == card)) {
+          selectStory(index);
+        } //guests cannot select story
+      });
   });
 }
 
