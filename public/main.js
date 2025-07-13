@@ -2544,14 +2544,15 @@ function normalizeStoryIndexes() {
   }
 }
 
+if (socket && typeof socket.on === 'function') {
   socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  clearAllVoteVisuals();
-
-  // Always force selection for remote (host-to-guest) updates!
-  // This guarantees retries if DOM is not ready yet, and doesn't apply extra updates!
-  selectStory(storyIndex, false, true);
-});
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    selectStory(storyIndex, false, true);
+  });
+} else {
+  console.warn('[SOCKET] Cannot attach storySelected handler: socket not ready');
+};
 
   socket.on('allTickets', ({ tickets }) => {
     console.log('[SOCKET] Received all tickets:', tickets.length);
@@ -3793,34 +3794,33 @@ case 'syncCSVData':
     csvData = message.csvData;
     csvDataLoaded = true;
 
-    // Save manual tickets only if storyList exists (i.e., DOM is ready)
     const storyList = document.getElementById('storyList');
-    const manualTickets = [];
-
-    if (storyList) {
-      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-      manualStoryCards.forEach(card => {
-        if (deletedStoryIds.has(card.id)) return;
-
-        const title = card.querySelector('.story-title');
-        if (title) {
-          manualTickets.push({
-            id: card.id,
-            text: title.textContent
-          });
-        }
-      });
+    if (!storyList) {
+      console.warn('[UI] Story list not ready yet — retrying syncCSVData in 200ms');
+      return setTimeout(() => handleMessage(message), 200);
     }
+
+    const manualTickets = [];
+    const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+    manualStoryCards.forEach(card => {
+      if (deletedStoryIds.has(card.id)) return;
+
+      const title = card.querySelector('.story-title');
+      if (title) {
+        manualTickets.push({
+          id: card.id,
+          text: title.textContent
+        });
+      }
+    });
 
     console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
 
-    // ✅ Ensure rendering even for late guests
     displayCSVData(csvData);
-
-    // ✅ Re-render current story to show vote cards
     renderCurrentStory();
   }
   break;
+
 
 
     case 'connect':
