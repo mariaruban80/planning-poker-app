@@ -3771,48 +3771,42 @@ function handleSocketMessage(message) {
       }
       break;
       
-    case 'syncCSVData':
-      // Handle CSV data sync with improved state handling
-      if (Array.isArray(message.csvData)) {
-        console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
-        
-        // Store the CSV data
-        csvData = message.csvData;
-        csvDataLoaded = true;
-        
-        // Temporarily save manually added tickets to preserve them
-        const storyList = document.getElementById('storyList');
-        const manualTickets = [];
-        
-        if (storyList) {
-          const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-          manualStoryCards.forEach(card => {
-            // Skip if this is a deleted story
-            if (deletedStoryIds.has(card.id)) {
-              return;
-            }
-            
-            const title = card.querySelector('.story-title');
-            if (title) {
-              manualTickets.push({
-                                id: card.id,
-                text: title.textContent
-              });
-            }
+case 'syncCSVData':
+  if (Array.isArray(message.csvData)) {
+    console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
+
+    csvData = message.csvData;
+    csvDataLoaded = true;
+
+    // Save manual tickets only if storyList exists (i.e., DOM is ready)
+    const storyList = document.getElementById('storyList');
+    const manualTickets = [];
+
+    if (storyList) {
+      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+      manualStoryCards.forEach(card => {
+        if (deletedStoryIds.has(card.id)) return;
+
+        const title = card.querySelector('.story-title');
+        if (title) {
+          manualTickets.push({
+            id: card.id,
+            text: title.textContent
           });
         }
-        
-        console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
-        
-        // Display CSV data (this will clear CSV stories but preserve manual ones)
-        displayCSVData(csvData);
-        
-        // We don't need to re-add manual tickets because displayCSVData now preserves them
-        
-        // Update UI
-        renderCurrentStory();
-      }
-      break;
+      });
+    }
+
+    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+
+    // ✅ Ensure rendering even for late guests
+    displayCSVData(csvData);
+
+    // ✅ Re-render current story to show vote cards
+    renderCurrentStory();
+  }
+  break;
+
 
     case 'connect':
       // When connection is established
