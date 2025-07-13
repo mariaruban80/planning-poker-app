@@ -1647,6 +1647,17 @@ socket.on('syncCSVData', (csvData) => {
   /* ─── 5. Notify all current clients ─── */
   io.to(roomId).emit('syncCSVData', csvData);
   io.to(roomId).emit('allTickets',  { tickets: rooms[roomId].tickets });
+
+  /* ─── 6. Auto-select the first CSV story ─── */
+  const firstCSVStory = csvData[0];
+  if (firstCSVStory && firstCSVStory.id) {
+    rooms[roomId].selectedIndex = rooms[roomId].tickets.findIndex(t => t.id === firstCSVStory.id);
+    io.to(roomId).emit('storySelected', {
+      storyIndex: rooms[roomId].selectedIndex,
+      storyId: firstCSVStory.id
+    });
+    console.log(`[SERVER] Selected first CSV story: ${firstCSVStory.id}`);
+  }
 });
 
 
