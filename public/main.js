@@ -867,16 +867,17 @@ function initializeApp(roomId) {
     // Log reset action for debugging
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
-  
-  // Improve the storySelected event handler
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  clearAllVoteVisuals();
+ socket = initializeWebSocket(roomId, userName, handleSocketMessage, isHost); 
+if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function') {
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    selectStory(storyIndex, false, true);
+  });
+} else {
+  console.warn('[SOCKET] storySelected listener not attached: socket not ready');
+}
 
-  // Always force selection for remote (host-to-guest) updates!
-  // This guarantees retries if DOM is not ready yet
-  selectStory(storyIndex, false, true);
-});
   
   // Add reconnection handlers for socket
   if (socket) {
