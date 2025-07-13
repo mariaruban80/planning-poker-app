@@ -1690,26 +1690,6 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
     }
   });
 
-  socket.on('uploadCSVData', ({ csvData }) => {
-  const roomId = socket.data.roomId;
-  if (!roomId || !rooms[roomId]) return;
-
-  // Validate incoming data
-  if (!Array.isArray(csvData)) {
-    console.warn('[SERVER] Invalid CSV data upload');
-    return;
-  }
-
-  // Store CSV stories in room memory
-  rooms[roomId].csvData = csvData;
-  rooms[roomId].tickets.push(...csvData);  // Add to master ticket list
-
-  // Broadcast to all clients (including guests)
-  io.to(roomId).emit('syncCSVData', csvData);
-
-  console.log(`[SERVER] CSV data uploaded and broadcast to room ${roomId}: ${csvData.length} stories`);
-});
-
 
   // Export votes data
   socket.on('exportVotes', () => {
