@@ -327,22 +327,23 @@ socket.on('connect', () => {
     handleMessage({ type: 'votingSystemUpdate', ...data });
   });
 
-  socket.on('syncCSVData', (csvData) => {
-    console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
-    
-    // Store in last known state
-    lastKnownRoomState.csvData = csvData;
-    
-    handleMessage({ type: 'syncCSVData', csvData });
-    
-    // Notify server that CSV data is loaded
-    setTimeout(() => {
-      console.log('[SOCKET] Notifying server that CSV data is loaded');
-      if (socket && socket.connected) {
-        socket.emit('csvDataLoaded');
-      }
-    }, 100);
-  });
+ socket.on('syncCSVData', (csvData) => {
+  console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
+
+  // Store in last known state
+  lastKnownRoomState.csvData = csvData;
+
+ 
+  handleMessage({ type: 'syncCSVData', csvData }); 
+
+  setTimeout(() => {
+    console.log('[SOCKET] Notifying server that CSV data is loaded');
+    if (socket && socket.connected) {
+      socket.emit('csvDataLoaded');
+    }
+  }, 100);
+});
+
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
