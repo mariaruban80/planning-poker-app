@@ -3282,7 +3282,7 @@ function setupStoryCardInteractions() {
         const cards = getOrderedCards();
         if (!isGuestUser()  && (cards[index] == card)) {
           selectStory(index);
-        } //guests cannot select story
+        }
       });
   });
 }
