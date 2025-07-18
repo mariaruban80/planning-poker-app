@@ -2341,7 +2341,7 @@ function normalizeStoryIndexes() {
 /**
  * Display CSV data in the story list
  */
- function displayCSVData(data) {
+function displayCSVData(data) {
   if (processingCSVData) {
     console.log('[CSV] Already processing CSV data, ignoring reentrant call');
     return;
@@ -2355,12 +2355,12 @@ function normalizeStoryIndexes() {
 
     console.log(`[CSV] Displaying ${data.length} rows of CSV data`);
 
-    // Saved the existing manual stories
+    // Save the existing manual stories
     const existingStories = [];
     const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
 
     manualStories.forEach(card => {
-      if (deletedStoryIds.has(card.id)) return;  // Skip deleted ones!
+      if (deletedStoryIds.has(card.id)) return;  // Skip deleted
 
       const title = card.querySelector('.story-title');
       if (title) {
@@ -2377,40 +2377,39 @@ function normalizeStoryIndexes() {
     let currentIndex = 0;
 
     // ------ Function to Create a Story Item -----
-    /** Creates common attributes to story item
-    */
     const createStoryItem = (story, isCsv, index) => {
       const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card'); // All stories are story-cards
+      storyItem.classList.add('story-card');
 
-      storyItem.id = isCsv ? `story_csv_${index}` : story.id;
+      // Ensure story is always an object with id and text
+      storyItem.id = story.id;
       storyItem.dataset.index = index;
 
       const storyTitle = document.createElement('div');
       storyTitle.classList.add('story-title');
-      storyTitle.textContent = story.text || story;  // Added handling when story is string
+      storyTitle.textContent = story.text;
 
       storyItem.appendChild(storyTitle);
       return storyItem;
-    }
+    };
 
-    const addHostMenu = (storyItem, csvStoryId, storyTitle) => {
+    const addHostMenu = (storyItem, storyId, storyTitle) => {
       const menuContainer = document.createElement('div');
       menuContainer.className = 'story-menu-container';
       menuContainer.innerHTML = `
-            <div class="story-menu-trigger">⋮</div>
-            <div class="story-menu-dropdown">
-              <div class="story-menu-item edit-story">Edit</div>
-              <div class="story-menu-item delete-story">Delete</div>
-            </div>
-          `;
+        <div class="story-menu-trigger">⋮</div>
+        <div class="story-menu-dropdown">
+          <div class="story-menu-item edit-story">Edit</div>
+          <div class="story-menu-item delete-story">Delete</div>
+        </div>
+      `;
       storyItem.appendChild(menuContainer);
 
       const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
       const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
 
       menuTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();  // Prevent close if click is on trigger
+        e.stopPropagation();
         document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
         menuDropdown.style.display = 'block';
       });
@@ -2419,21 +2418,21 @@ function normalizeStoryIndexes() {
         menuDropdown.style.display = 'none';
       });
 
-      // Edit action
+      // Edit
       menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-        e.stopPropagation();  // Prevent click on edit from propagating to outside
+        e.stopPropagation();
         const currentText = storyTitle.textContent;
         if (typeof window.showEditTicketModal === 'function') {
-          window.showEditTicketModal(csvStoryId ? csvStoryId : storyItem.id, currentText);
+          window.showEditTicketModal(storyId, currentText);
         }
         menuDropdown.style.display = 'none';
       });
 
-      // Delete action
+      // Delete
       menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent propagation
+        e.stopPropagation();
         if (typeof deleteStory === 'function') {
-          deleteStory(csvStoryId ? csvStoryId : storyItem.id);
+          deleteStory(storyId);
         }
         menuDropdown.style.display = 'none';
       });
@@ -2441,65 +2440,62 @@ function normalizeStoryIndexes() {
 
     const addStoryEvents = (storyItem, index) => {
       if (isGuestUser()) {
-        storyItem.classList.add('disabled-story');  // Guests can't interact, just look
+        storyItem.classList.add('disabled-story');
       } else {
-
-        storyItem.addEventListener('click', () => { selectStory(index); });// Now the handler uses selectStory
+        storyItem.addEventListener('click', () => { selectStory(index); });
       }
+    };
 
-    }
-    // ------ Function to append a story item to story list -----
     const appendStory = (storyItem) => {
       storyListContainer.appendChild(storyItem);
-    }
-    // ----- Render  Manually Added Stories -----
+    };
 
+    // ----- Render Manually Added Stories -----
     existingStories.forEach((story, index) => {
-      if (deletedStoryIds.has(story.id)) {  // Ignore deleted one
+      if (deletedStoryIds.has(story.id)) {
         console.log('[CSV] Not re-adding deleted manual story:', story.id);
         return;
       }
-      const storyItem = createStoryItem(story,  false, index);  // is csv false
-      const storyTextIndexDisplayManual = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item
+      const storyItem = createStoryItem(story, false, index);
+      const storyTextIndexDisplayManual = storyItem.querySelector('.story-title');
       if (isCurrentUserHost()) {
-        addHostMenu(storyItem, null, storyTextIndexDisplayManual);
+        addHostMenu(storyItem, story.id, storyTextIndexDisplayManual);
       }
-
-      addStoryEvents(storyItem, index );
-      appendStory(storyItem);// Add to container
-
-      currentIndex++; // Increment the index
+      addStoryEvents(storyItem, index);
+      appendStory(storyItem);
+      currentIndex++;
     });
 
     // ------ Render CSV data -------
     data.forEach((row, index) => {
-
       const csvStoryId = `story_csv_${index}`;
-      if (deletedStoryIds.has(csvStoryId)) { // Skip the deleted
+      if (deletedStoryIds.has(csvStoryId)) {
         console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
         return;
       }
 
-      const storyItem = createStoryItem(row.join(' | '),  true, existingStories.length + index)
+      // The FIX: we always build a story object with id and text.
+      // You may want to split/parse if your CSV has columns; here we join all columns.
+      const storyObj = {
+        id: csvStoryId,
+        text: Array.isArray(row) ? row.join(' | ') : row // Defensive for both parsed and raw text
+      };
 
-      const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
+      const storyItem = createStoryItem(storyObj, true, existingStories.length + index);
+      const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title');
 
       if (isCurrentUserHost()) {
-          console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
         addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
-      } // All of these elements append even for read access users
+      }
 
-      addStoryEvents(storyItem, existingStories.length + index); //  Event after menu for guest users!
-
+      addStoryEvents(storyItem, existingStories.length + index);
       appendStory(storyItem);
-
-      currentIndex++;     // Update correct new index to DOMS
+      currentIndex++;
     });
 
-    // Update any listeners with all the last versions
     preservedManualTickets = existingStories;
 
-    const noStoriesMessage = document.getElementById('noStoriesMessage'); // Set correct states
+    const noStoriesMessage = document.getElementById('noStoriesMessage');
     if (noStoriesMessage) {
       noStoriesMessage.style.display = storyListContainer.children.length === 0 ? 'block' : 'none';
     }
@@ -2522,8 +2518,7 @@ function normalizeStoryIndexes() {
       if (firstStory) {
         firstStory.classList.add('selected');
         currentStoryIndex = 0
-        selectStory(0, true) // This should only run one single time
-        // This makes sure that when there's more story index it doesn't keep running
+        selectStory(0, true)
         selectFirstStory = () => { };
       }
     };
@@ -2532,11 +2527,15 @@ function normalizeStoryIndexes() {
     cleanupDeleteButtonHandlers();
     setupCSVDeleteButtons();
   } finally {
-    normalizeStoryIndexes(); // Run this at the **very end**, ensures clean DOM 1 time
-    setupStoryCardInteractions(); // Update story card Interactions
-    processingCSVData = false;    // After everything is ok
+    normalizeStoryIndexes();
+    setupStoryCardInteractions();
+    processingCSVData = false;
   }
 }
+
+
+
+
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
   console.log('[SOCKET] storySelected received:', storyIndex, storyId);
