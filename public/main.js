@@ -2133,12 +2133,14 @@ function processAllTickets(tickets) {
     storyList.querySelectorAll('.story-card').forEach(card => card.remove());
   }
 
+  // Render each ticket
   filtered.forEach(ticket => {
     if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false); // ✅ Ensures host/guest logic and dropdown menu
+      addTicketToUI(ticket, false); // ✅ Will build the card and handle dropdown/menu for host
     }
   });
 
+  // Story selection logic
   if (filtered.length > 0) {
     if (
       currentStoryIndex === null ||
@@ -2154,13 +2156,17 @@ function processAllTickets(tickets) {
     }
   }
 
-  // Let server determine role — DO NOT apply guest restrictions here
-
-  // Setup interactions (like hover, selection) after render
+  // ✅ FIX: Rebind Edit/Delete interactions for uploaded tickets
   setTimeout(() => {
-    setupStoryCardInteractions();
+    try {
+      setupStoryCardInteractions();
+      console.log('[UI] Story card interactions set up after CSV upload');
+    } catch (err) {
+      console.error('[UI] Error setting up story card interactions:', err);
+    }
   }, 200);
 }
+
 
 
 // Get storyId from selected card
