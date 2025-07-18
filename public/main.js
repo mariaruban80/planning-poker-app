@@ -2485,6 +2485,7 @@ function normalizeStoryIndexes() {
       const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
 
       if (isCurrentUserHost()) {
+          console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
         addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
       } // All of these elements append even for read access users
 
