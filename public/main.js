@@ -2546,41 +2546,44 @@ function normalizeStoryIndexes() {
   selectStory(storyIndex, false, true);
 });
 
-  socket.on('allTickets', ({ tickets }) => {
-    console.log('[SOCKET] Received all tickets:', tickets.length);
-    
-    // Filter out any deleted tickets first
-    const filteredTickets = tickets.filter(ticket => 
-      !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
-    );
-    
-    // Store filtered tickets in last known state
-    lastKnownRoomState.tickets = filteredTickets || [];
-    
-     // Make sure allTickets properly update to story card even you reconnected or refreshed
-    const allStoryListContainer = document.getElementById('storyList');
-    if(tickets != null && tickets.length > 0) {
-        // Clear existing child story
-        allStoryListContainer.innerHTML = ''
+socket.on('allTickets', ({ tickets }) => {
+  console.log('[SOCKET] Received all tickets:', tickets.length);
+  
+  if (!Array.isArray(tickets)) return;
 
-        tickets.map((story, index) => {
-            const storyItem = document.createElement('div');
-          storyItem.classList.add('story-card');
-          
-          
-          storyItem.dataset.index = index;
-            const eachStoryTitle = document.createElement('div');
-            eachStoryTitle.className="story-title";
-            eachStoryTitle.textContent = story.text;
-            storyItem.appendChild(eachStoryTitle)
+  // Filter out deleted tickets
+  const filteredTickets = tickets.filter(ticket =>
+    !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+  );
 
-             allStoryListContainer.appendChild(storyItem)
-             socket.emit('requestCurrentStory')
-        })
-        normalizeStoryIndexes()
+  // Store filtered in memory
+  lastKnownRoomState.tickets = filteredTickets || [];
+
+  // Clear existing cards
+  const storyList = document.getElementById('storyList');
+  if (storyList) {
+    storyList.innerHTML = '';
+  }
+
+  // ✅ Use addTicketToUI so menu + event listeners are added
+  filteredTickets.forEach(ticket => {
+    if (ticket?.id && ticket?.text) {
+      addTicketToUI(ticket, false); // false = not manually added
     }
-    handleMessage({ type: 'allTickets', tickets: filteredTickets });
   });
+
+  // Ensure correct indexes
+  normalizeStoryIndexes();
+
+  // ✅ Setup interaction (Edit/Delete menu)
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 100);
+
+  // Notify any state handler
+  handleMessage({ type: 'allTickets', tickets: filteredTickets });
+});
+
 
 
 
