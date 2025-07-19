@@ -870,26 +870,27 @@ function initializeApp(roomId) {
 
 socket = initializeWebSocket(roomId, userName, handleSocketMessage, sessionStorage.getItem('isHost') === 'true');
 
-  if(socket){
+if (socket) {
+  if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function') {
+    socket.on('storySelected', ({ storyIndex, storyId }) => {
+      console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+      clearAllVoteVisuals();
+      selectStory(storyIndex, false, true);
+    });
 
-    if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function'){
-              socket.on('storySelected', ({ storyIndex, storyId }) => {
-                  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-                  clearAllVoteVisuals();
-                  selectStory(storyIndex, false, true);
-       });
+    // Add reconnection handlers for socket    
+    socket.on('reconnect_attempt', (attempt) => {
+      console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+      reconnectingInProgress = true;
+      updateConnectionStatus('reconnecting');
+    });
 
-       // Add reconnection handlers for socket    
-       socket.on('reconnect_attempt', (attempt) => {
-            console.log(`[SOCKET] Reconnection attempt ${attempt}`);
-            reconnectingInProgress = true;
-                       // Update UI to show reconnecting status
-           updateConnectionStatus('reconnecting');
-      });
-    } else {
-      console.warn('[SOCKET] storySelected listener not attached: socket not ready');
-    }
-  }
+  } // ✅ closes the typeof/socket check
+
+} else {
+  console.warn('[SOCKET] storySelected listener not attached: socket not ready');
+} // ✅ closes outer socket check
+
   
 
     
