@@ -686,11 +686,24 @@ function initializeApp(roomId) {
   }
 
   // ✅ Add key listeners here:
-  socket.on('storySelected', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-    clearAllVoteVisuals();
-    selectStory(storyIndex, false, true);
-  });
+socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  const trySelectStory = (attempts = 0) => {
+    const storyCard = document.getElementById(storyId);
+    if (storyCard) {
+      selectStory(storyIndex, false, true);
+    } else if (attempts < 20) { // Retry for up to ~2s
+      setTimeout(() => trySelectStory(attempts + 1), 100);
+    } else {
+      console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
+    }
+  };
+
+  trySelectStory();
+});
+
 
   socket.on('reconnect_attempt', (attempt) => {
     console.log(`[SOCKET] Reconnection attempt ${attempt}`);
@@ -3780,13 +3793,14 @@ case 'syncCSVData':
 
     console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
 
-    // ✅ Ensure rendering even for late guests
-    displayCSVData(csvData);
+    // ✅ Ensure stories are processed correctly
+    processAllTickets(csvData);
 
     // ✅ Re-render current story to show vote cards
     renderCurrentStory();
   }
   break;
+
 
 
     case 'connect':
