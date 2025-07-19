@@ -867,28 +867,31 @@ function initializeApp(roomId) {
     // Log reset action for debugging
     console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
   });
- socket = initializeWebSocket(roomId, userName, handleSocketMessage, isHost); 
-if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function') {
-  socket.on('storySelected', ({ storyIndex, storyId }) => {
-    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-    clearAllVoteVisuals();
-    selectStory(storyIndex, false, true);
-  });
-} else {
-  console.warn('[SOCKET] storySelected listener not attached: socket not ready');
-}
 
+socket = initializeWebSocket(roomId, userName, handleSocketMessage, sessionStorage.getItem('isHost') === 'true');
+
+  if(socket){
+
+    if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function'){
+              socket.on('storySelected', ({ storyIndex, storyId }) => {
+                  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+                  clearAllVoteVisuals();
+                  selectStory(storyIndex, false, true);
+       });
+
+       // Add reconnection handlers for socket    
+       socket.on('reconnect_attempt', (attempt) => {
+            console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+            reconnectingInProgress = true;
+                       // Update UI to show reconnecting status
+           updateConnectionStatus('reconnecting');
+      });
+    } else {
+      console.warn('[SOCKET] storySelected listener not attached: socket not ready');
+    }
+  }
   
-  // Add reconnection handlers for socket
-  if (socket) {
-    // New handler for reconnect attempts
-    socket.on('reconnect_attempt', (attempt) => {
-      console.log(`[SOCKET] Reconnection attempt ${attempt}`);
-      reconnectingInProgress = true;
-      
-      // Update UI to show reconnecting status
-      updateConnectionStatus('reconnecting');
-    });
+
     
     // Handle successful reconnection
     socket.on('reconnect', () => {
@@ -2405,52 +2408,67 @@ function displayCSVData(data) {
     }
 
     const addHostMenu = (storyItem, csvStoryId, storyTitle) => {
-                if (!storyItem) {
-                     console.error('[addHostMenu] storyItem is null');
-                     return;
-                  }
-      const menuContainer = document.createElement('div');
-      menuContainer.className = 'story-menu-container';
-      menuContainer.innerHTML = `
+        if (!storyItem) {
+            console.error('[addHostMenu] storyItem is null');
+            return;
+        }
+
+        const menuContainer = document.createElement('div');
+        menuContainer.className = 'story-menu-container';
+        menuContainer.innerHTML = `
             <div class="story-menu-trigger">⋮</div>
             <div class="story-menu-dropdown">
               <div class="story-menu-item edit-story">Edit</div>
               <div class="story-menu-item delete-story">Delete</div>
             </div>
-          `;
+        `;
       storyItem.appendChild(menuContainer);
 
-      const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
-      const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
 
-      menuTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();  // Prevent close if click is on trigger
-        document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
-        menuDropdown.style.display = 'block';
-      });
+if (menuTrigger && menuDropdown) {
+  menuTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+    menuDropdown.style.display = 'block';
+  });
 
-      document.addEventListener('click', () => {
-        menuDropdown.style.display = 'none';
-      });
+  document.addEventListener('click', () => {
+    menuDropdown.style.display = 'none';
+  });
 
-      // Edit action
-      menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-        e.stopPropagation();  // Prevent click on edit from propagating to outside
-        const currentText = storyTitle.textContent;
-        if (typeof window.showEditTicketModal === 'function') {
-          window.showEditTicketModal(csvStoryId ? csvStoryId : storyItem.id, currentText);
-        }
-        menuDropdown.style.display = 'none';
-      });
+  // Check if edit-story and delete-story exist before adding listeners
+  const editStoryItem = menuDropdown.querySelector('.edit-story');
+  const deleteStoryItem = menuDropdown.querySelector('.delete-story');
 
-      // Delete action
-      menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent propagation
-        if (typeof deleteStory === 'function') {
-          deleteStory(csvStoryId ? csvStoryId : storyItem.id);
-        }
-        menuDropdown.style.display = 'none';
-      });
+  if (editStoryItem) {
+    editStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentText = storyTitle.textContent;
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(csvStoryId ? csvStoryId : storyItem.id, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('Edit story item not found in menu for', storyItem.id);
+  }
+
+  if (deleteStoryItem) {
+    deleteStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(csvStoryId ? csvStoryId : storyItem.id);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('Delete story item not found in menu for', storyItem.id);
+  }
+} else {
+  console.warn('Menu trigger or dropdown not found for', storyItem.id);
+}
     };
 
     const addStoryEvents = (storyItem, index) => {
@@ -2514,9 +2532,9 @@ function displayCSVData(data) {
       const storyItem = createStoryItem(story, true, existingStories.length + index);
 
        if (!storyItem) {
-            console.error('[data.forEach] Skipping null storyItem for CSV story');
-            return;
-          }
+        console.error('[data.forEach] Skipping null storyItem for CSV story');
+        return;
+      }
       const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
 
       if (isCurrentUserHost()) {
@@ -2572,9 +2590,6 @@ function displayCSVData(data) {
     processingCSVData = false;    // After everything is ok
   }
 }
-
-
-
 
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
