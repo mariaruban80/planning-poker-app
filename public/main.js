@@ -2510,25 +2510,31 @@ if (menuTrigger && menuDropdown) {
   selectStory(storyIndex, false, true);
 });
 
-console.log('Before csvStories');
+if (typeof socket !== 'undefined' && socket !== null) {
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    selectStory(storyIndex, false, true); // Retry-safe
+  });
 
-socket.on('csvStories', (csvStories) => {
-  if (Array.isArray(csvStories)) {
-    stories = csvStories;
-    updateStoriesUI();
-    highlightSelectedStory();
+  console.log('Before csvStories');
 
-    if (isCurrentUserHost()) {
-      setupStoryCardInteractions();
+  socket.on('csvStories', (csvStories) => {
+    if (Array.isArray(csvStories)) {
+      stories = csvStories;
+      updateStoriesUI();
+      highlightSelectedStory();
+
+      if (isCurrentUserHost()) {
+        setupStoryCardInteractions();
+      }
     }
-  }
-});
+  });
 
-console.log('After csvStories');
-
-
-
-
+  console.log('After csvStories');
+} else {
+  console.warn('[WARN] socket not defined when registering csvStories handlers.');
+}
 
 socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
