@@ -101,6 +101,61 @@ window.updateTicketFromModal = function(ticketData) {
     }
   }
 };
+
+function addHostMenu(storyItem, storyId = null, storyTextElement = null) {
+  const menuTrigger = storyItem.querySelector('.menu-trigger');
+  const menuDropdown = storyItem.querySelector('.menu-dropdown');
+  const editStoryItem = storyItem.querySelector('.edit-story');
+  const deleteStoryItem = storyItem.querySelector('.delete-story');
+  const storyIdentifier = storyId || storyItem.id;
+
+  if (!menuTrigger || !menuDropdown) {
+    console.warn('[addHostMenu] Menu trigger or dropdown not found for', storyIdentifier);
+    return;
+  }
+
+  // Menu toggle
+  menuTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuDropdown.style.display = menuDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+
+  // Edit story
+  if (editStoryItem) {
+    editStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentText = storyTextElement?.textContent || '';
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(storyIdentifier, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('[addHostMenu] Edit menu item not found for', storyIdentifier);
+  }
+
+  // Delete story
+  if (deleteStoryItem) {
+    deleteStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(storyIdentifier);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('[addHostMenu] Delete menu item not found for', storyIdentifier);
+  }
+
+  // Optional: log edits on story title input
+  if (storyTextElement && typeof storyTextElement.addEventListener === 'function') {
+    storyTextElement.addEventListener('input', (e) => {
+      console.log('[addHostMenu] Story title edited:', e.target.value);
+    });
+  }
+}
+
+
 /**
  * Initialize socket with a specific name (used when joining via invite)
  * @param {string} roomId - Room ID to join 
