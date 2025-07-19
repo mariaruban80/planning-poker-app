@@ -2602,18 +2602,22 @@ if (menuTrigger && menuDropdown) {
   selectStory(storyIndex, false, true);
 });
 
+console.log('Before csvStories');
+
 socket.on('csvStories', (csvStories) => {
   if (Array.isArray(csvStories)) {
     stories = csvStories;
     updateStoriesUI();
     highlightSelectedStory();
 
-    // ✅ Fix: Show edit/delete buttons for the host
     if (isCurrentUserHost()) {
       setupStoryCardInteractions();
     }
   }
 });
+
+console.log('After csvStories');
+
 
 
 
