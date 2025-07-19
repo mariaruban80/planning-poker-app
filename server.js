@@ -1602,6 +1602,8 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
 socket.on('syncCSVData', (csvData) => {
   const roomId = socket.data.roomId;
+  const userName = socket.data.userName;
+
   if (!roomId || !rooms[roomId]) return;
 
   console.log(`[SERVER] Received CSV data for room ${roomId} – ${csvData.length} rows`);
@@ -1655,7 +1657,17 @@ socket.on('syncCSVData', (csvData) => {
     });
     console.log(`[SERVER] Selected first CSV story: ${firstCSVStory.id}`);
   }
+
+  /* ─── 7. Extra: Trigger a full resync for late guests (optional but recommended) ─── */
+  io.to(roomId).emit('resyncState', {
+    tickets: rooms[roomId].tickets,
+    votesPerStory: rooms[roomId].votesPerStory,
+    votesRevealed: rooms[roomId].votesRevealed,
+    deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds || []),
+    isOwner: roomOwners[roomId]?.ownerName === userName
+  });
 });
+
 
 
 
