@@ -2448,8 +2448,13 @@ if (menuTrigger && menuDropdown) {
 
       if (isCurrentUserHost()) {
         console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
-        addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
-      } // All of these elements append even for read access users
+      
+        if (storyTextIndexDisplayCVS) {
+          addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
+        } else {
+          console.warn('[WARN] .story-title not found for CSV card:', storyItem);
+        }
+      }
 
       addStoryEvents(storyItem, existingStories.length + index); //  Event after menu for guest users!
 
