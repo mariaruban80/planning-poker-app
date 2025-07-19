@@ -2341,7 +2341,7 @@ function normalizeStoryIndexes() {
 /**
  * Display CSV data in the story list
  */
- function displayCSVData(data) {
+function displayCSVData(data) {
   if (processingCSVData) {
     console.log('[CSV] Already processing CSV data, ignoring reentrant call');
     return;
@@ -2363,8 +2363,10 @@ function normalizeStoryIndexes() {
     const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
 
     manualStories.forEach(card => {
-      if (deletedStoryIds.has(card.id)) return;  // Skip deleted ones!
-
+      if (deletedStoryIds.has(card.id)) {  // Ignore deleted one
+        console.log('[CSV] Not re-adding deleted manual story:', story.id);
+        return;
+      }
       const title = card.querySelector('.story-title');
       if (title) {
         existingStories.push({
@@ -2383,11 +2385,11 @@ function normalizeStoryIndexes() {
     /** Creates common attributes to story item
     */
     const createStoryItem = (story, isCsv, index) => {
-          console.log('[CSV] Creating story item:', story, isCsv, index);
+                  console.log('[CSV] Creating story item:', story, isCsv, index);
       if (!story || typeof story !== 'object') {
-  console.error('[CSV] Invalid story data:', story);
-  return null;
-}
+           console.error('[CSV] Invalid story data:', story);
+           return null;
+      }
       const storyItem = document.createElement('div');
       storyItem.classList.add('story-card'); // All stories are story-cards
 
@@ -2403,10 +2405,10 @@ function normalizeStoryIndexes() {
     }
 
     const addHostMenu = (storyItem, csvStoryId, storyTitle) => {
-           if (!storyItem) {
-  console.error('[addHostMenu] storyItem is null');
-  return;
-}
+                if (!storyItem) {
+                     console.error('[addHostMenu] storyItem is null');
+                     return;
+                  }
       const menuContainer = document.createElement('div');
       menuContainer.className = 'story-menu-container';
       menuContainer.innerHTML = `
@@ -2452,10 +2454,10 @@ function normalizeStoryIndexes() {
     };
 
     const addStoryEvents = (storyItem, index) => {
-            if (!storyItem) {
-  console.error('[addStoryEvents] storyItem is null');
-  return;
-}
+                  if (!storyItem) {
+                      console.error('[addStoryEvents] storyItem is null');
+                      return;
+                 }
       if (isGuestUser()) {
         storyItem.classList.add('disabled-story');  // Guests can't interact, just look
       } else {
@@ -2466,10 +2468,11 @@ function normalizeStoryIndexes() {
     }
     // ------ Function to append a story item to story list -----
     const appendStory = (storyItem) => {
-            if (!storyItem) {
-  console.error('[appendStory] storyItem is null');
-  return;
-}
+                  if (!storyItem) {
+                    console.error('[appendStory] storyItem is null');
+                     return;
+                   }
+
       storyListContainer.appendChild(storyItem);
     }
     // ----- Render  Manually Added Stories -----
@@ -2480,10 +2483,10 @@ function normalizeStoryIndexes() {
         return;
       }
       const storyItem = createStoryItem(story,  false, index);  // is csv false
-            if (!storyItem) {
-  console.error('[existingStories.forEach] Skipping null storyItem');
-  return;
-}
+                    if (!storyItem) {
+                         console.error('[existingStories.forEach] Skipping null storyItem');
+                         return;
+                      }
       const storyTextIndexDisplayManual = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item
       if (isCurrentUserHost()) {
         addHostMenu(storyItem, null, storyTextIndexDisplayManual);
@@ -2511,13 +2514,13 @@ function normalizeStoryIndexes() {
       const storyItem = createStoryItem(story, true, existingStories.length + index);
 
        if (!storyItem) {
-        console.error('[data.forEach] Skipping null storyItem for CSV story');
-        return;
-      }
+            console.error('[data.forEach] Skipping null storyItem for CSV story');
+            return;
+          }
       const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
 
       if (isCurrentUserHost()) {
-                 console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
+        console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
         addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
       } // All of these elements append even for read access users
 
@@ -2569,6 +2572,9 @@ function normalizeStoryIndexes() {
     processingCSVData = false;    // After everything is ok
   }
 }
+
+
+
 
 
   socket.on('storySelected', ({ storyIndex, storyId }) => {
