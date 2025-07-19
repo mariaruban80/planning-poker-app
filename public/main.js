@@ -651,31 +651,29 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-  // Check if user is the room creator
-  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';   
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
   if (isRoomCreator) {
     console.log('[APP] Room creator detected - showing host UI immediately');
-    sessionStorage.setItem('isHost', 'true'); 
+    sessionStorage.setItem('isHost', 'true');
     const currentUser = {
       id: 'temp-id',
       name: userName,
       isOwner: true
-    };   
+    };
     setTimeout(() => {
       updateUserList([currentUser]);
       enableHostControls();
     }, 50);
   }
-  // Initialize socket with userName from sessionStorage and creator flag
+
+  // ✅ Only one socket initialization
   socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
-  
+
   socket.on('connect', () => {
-    // Immediately map own socket ID to username
     if (!window.userMap) window.userMap = {};
     window.userMap[socket.id] = userName;
   });
 
-  // Handle ownership status from server - ADD THIS NEW HANDLER
   socket.on('ownershipStatus', ({ isOwner }) => {
     console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
     updateUIForOwnership(isOwner);
@@ -687,260 +685,157 @@ function initializeApp(roomId) {
     socket.io.reconnectionDelay = 2000;
   }
 
-  // Setup heartbeat mechanism to prevent timeouts
-  // setupHeartbeat();
+  // ✅ Add key listeners here:
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    selectStory(storyIndex, false, true);
+  });
+
+  socket.on('reconnect_attempt', (attempt) => {
+    console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+    reconnectingInProgress = true;
+    updateConnectionStatus('reconnecting');
+  });
+
+  socket.on('reconnect', () => {
+    console.log('[SOCKET] Reconnected to server');
+    reconnectingInProgress = false;
+    updateConnectionStatus('connected');
+    socket.emit('requestAllTickets');
+    socket.emit('requestCurrentStory');
+    setTimeout(() => {
+      socket.emit('requestFullStateResync');
+      if (typeof getUserVotes === 'function') {
+        const userVotes = getUserVotes();
+        for (const [storyId, vote] of Object.entries(userVotes)) {
+          if (deletedStoryIds.has(storyId)) continue;
+          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+          votesPerStory[storyId][socket.id] = vote;
+          window.currentVotesPerStory = votesPerStory;
+          const currentId = getCurrentStoryId();
+          if (storyId === currentId) {
+            updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+          }
+        }
+        refreshVoteDisplay();
+      }
+    }, 500);
+  });
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     const name = userName || userId;
     mergeVote(storyId, name, vote);
-
     const currentId = getCurrentStoryId();
     if (storyId === currentId) {
       updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
     }
-
     refreshVoteDisplay();
   });
-  
+
   socket.on('storyVotes', ({ storyId, votes }) => {
-    // Don't process votes for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
-      return;
-    }
-    
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Store the votes
+    if (deletedStoryIds.has(storyId)) return;
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
     votesPerStory[storyId] = { ...votes };
     window.currentVotesPerStory = votesPerStory;
-    
-    // Update UI immediately if this is the current story
+
     const currentStoryId = getCurrentStoryId();
     if (currentStoryId === storyId) {
-      if (votesRevealed[storyId]) {
-        // Show actual votes if revealed
-        applyVotesToUI(votes, false);
-      } else {
-        // Show thumbs up if not revealed
-        applyVotesToUI(votes, true);
-      }
+      applyVotesToUI(votes, !votesRevealed[storyId]);
     }
   });
-  
-  // Updated handler for restored user votes
+
   socket.on('restoreUserVote', ({ storyId, vote }) => {
     const name = sessionStorage.getItem('userName') || socket.id;
     mergeVote(storyId, name, vote);
     refreshVoteDisplay();
   });
-  
-  // Updated resyncState handler to restore votes - ENHANCED FOR OWNERSHIP
+
   socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
     console.log('[SOCKET] Received resyncState from server');
-
-    // Handle ownership status if provided in resync
     if (typeof isOwner === 'boolean') {
-      console.log('[RESYNC] Ownership status from resync:', isOwner);
       updateUIForOwnership(isOwner);
     }
 
-    // Update local deleted stories tracking
     if (Array.isArray(serverDeletedIds)) {
       serverDeletedIds.forEach(id => deletedStoryIds.add(id));
       saveDeletedStoriesToStorage(roomId);
     }
 
-    // Filter and process non-deleted tickets
     const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
     if (Array.isArray(filteredTickets)) {
       processAllTickets(filteredTickets);
     }
 
-    // Update local vote state for non-deleted stories
     if (serverVotes) {
       for (const [storyId, votes] of Object.entries(serverVotes)) {
         if (deletedStoryIds.has(storyId)) continue;
-
         if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-
         for (const [userId, vote] of Object.entries(votes)) {
           mergeVote(storyId, userId, vote);
         }
-
-        const isRevealed = serverRevealed && serverRevealed[storyId];
-        votesRevealed[storyId] = isRevealed;
-
-        // UI update for current story
+        votesRevealed[storyId] = serverRevealed?.[storyId];
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
-          if (isRevealed) {
-            applyVotesToUI(votes, false);
-            handleVotesRevealed(storyId, votes);  // ✅ Render stats layout
-          } else {
-            applyVotesToUI(votes, true);
-          }
-        } else if (isRevealed) {
-          // ✅ ALSO render stats layout for other stories if needed
+          applyVotesToUI(votes, !votesRevealed[storyId]);
+          if (votesRevealed[storyId]) handleVotesRevealed(storyId, votes);
+        } else if (votesRevealed[storyId]) {
           handleVotesRevealed(storyId, votes);
         }
       }
     }
-    console.log('[RESTORE] Skipped manual session restoration — server handles vote recovery');
 
     window.currentVotesPerStory = votesPerStory;
     refreshVoteDisplay();
   });
-  
-  // Updated deleteStory event handler to track deletions locally
+
   socket.on('deleteStory', ({ storyId }) => {
-    console.log('[SOCKET] Story deletion event received:', storyId);
-    
-    // Add to local deletion tracking
     deletedStoryIds.add(storyId);
-    
-    // Save to session storage
     saveDeletedStoriesToStorage(roomId);
-    
-    // Remove from DOM
     const el = document.getElementById(storyId);
     if (el) {
       el.remove();
       normalizeStoryIndexes();
     }
-    
-    // Clear vote data for the deleted story
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
-  
+
   socket.on('votesRevealed', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
-    
-    // Skip if already revealed to avoid duplicate animations
-    if (votesRevealed[storyId] === true) {
-      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      return;
-    }
-    
+    if (votesRevealed[storyId]) return;
     votesRevealed[storyId] = true;
     const votes = votesPerStory[storyId] || {};
-    
-    // Hide planning cards for this story
     const planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.classList.add('hidden-until-init');
       planningCardsSection.style.display = 'none';
     }
-    
     handleVotesRevealed(storyId, votes);
-    
-    // Log action for debugging
-    console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
   });
 
   socket.on('votesReset', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
-
-    if (votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-
+    votesPerStory[storyId] = {};
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
-
-    // Always show planning cards and hide stats for this story
     const planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.classList.remove('hidden-until-init');
       planningCardsSection.style.display = 'block';
     }
-
-    // Hide all stats containers that match this story ID
     const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
-    statsContainers.forEach(container => {
-      container.style.display = 'none';
-    });
-    
-    // Log reset action for debugging
-    console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
+    statsContainers.forEach(container => container.style.display = 'none');
   });
 
-socket = initializeWebSocket(roomId, userName, handleSocketMessage, sessionStorage.getItem('isHost') === 'true');
-
-if (socket) {
-  if (typeof socket !== 'undefined' && socket !== null && typeof socket.on === 'function') {
-    socket.on('storySelected', ({ storyIndex, storyId }) => {
-      console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-      clearAllVoteVisuals();
-      selectStory(storyIndex, false, true);
-    });
-
-    // Add reconnection handlers for socket    
-    socket.on('reconnect_attempt', (attempt) => {
-      console.log(`[SOCKET] Reconnection attempt ${attempt}`);
-      reconnectingInProgress = true;
-      updateConnectionStatus('reconnecting');
-    });
-
-  } // ✅ closes the typeof/socket check
-
-} else {
-  console.warn('[SOCKET] storySelected listener not attached: socket not ready');
-} // ✅ closes outer socket check
-
-  
-
-    
-    // Handle successful reconnection
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
-      
-      // Update UI to show connected status
-      updateConnectionStatus('connected');
-
-      // Request current state and story
-      socket.emit('requestAllTickets');
-      socket.emit('requestCurrentStory');
-      setTimeout(() => {
-        socket.emit('requestFullStateResync');
-
-        // Re-apply stored votes
-        if (typeof getUserVotes === 'function') {
-          const userVotes = getUserVotes();
-          for (const [storyId, vote] of Object.entries(userVotes)) {
-            if (deletedStoryIds.has(storyId)) continue;
-
-            if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-            votesPerStory[storyId][socket.id] = vote;
-            window.currentVotesPerStory = votesPerStory;
-
-            const currentId = getCurrentStoryId();
-            if (storyId === currentId) {
-              updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-            }
-          }
-
-          refreshVoteDisplay();
-        }
-      }, 500);
-    });
-  }
-  
-  // Guest: Listen for host's voting system
   socket.on('votingSystemUpdate', ({ votingSystem }) => {
     console.log('[SOCKET] Received voting system from host:', votingSystem);
     sessionStorage.setItem('votingSystem', votingSystem);
-    setupPlanningCards(); // Dynamically regenerate vote cards
+    setupPlanningCards();
   });
 
-  // Host: Emit selected voting system to server
   const isHost = sessionStorage.getItem('isHost') === 'true';
   const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
-
   if (isHost && socket) {
     socket.emit('votingSystemSelected', { roomId, votingSystem });
   }
@@ -950,24 +845,24 @@ if (socket) {
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
-  setupPlanningCards(); // generates the cards AND sets up drag listeners
+  setupPlanningCards();
   setupRevealResetButtons();
   setupAddTicketButton();
-  setupGuestModeRestrictions(); // Add guest mode restrictions
+  setupGuestModeRestrictions();
   setupStoryCardInteractions();
-  
-  // Add these cleanup and setup calls for delete buttons
   cleanupDeleteButtonHandlers();
   setupCSVDeleteButtons();
-  
-  // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Refresh votes periodically to ensure everyone sees the latest votes
-  setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
+  setInterval(refreshCurrentStoryVotes, 30000);
 }
 
-// ADD THESE NEW FUNCTIONS TO HANDLE OWNERSHIP UI UPDATES:
+
+
+
+
+
+
+
 
 /**
  * Update UI based on server-determined ownership status
