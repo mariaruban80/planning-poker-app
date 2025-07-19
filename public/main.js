@@ -2601,6 +2601,22 @@ if (menuTrigger && menuDropdown) {
   selectStory(storyIndex, false, true);
 });
 
+socket.on('csvStories', (csvStories) => {
+  if (Array.isArray(csvStories)) {
+    stories = csvStories;
+    updateStoriesUI();
+    highlightSelectedStory();
+
+    // ✅ Fix: Show edit/delete buttons for the host
+    if (isCurrentUserHost()) {
+      setupStoryCardInteractions();
+    }
+  }
+});
+
+
+
+
 socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
   
