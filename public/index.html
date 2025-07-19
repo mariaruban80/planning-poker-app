@@ -3444,11 +3444,23 @@ document.addEventListener('DOMContentLoaded', function() {
      window.hideEditTicketModal = hideEditTicketModal;
      
 </script>     
-     <script>
-    document.addEventListener('DOMContentLoaded', function() {
+      <script>
+     document.addEventListener('DOMContentLoaded', function() {
         // After ensuring the DOM is truly ready, force interaction setup
+        // Check to ensure the code isn't run in the header
+        if (typeof setupStoryCardInteractions === 'function') {
         setupStoryCardInteractions();
-    });
+        } else {
+        console.warn("setupStoryCardInteractions not available yet — will retry");
+          setTimeout(() => {
+        if (typeof setupStoryCardInteractions === 'function') {
+                setupStoryCardInteractions();
+              }  else {
+                console.error("setupStoryCardInteractions not available after retry!");
+              }
+           }, 500);
+         }
+     });
  </script>
 </body>
 </html>
