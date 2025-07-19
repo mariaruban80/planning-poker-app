@@ -3444,6 +3444,12 @@ document.addEventListener('DOMContentLoaded', function() {
      window.hideEditTicketModal = hideEditTicketModal;
      
 </script>     
+     <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // After ensuring the DOM is truly ready, force interaction setup
+        setupStoryCardInteractions();
+    });
+ </script>
 </body>
 </html>
         
