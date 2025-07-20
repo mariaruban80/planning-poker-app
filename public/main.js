@@ -1982,8 +1982,8 @@ function addTicketToUI(ticketData, isManual = false) {
   title.textContent = ticketData.text;
   card.appendChild(title);
 
-  // Only add the menu if current user is host
-  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
+  // ✅ Only add menu for hosts
+  if (isCurrentUserHost()) {
     // Create the dropdown menu container
     const menuContainer = document.createElement('div');
     menuContainer.className = 'story-menu-container';
@@ -1996,61 +1996,27 @@ function addTicketToUI(ticketData, isManual = false) {
     `;
     card.appendChild(menuContainer);
 
-    // Toggle menu visibility
-    const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
-    const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+    // Add menu event handlers...
+    // (keep your existing menu code here)
+  }
 
-    menuTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
-      menuDropdown.style.display = 'block';
-    });
-
-    // Hide the menu when clicking elsewhere (once per open)
-    document.addEventListener('click', () => {
-      menuDropdown.style.display = 'none';
-    });
-
-    // Hook up edit and delete actions (FIXED)
-    menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      // Get the current text from the card (for latest content)
-      const titleDiv = card.querySelector('.story-title');
-      const currentText = titleDiv ? titleDiv.textContent : ticketData.text;
-      if (typeof window.showEditTicketModal === 'function') {
-        window.showEditTicketModal(ticketData.id, currentText);
-      }
-      menuDropdown.style.display = 'none';
-    });
-
-    menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (typeof deleteStory === 'function') {
-        deleteStory(ticketData.id);
-      }
-      menuDropdown.style.display = 'none';
-    });
+  // ✅ For guests, add disabled styling if needed
+  if (isGuestUser()) {
+    card.classList.add('guest-card');
   }
 
   // Append card to the list
   storyList.appendChild(card);
   normalizeStoryIndexes();
 
-  // ----------- NEW FEATURE: Auto-select newly added ticket if host -----------
-  // Only the host should run this. If this is a CSV story, you may want to skip,
-  // or leave as is if you want ALL stories selected by default.
-  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
-    // Find the card's index in the storyList
+  // ✅ Only auto-select for hosts
+  if (isCurrentUserHost()) {
     const index = Array.from(storyList.children).findIndex(child => child.id === ticketData.id);
     if (index !== -1) {
-      // Select the new ticket, and emit to server to broadcast to all (including guests)
-      selectStory(index, true); // emitToServer = true
+      selectStory(index, true);
     }
   }
 }
-
-
-
 
 
 /**
@@ -2549,45 +2515,36 @@ if (typeof socket !== 'undefined' && socket !== null) {
   console.warn('[WARN] socket not defined when registering csvStories handlers.');
 }
 
+// In initializeApp function, make sure these handlers are registered:
+
 socket.on('allTickets', ({ tickets }) => {
-  console.log('[SOCKET] Received all tickets:', tickets.length);
+  console.log('[SOCKET] Received all tickets from server:', tickets?.length || 0);
   
   if (!Array.isArray(tickets)) return;
 
-  // Filter out deleted tickets
-  const filteredTickets = tickets.filter(ticket =>
-    !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+  const filteredTickets = tickets.filter(ticket => 
+    !deletedStoryIds.has(ticket.id)
   );
-
-  // Store filtered in memory
-  lastKnownRoomState.tickets = filteredTickets || [];
-
-  // Clear existing cards
-  const storyList = document.getElementById('storyList');
-  if (storyList) {
-    storyList.innerHTML = '';
-  }
-
-  // ✅ Use addTicketToUI so menu + event listeners are added
-  filteredTickets.forEach(ticket => {
-    if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false); // false = not manually added
-    }
-  });
-
-  // Ensure correct indexes
-  normalizeStoryIndexes();
-
-  // ✅ Setup interaction (Edit/Delete menu)
-  setTimeout(() => {
-    setupStoryCardInteractions();
-  }, 100);
-
-  // Notify any state handler
-  handleMessage({ type: 'allTickets', tickets: filteredTickets });
+  
+  console.log(`[SOCKET] ${isCurrentUserHost() ? 'Host' : 'Guest'} processing ${filteredTickets.length} tickets`);
+  processAllTickets(filteredTickets);
 });
 
-
+socket.on('syncCSVData', (csvData) => {
+  console.log(`[SOCKET] CSV data received: ${Array.isArray(csvData) ? csvData.length : 'invalid'} rows`);
+  
+  if (Array.isArray(csvData)) {
+    // Store the CSV data
+    csvData = csvData;
+    csvDataLoaded = true;
+    
+    // ✅ For guests, ensure they display the CSV
+    if (isGuestUser()) {
+      console.log('[CSV] Guest displaying CSV data');
+      displayCSVData(csvData);
+    }
+  }
+});
 
 
 /**
@@ -3276,27 +3233,28 @@ function setupStoryCardInteractions() {
   if (!storyList) return;
 
   const storyCards = storyList.querySelectorAll('.story-card');
+  console.log(`[INTERACTIONS] Setting up interactions for ${storyCards.length} cards (User: ${isCurrentUserHost() ? 'host' : 'guest'})`);
+
   storyCards.forEach(card => {
-    const storyId = card.id;
+    // Remove existing event listeners by cloning
+    const newCard = card.cloneNode(true);
+    card.parentNode.replaceChild(newCard, card);
 
-    // Host: Enable story card interactions
     if (isCurrentUserHost()) {
-      card.classList.remove('disabled-story'); // Ensure it's enabled
-    } else {
-      // Guest: Disable clicking and apply styling
-      card.classList.add('disabled-story');
-      card.onclick = null; // remove any inline click handlers added
-    }
-
-
-    // == STORY SELECTION ==
-    card.addEventListener('click', () => {
-        const index = [...storyList.children].indexOf(card);
-        const cards = getOrderedCards();
-        if (!isGuestUser()  && (cards[index] == card)) {
-          selectStory(index);
+      // ✅ Host: Enable story card interactions
+      newCard.classList.remove('disabled-story');
+      newCard.addEventListener('click', () => {
+        const index = Array.from(storyList.children).indexOf(newCard);
+        if (index >= 0) {
+          selectStory(index, true); // Emit to server
         }
       });
+    } else {
+      // ✅ Guest: Disable interactions but allow visual feedback
+      newCard.classList.add('disabled-story');
+      newCard.style.cursor = 'default';
+      // No click handler for guests
+    }
   });
 }
 
