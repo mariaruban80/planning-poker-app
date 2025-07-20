@@ -2090,50 +2090,84 @@ function setupStoryCardObserver() {
  * Process multiple tickets at once (used when receiving all tickets from server)
  * @param {Array} tickets - Array of ticket data objects
  */
-function processAllTickets(tickets) {
-  const filtered = tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
-  console.log(`[TICKETS] Processing ${filtered.length} tickets (filtered from ${tickets.length})`);
-
+function addTicketToUI(ticketData, isManual = false) {
   const storyList = document.getElementById('storyList');
-  if (storyList) {
-    // ❗ Remove all story cards — not just manual ones
-    storyList.querySelectorAll('.story-card').forEach(card => card.remove());
+  if (!storyList || !ticketData || !ticketData.id || !ticketData.text) return;
+
+  const card = document.createElement('div');
+  card.className = 'story-card';
+  card.id = ticketData.id;
+
+  // Create story text
+  const title = document.createElement('div');
+  title.className = 'story-title';
+  title.textContent = ticketData.text;
+  card.appendChild(title);
+
+  // ✅ Only add the menu if current user is host
+  if (isCurrentUserHost()) {
+    // Create the dropdown menu container
+    const menuContainer = document.createElement('div');
+    menuContainer.className = 'story-menu-container';
+    menuContainer.innerHTML = `
+      <div class="story-menu-trigger">⋮</div>
+      <div class="story-menu-dropdown">
+        <div class="story-menu-item edit-story">Edit</div>
+        <div class="story-menu-item delete-story">Delete</div>
+      </div>
+    `;
+    card.appendChild(menuContainer);
+
+    // Toggle menu visibility
+    const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+    const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+
+    menuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+      menuDropdown.style.display = 'block';
+    });
+
+    // Hide the menu when clicking elsewhere
+    document.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
+    });
+
+    // Hook up edit and delete actions
+    menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const titleDiv = card.querySelector('.story-title');
+      const currentText = titleDiv ? titleDiv.textContent : ticketData.text;
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(ticketData.id, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+
+    menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(ticketData.id);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    // ✅ For guests, add visual indicator that it's read-only
+    card.classList.add('guest-readonly');
   }
 
-  // Render each ticket
-  filtered.forEach(ticket => {
-    if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false); // ✅ Will build the card and handle dropdown/menu for host
-    }
-  });
+  // Append card to the list
+  storyList.appendChild(card);
+  normalizeStoryIndexes();
 
-  // Story selection logic
-  if (filtered.length > 0) {
-    if (
-      currentStoryIndex === null ||
-      currentStoryIndex === undefined ||
-      currentStoryIndex < 0 ||
-      currentStoryIndex >= filtered.length
-    ) {
-      currentStoryIndex = 0;
-      selectStory(0, false);
-    } else {
-      console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
-      selectStory(currentStoryIndex, false);
+  // ✅ Only auto-select newly added ticket if host AND this is a manual addition
+  if (isCurrentUserHost() && isManual) {
+    const index = Array.from(storyList.children).findIndex(child => child.id === ticketData.id);
+    if (index !== -1) {
+      selectStory(index, true); // emitToServer = true
     }
   }
-
-  // ✅ FIX: Rebind Edit/Delete interactions for uploaded tickets
-  setTimeout(() => {
-    try {
-      setupStoryCardInteractions();
-      console.log('[UI] Story card interactions set up after CSV upload');
-    } catch (err) {
-      console.error('[UI] Error setting up story card interactions:', err);
-    }
-  }, 200);
 }
-
 
 
 // Get storyId from selected card
@@ -3579,16 +3613,34 @@ function handleSocketMessage(message) {
     }
   }
   break;
-    case 'allTickets':
-     // Handle receiving all tickets (used when joining a room)
-      if (Array.isArray(message.tickets)) {
-        // Filter out any deleted tickets
-        const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
-        console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
-        processAllTickets(filteredTickets);
-  
+case 'allTickets':
+  if (Array.isArray(message.tickets)) {
+    console.log(`[SOCKET] Received all tickets: ${message.tickets.length} (User: ${isCurrentUserHost() ? 'host' : 'guest'})`);
+    
+    // Filter out deleted tickets
+    const filteredTickets = message.tickets.filter(ticket =>
+      !deletedStoryIds.has(ticket.id)
+    );
+
+    // Store filtered in memory
+    lastKnownRoomState.tickets = filteredTickets || [];
+
+    // ✅ CRITICAL: Process tickets for BOTH host and guest
+    processAllTickets(filteredTickets);
+
+    // ✅ Setup interactions after processing
+    setTimeout(() => {
+      setupStoryCardInteractions();
+      
+      // For guests, apply restrictions after setup
+      if (isGuestUser()) {
+        applyGuestRestrictions();
       }
-      break;
+    }, 100);
+
+    handleMessage({ type: 'allTickets', tickets: filteredTickets });
+  }
+  break;
       
     case 'userJoined':
       // Individual user joined - could update existing list
@@ -3859,8 +3911,25 @@ case 'syncCSVData':
 
     console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
 
-    // ✅ Ensure stories are processed correctly
-    processAllTickets(csvData);
+    // ✅ FIXED: Convert CSV data to proper ticket format before processing
+    const csvTickets = message.csvData.map((row, index) => ({
+      id: `story_csv_${index}`,
+      text: Array.isArray(row) ? row.join(' | ') : String(row)
+    }));
+
+    console.log(`[SOCKET] Created ${csvTickets.length} CSV tickets from raw data`);
+
+    // ✅ FIXED: Combine manual tickets with CSV tickets
+    const allTickets = [...manualTickets, ...csvTickets];
+    
+    // Process the properly formatted tickets
+    processAllTickets(allTickets);
+
+    // For guests specifically, ensure CSV display works
+    if (isGuestUser()) {
+      console.log('[SOCKET] Guest user - ensuring CSV display');
+      displayCSVData(message.csvData);
+    }
 
     // ✅ Re-render current story to show vote cards
     renderCurrentStory();
