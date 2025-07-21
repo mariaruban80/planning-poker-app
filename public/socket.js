@@ -25,7 +25,7 @@ let lastKnownRoomState = {
  * @param {Function} handleMessage - Callback to handle incoming messages
  * @returns {Object} - Socket instance for external reference
  */
-export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage, isCreator = false) {
+export function initializeWebSocket(roomIdentifier, userNameValue, handleMessage) {
   // First verify that we have a valid username
   if (!userNameValue) {
     console.error('[SOCKET] Cannot initialize without a username');
@@ -73,11 +73,6 @@ socket.on('reconnect', () => {
 socket.on('disconnect', (reason) => {
   console.warn('[SOCKET] Disconnected. Reason:', reason);
 });
-socket.on('updateTicket', ({ ticketData }) => {
-  console.log('[SOCKET] Ticket updated from another user:', ticketData);
-  handleMessage({ type: 'updateTicket', ticketData });
-});
-
 
 socket.on('connect_error', (error) => {
   console.error('[SOCKET] Connection error:', error);
@@ -145,79 +140,32 @@ socket.on('connect_error', (error) => {
         socket.emit('requestStoryVotes', { storyId });
       }
     });
-socket.on('connect', () => {
-  console.log('[SOCKET] Connected to server with ID:', socket.id);
-  reconnectAttempts = 0;
-  clearTimeout(reconnectTimer);
+  socket.on('connect', () => {
+    console.log('[SOCKET] Connected to server with ID:', socket.id);
+    reconnectAttempts = 0;
+    clearTimeout(reconnectTimer);
 
-  // When connecting, explicitly join the room with creator flag
-  socket.emit('joinRoom', { 
-    roomId: roomIdentifier, 
-    userName: userNameValue,
-    isCreator: isCreator  // Pass the creator flag to server
-  });
+    // When connecting, explicitly join the room
+    socket.emit('joinRoom', { roomId: roomIdentifier, userName: userNameValue });
 
-    // If returning user might be owner but isn't creator, claim ownership
-    if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
-      setTimeout(() => {
-        socket.emit('claimOwnership', { 
-          roomId: roomIdentifier, 
-          userName: userNameValue 
-        });
-      }, 200);
-    }
-  socket.on('storyEdited', ({ storyId, newText }) => {
-  console.log('[SOCKET] Story edited:', storyId, newText);
+    // Listen for votes updates from server
+    socket.on('votesUpdate', (votesData) => {
+      console.log('[SOCKET] votesUpdate received:', votesData);
+    //  updateVoteVisuals(votesData);  // Your function to update UI with new votes
+    });
 
-  // Update DOM title on the story card
-  const card = document.getElementById(storyId);
-  if (card) {
-    const title = card.querySelector('.story-title');
-    if (title) {
-      title.textContent = newText;
-    }
-  }
+    // Request votes by username after initial connection
+    setTimeout(() => {
+      if (socket && socket.connected && userNameValue) {
+        socket.emit('requestVotesByUsername', { userName: userNameValue });
+      }
+    }, 1000);
 
-  // Update local state if applicable
-  const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
-  if (ticket) {
-    ticket.text = newText;
-  }
-});
+    // Notify UI of successful connection
+    handleMessage({ type: 'connect' });
 
-  
-  // Listen for votes updates from server
-  socket.on('votesUpdate', (votesData) => {
-    console.log('[SOCKET] votesUpdate received:', votesData);
-    // updateVoteVisuals(votesData);  // Your function to update UI with new votes
-  });
-
-  // Request votes by username after initial connection
-  setTimeout(() => {
-    if (socket && socket.connected && userNameValue) {
-      socket.emit('requestVotesByUsername', { userName: userNameValue });
-    }
-  }, 1000);
-
-  // Notify UI of successful connection
-  handleMessage({ type: 'connect' });
-
-  // Apply any saved votes from session storage
-  // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
-});
-
-  // Handle ownership status from server
-  socket.on('ownershipStatus', ({ isOwner }) => {
-    console.log('[SOCKET] Ownership status received:', isOwner);
-    
-    // Update sessionStorage based on server response
-    sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
-    
-    // Remove creator flag after first connection
-    sessionStorage.removeItem('isRoomCreator');
-    
-    // Notify UI of ownership change
-    handleMessage({ type: 'ownershipStatus', isOwner });
+    // Apply any saved votes from session storage
+    // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
   });
 
 
@@ -327,23 +275,22 @@ socket.on('connect', () => {
     handleMessage({ type: 'votingSystemUpdate', ...data });
   });
 
- socket.on('syncCSVData', (csvData) => {
-  console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
-
-  // Store in last known state
-  lastKnownRoomState.csvData = csvData;
-
- 
-  handleMessage({ type: 'syncCSVData', csvData }); 
-
-  setTimeout(() => {
-    console.log('[SOCKET] Notifying server that CSV data is loaded');
-    if (socket && socket.connected) {
-      socket.emit('csvDataLoaded');
-    }
-  }, 100);
-});
-
+  socket.on('syncCSVData', (csvData) => {
+    console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
+    
+    // Store in last known state
+    lastKnownRoomState.csvData = csvData;
+    
+    handleMessage({ type: 'syncCSVData', csvData });
+    
+    // Notify server that CSV data is loaded
+    setTimeout(() => {
+      console.log('[SOCKET] Notifying server that CSV data is loaded');
+      if (socket && socket.connected) {
+        socket.emit('csvDataLoaded');
+      }
+    }, 100);
+  });
 
   socket.on('storySelected', ({ storyIndex }) => {
     console.log('[SOCKET] Story selected event received:', storyIndex);
@@ -917,33 +864,6 @@ export function emitAddTicket(ticketData) {
     const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
     if (existingIndex === -1) {
       lastKnownRoomState.tickets.push(ticketData);
-    }
-  }
-}
-/**
- * Update a ticket and sync with other users
- * @param {Object} ticketData - Updated ticket data {id, text}
- */
-export function emitUpdateTicket(ticketData) {
-  if (socket) {
-    // Check if this ticket is in our deleted list
-    if (lastKnownRoomState.deletedStoryIds && 
-        lastKnownRoomState.deletedStoryIds.includes(ticketData.id)) {
-      console.log(`[SOCKET] Cannot update deleted ticket: ${ticketData.id}`);
-      return;
-    }
-    
-    console.log('[SOCKET] Updating ticket:', ticketData);
-    socket.emit('updateTicket', ticketData);
-    
-    // Update local state tracking - ensure initialization
-    if (!lastKnownRoomState.tickets) lastKnownRoomState.tickets = [];
-    
-    // Find and update the ticket in local state
-    const existingIndex = lastKnownRoomState.tickets.findIndex(t => t.id === ticketData.id);
-    if (existingIndex !== -1) {
-      lastKnownRoomState.tickets[existingIndex] = ticketData;
-      console.log('[SOCKET] Updated ticket in local state:', ticketData);
     }
   }
 }
