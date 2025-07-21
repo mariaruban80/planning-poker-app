@@ -14,15 +14,6 @@ let deleteConfirmationInProgress = false;
 let hasReceivedStorySelection = false;
 window.currentVotesPerStory = {}; // Ensure global reference for UI
 let heartbeatInterval; // Store interval reference for cleanup
-// Global state for guest
-let lastKnownRoomState = {
-  votesPerStory: {},
-  votesRevealed: {},
-  deletedStoryIds: [],
-  tickets: [],
-  userVotes: {}
-};
-
 
 // Add a window function for index.html to call
 window.notifyStoriesUpdated = function() {
@@ -183,9 +174,7 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Initialize socket with the name
   socket = initializeWebSocket(roomId, name, handleSocketMessage);
-  if (socket && socket.connected) {
-  socket.emit('requestAllTickets');
-}
+  
   // Continue with other initialization steps
   setupCSVUploader();
   setupInviteButton();
