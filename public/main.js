@@ -2107,7 +2107,7 @@ function setupStoryCardObserver() {
       }
     });
     
-    if (needsUpdate) {
+    if (needsUpdate && isGuestUser()) {
       applyGuestRestrictions();
     }
   });
@@ -3456,7 +3456,7 @@ function handleSocketMessage(message) {
         console.log('[SOCKET] New ticket received:', message.ticketData);
         // Add ticket to UI without selecting it (to avoid loops)
         addTicketToUI(message.ticketData, false);
-        applyGuestRestrictions();
+        //applyGuestRestrictions();
       }
       break;
 
