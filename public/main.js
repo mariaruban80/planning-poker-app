@@ -698,307 +698,269 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-    const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
-    const getIsHostInitially = () => sessionStorage.getItem('isHost') === 'true';  //READ INITIAL STATE HERE.
-    console.log(`[APP] initializeApp - isRoomCreator:${isRoomCreator} and isHostInitially: ${getIsHostInitially()}`);
-    if (isRoomCreator) {
-        console.log('[APP] Room creator detected - showing host UI immediately');
-        sessionStorage.setItem('isHost', 'true');
-        const currentUser = {
-            id: 'temp-id',
-            name: userName,
-            isOwner: true
-        };
-        setTimeout(() => {
-            updateUserList([currentUser]);
-            enableHostControls();
-        }, 50);
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
+  const getIsHostInitially = () => sessionStorage.getItem('isHost') === 'true';
+  console.log(`[APP] initializeApp - isRoomCreator:${isRoomCreator} and isHostInitially: ${getIsHostInitially()}`);
+
+  if (isRoomCreator) {
+    console.log('[APP] Room creator detected - showing host UI immediately');
+    sessionStorage.setItem('isHost', 'true');
+    const currentUser = {
+      id: 'temp-id',
+      name: userName,
+      isOwner: true
+    };
+    setTimeout(() => {
+      updateUserList([currentUser]);
+      enableHostControls();
+    }, 50);
+  }
+
+  if (!socket) {
+    socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+
+    socket.once('connect', () => {
+      if (!window.userMap) window.userMap = {};
+      window.userMap[socket.id] = userName;
+      console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
+
+      if (getIsHostInitially()) {
+        console.log(`[SOCKET|ONCE] Immediate claim from : Connect`);
+        socket.emit('claimOwnership', { roomId, userName });
+      }
+
+      setTimeout(() => {
+        if (socket && socket.connected) {
+          console.log(`AppInit -> Connect event Request: ${userName} vote`);
+          socket.emit('requestVotesByUsername', { userName });
+        }
+      }, 1500);
+
+      // ✅ Add csvStories handler here after socket is connected
+      socket.on('csvStories', (csvStories) => {
+        console.log('[SOCKET] Received csvStories:', csvStories);
+        if (Array.isArray(csvStories)) {
+          stories = csvStories;
+          updateStoriesUI();
+          highlightSelectedStory();
+
+          if (isCurrentUserHost()) {
+            setupStoryCardInteractions();
+          }
+        }
+      });
+
+      setTimeout(() => {
+        console.log('requestFor syncSTATE to all components to load, but it worked right!!');
+        window.initializeApp = true;
+      }, 1000);
+      clearTimeout();
+    });
+
+    socket.once('ownershipStatus', (data) => {
+      const isOwner = data.isOwner;
+      console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
+      sessionStorage.setItem('isHost', isOwner);
+
+      if (isOwner === true) {
+        console.log('[UI|ONCE] Enabling host controls');
+        updateUIForOwnership();
+      } else {
+        console.log('[UI|ONCE] ownership: Applying the guest controls from host mode');
+        applyGuestRestrictions();
+      }
+    });
+  }
+
+  if (socket && socket.io) {
+    socket.io.reconnectionAttempts = 10;
+    socket.io.timeout = 20000;
+    socket.io.reconnectionDelay = 2000;
+  }
+
+  // Register core socket listeners
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+
+    const trySelectStory = (attempts = 0) => {
+      const storyCard = document.getElementById(storyId);
+      if (storyCard) {
+        selectStory(storyIndex, false, true);
+      } else if (attempts < 20) {
+        setTimeout(() => trySelectStory(attempts + 1), 100);
+      } else {
+        console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
+      }
+    };
+
+    trySelectStory();
+  });
+
+  socket.on('reconnect_attempt', (attempt) => {
+    console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+    reconnectingInProgress = true;
+    updateConnectionStatus('reconnecting');
+  });
+
+  socket.on('reconnect', () => {
+    console.log('[SOCKET] Reconnected to server');
+    reconnectingInProgress = false;
+    updateConnectionStatus('connected');
+    socket.emit('requestAllTickets');
+    socket.emit('requestCurrentStory');
+    setTimeout(() => {
+      socket.emit('requestFullStateResync');
+      if (typeof getUserVotes === 'function') {
+        const userVotes = getUserVotes();
+        for (const [storyId, vote] of Object.entries(userVotes)) {
+          if (deletedStoryIds.has(storyId)) continue;
+          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+          votesPerStory[storyId][socket.id] = vote;
+          window.currentVotesPerStory = votesPerStory;
+          const currentId = getCurrentStoryId();
+          if (storyId === currentId) {
+            updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+          }
+        }
+        refreshVoteDisplay();
+      }
+    }, 500);
+  });
+
+  socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
+    const name = userName || userId;
+    mergeVote(storyId, name, vote);
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId) {
+      updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
+    }
+    refreshVoteDisplay();
+  });
+
+  socket.on('storyVotes', ({ storyId, votes }) => {
+    if (deletedStoryIds.has(storyId)) return;
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+    votesPerStory[storyId] = { ...votes };
+    window.currentVotesPerStory = votesPerStory;
+
+    const currentStoryId = getCurrentStoryId();
+    if (currentStoryId === storyId) {
+      applyVotesToUI(votes, !votesRevealed[storyId]);
+    }
+  });
+
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+    const name = sessionStorage.getItem('userName') || socket.id;
+    mergeVote(storyId, name, vote);
+    refreshVoteDisplay();
+  });
+
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
+    console.log('[SOCKET] Received resyncState from server');
+    if (typeof isOwner === 'boolean') updateUIForOwnership(isOwner);
+
+    if (Array.isArray(serverDeletedIds)) {
+      serverDeletedIds.forEach(id => deletedStoryIds.add(id));
+      saveDeletedStoriesToStorage(roomId);
     }
 
-         //✅ 1 Initialize and Setup Single Event Handlers
-                //✅ Ensure this runs ONLY once for each event
-                      if (!socket) {
+    const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
+    if (Array.isArray(filteredTickets)) processAllTickets(filteredTickets);
 
-              socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
-
-            socket.once('connect', () => {   //IMPORTANT, you do not want to stack events.
-                if (!window.userMap) window.userMap = {};
-               ///IMPORTANT ensure you are not using socket.id on set up if it doesnt exist yet
-                window.userMap[socket.id] = userName;  //map usernames ids to the function
-                console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
-
-             //✅2 Claim ownership, check
-              if (getIsHostInitially()===true){       // If the app has host already set then claim it.
-                console.log(`[SOCKET|ONCE] Immediate claim from : Connect`);  //<- check if the host already exists then take over
-                  socket.emit('claimOwnership', {
-                 roomId,
-                    userName
-               });
-             }          //✅✅✅ Request votes should go inside connect to run
-
-         //✅ 3 Request Votes after setup of socket connection
-        setTimeout(() => {  //Added after delay since username can take time to load
-            if (socket && socket.connected){
-                console.log(`AppInit -> Connect event Request: ${userName} vote`);
-                socket.emit('requestVotesByUsername', {      //Get the latest user name information inside app on message
-                       userName
-                });
-            }
-          }, 1500);   ///<- ensure there's ample time.
-
-       //✅ Finally, notify the UI of the successful connection
-        setTimeout(() => {
-              console.log(`requestFor syncSTATE to all components to load, but it worked right!!`);
-window.initializeApp = true;      //<- to check if it ran
-               }, 1000);
-          clearTimeout();
-     });
-
-      //Setup the onOwnership
-      socket.once('ownershipStatus', (data) => {   		//IMPORTANT
-
-                   const isOwner = data.isOwner;
-                console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
-
-        //✅Set it immediately after the server responds so can be found by functions
-         sessionStorage.setItem('isHost', isOwner);
-
-        if (isOwner === true) {
-             console.log('[UI|ONCE] Enabling host controls');
-             updateUIForOwnership();  //Check if works or needs to be before setting to store
-        ///         console.log('check if user is setting up  user is: ', sessionStorage==null ?  "StorageClear" : sessionStorage.getItem('userName'));
-
-                 } else {  ///Make sure these actually are taking control
-                   console.log('[UI|ONCE] ownership: Applying the guest controls from host mode');
-                     applyGuestRestrictions();
-        //    applyGuestModeRestrictions();
-          }   },1500);        //<- the timer is important.
-     }
-
-    //Clean Up from other socket calls
-
-    if (socket && socket.io) {
-        socket.io.reconnectionAttempts = 10;
-        socket.io.timeout = 20000;
-        socket.io.reconnectionDelay = 2000;
-    }
-
-    // ✅ Add key listeners here:  (Ensure everything that might run before
-     //the above "Socket setup" section is removed)
-    socket.on('storySelected', ({
-        storyIndex,
-        storyId
-    }) => {
-        console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-        clearAllVoteVisuals();
-
-        const trySelectStory = (attempts = 0) => {
-            const storyCard = document.getElementById(storyId);
-            if (storyCard) {
-                selectStory(storyIndex, false, true);
-            } else if (attempts < 20) { // Retry for up to ~2s
-                setTimeout(() => trySelectStory(attempts + 1), 100);
-            } else {
-                console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
-            }
-        };
-
-        trySelectStory();
-    });
-
-
-    socket.on('reconnect_attempt', (attempt) => {
-        console.log(`[SOCKET] Reconnection attempt ${attempt}`);
-        reconnectingInProgress = true;
-        updateConnectionStatus('reconnecting');
-    });
-
-    socket.on('reconnect', () => {
-        console.log('[SOCKET] Reconnected to server');
-        reconnectingInProgress = false;
-        updateConnectionStatus('connected');
-        socket.emit('requestAllTickets');
-        socket.emit('requestCurrentStory');
-        setTimeout(() => {
-            socket.emit('requestFullStateResync');
-            if (typeof getUserVotes === 'function') {
-                const userVotes = getUserVotes();
-                for (const [storyId, vote] of Object.entries(userVotes)) {
-                    if (deletedStoryIds.has(storyId)) continue;
-                    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-                    votesPerStory[storyId][socket.id] = vote;
-                    window.currentVotesPerStory = votesPerStory;
-                    const currentId = getCurrentStoryId();
-                    if (storyId === currentId) {
-                        updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-                    }
-                }
-                refreshVoteDisplay();
-            }
-        }, 500);
-    });
-
-    socket.on('voteUpdate', ({
-        userId,
-        userName,
-        vote,
-        storyId
-    }) => {
-        const name = userName || userId;
-        mergeVote(storyId, name, vote);
+    if (serverVotes) {
+      for (const [storyId, votes] of Object.entries(serverVotes)) {
+        if (deletedStoryIds.has(storyId)) continue;
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        for (const [userId, vote] of Object.entries(votes)) {
+          mergeVote(storyId, userId, vote);
+        }
+        votesRevealed[storyId] = serverRevealed?.[storyId];
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
-            updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
+          applyVotesToUI(votes, !votesRevealed[storyId]);
+          if (votesRevealed[storyId]) handleVotesRevealed(storyId, votes);
+        } else if (votesRevealed[storyId]) {
+          handleVotesRevealed(storyId, votes);
         }
-        refreshVoteDisplay();
-    });
-
-    socket.on('storyVotes', ({
-        storyId,
-        votes
-    }) => {
-        if (deletedStoryIds.has(storyId)) return;
-        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-        votesPerStory[storyId] = { ...votes
-        };
-        window.currentVotesPerStory = votesPerStory;
-
-        const currentStoryId = getCurrentStoryId();
-        if (currentStoryId === storyId) {
-            applyVotesToUI(votes, !votesRevealed[storyId]);
-        }
-    });
-
-    socket.on('restoreUserVote', ({
-        storyId,
-        vote
-    }) => {
-        const name = sessionStorage.getItem('userName') || socket.id;
-        mergeVote(storyId, name, vote);
-        refreshVoteDisplay();
-    });
-
-    socket.on('resyncState', ({
-        tickets,
-        votesPerStory: serverVotes,
-        votesRevealed: serverRevealed,
-        deletedStoryIds: serverDeletedIds,
-        isOwner
-    }) => {
-        console.log('[SOCKET] Received resyncState from server');
-        if (typeof isOwner === 'boolean') {
-            updateUIForOwnership(isOwner);
-        }
-
-        if (Array.isArray(serverDeletedIds)) {
-            serverDeletedIds.forEach(id => deletedStoryIds.add(id));
-            saveDeletedStoriesToStorage(roomId);
-        }
-
-        const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
-        if (Array.isArray(filteredTickets)) {
-            processAllTickets(filteredTickets);
-        }
-
-        if (serverVotes) {
-            for (const [storyId, votes] of Object.entries(serverVotes)) {
-                if (deletedStoryIds.has(storyId)) continue;
-                if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-                for (const [userId, vote] of Object.entries(votes)) {
-                    mergeVote(storyId, userId, vote);
-                }
-                votesRevealed[storyId] = serverRevealed ?.[storyId];
-                const currentId = getCurrentStoryId();
-                if (storyId === currentId) {
-                    applyVotesToUI(votes, !votesRevealed[storyId]);
-                    if (votesRevealed[storyId]) handleVotesRevealed(storyId, votes);
-                } else if (votesRevealed[storyId]) {
-                    handleVotesRevealed(storyId, votes);
-                }
-            }
-        }
-
-        window.currentVotesPerStory = votesPerStory;
-        refreshVoteDisplay();
-    });
-
-    socket.on('deleteStory', ({
-        storyId
-    }) => {
-        deletedStoryIds.add(storyId);
-        saveDeletedStoriesToStorage(roomId);
-        const el = document.getElementById(storyId);
-        if (el) {
-            el.remove();
-            normalizeStoryIndexes();
-        }
-        delete votesPerStory[storyId];
-        delete votesRevealed[storyId];
-    });
-
-    socket.on('votesRevealed', ({
-        storyId
-    }) => {
-        if (deletedStoryIds.has(storyId)) return;
-        if (votesRevealed[storyId]) return;
-        votesRevealed[storyId] = true;
-        const votes = votesPerStory[storyId] || {};
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        if (planningCardsSection) {
-            planningCardsSection.classList.add('hidden-until-init');
-            planningCardsSection.style.display = 'none';
-        }
-        handleVotesRevealed(storyId, votes);
-    });
-
-    socket.on('votesReset', ({
-        storyId
-    }) => {
-        if (deletedStoryIds.has(storyId)) return;
-        votesPerStory[storyId] = {};
-        votesRevealed[storyId] = false;
-        resetAllVoteVisuals();
-        const planningCardsSection = document.querySelector('.planning-cards-section');
-        if (planningCardsSection) {
-            planningCardsSection.classList.remove('hidden-until-init');
-            planningCardsSection.style.display = 'block';
-        }
-        const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
-        statsContainers.forEach(container => container.style.display = 'none');
-    });
-
-    socket.on('votingSystemUpdate', ({
-        votingSystem
-    }) => {
-        console.log('[SOCKET] Received voting system from host:', votingSystem);
-        sessionStorage.setItem('votingSystem', votingSystem);
-        setupPlanningCards();
-    });
-
-    const isHost = sessionStorage.getItem('isHost') === 'true';
-    const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
-    if (isHost && socket) {
-        socket.emit('votingSystemSelected', {
-            roomId,
-            votingSystem
-        });
+      }
     }
 
-    updateHeaderStyle();
-    addFixedVoteStatisticsStyles();
-    setupCSVUploader();
-    setupInviteButton();
-    setupStoryNavigation();
+    window.currentVotesPerStory = votesPerStory;
+    refreshVoteDisplay();
+  });
+
+  socket.on('deleteStory', ({ storyId }) => {
+    deletedStoryIds.add(storyId);
+    saveDeletedStoriesToStorage(roomId);
+    const el = document.getElementById(storyId);
+    if (el) {
+      el.remove();
+      normalizeStoryIndexes();
+    }
+    delete votesPerStory[storyId];
+    delete votesRevealed[storyId];
+  });
+
+  socket.on('votesRevealed', ({ storyId }) => {
+    if (deletedStoryIds.has(storyId)) return;
+    if (votesRevealed[storyId]) return;
+    votesRevealed[storyId] = true;
+    const votes = votesPerStory[storyId] || {};
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.add('hidden-until-init');
+      planningCardsSection.style.display = 'none';
+    }
+    handleVotesRevealed(storyId, votes);
+  });
+
+  socket.on('votesReset', ({ storyId }) => {
+    if (deletedStoryIds.has(storyId)) return;
+    votesPerStory[storyId] = {};
+    votesRevealed[storyId] = false;
+    resetAllVoteVisuals();
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.remove('hidden-until-init');
+      planningCardsSection.style.display = 'block';
+    }
+    const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
+    statsContainers.forEach(container => container.style.display = 'none');
+  });
+
+  socket.on('votingSystemUpdate', ({ votingSystem }) => {
+    console.log('[SOCKET] Received voting system from host:', votingSystem);
+    sessionStorage.setItem('votingSystem', votingSystem);
     setupPlanningCards();
-    setupRevealResetButtons();
-    setupAddTicketButton();
-    setupGuestModeRestrictions();
-    setupStoryCardInteractions();
-    cleanupDeleteButtonHandlers();
-    setupCSVDeleteButtons();
-    addNewLayoutStyles();
-    setInterval(refreshCurrentStoryVotes, 30000);
+  });
+
+  const isHost = sessionStorage.getItem('isHost') === 'true';
+  const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
+  if (isHost && socket) {
+    socket.emit('votingSystemSelected', { roomId, votingSystem });
+  }
+
+  updateHeaderStyle();
+  addFixedVoteStatisticsStyles();
+  setupCSVUploader();
+  setupInviteButton();
+  setupStoryNavigation();
+  setupPlanningCards();
+  setupRevealResetButtons();
+  setupAddTicketButton();
+  setupGuestModeRestrictions();
+  setupStoryCardInteractions();
+  cleanupDeleteButtonHandlers();
+  setupCSVDeleteButtons();
+  addNewLayoutStyles();
+  setInterval(refreshCurrentStoryVotes, 30000);
 }
+
+
+
+
+
 
 /**
  * Update UI based on server-determined ownership status
