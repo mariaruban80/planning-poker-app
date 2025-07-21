@@ -699,7 +699,7 @@ function appendRoomIdToURL(roomId) {
  */
 function initializeApp(roomId) {
     const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
-    const isHostInitially = sessionStorage.getItem('isHost') === 'true';  // Get initial isHost status
+    const isHostInitially = sessionStorage.getItem('isHost') === 'true'; // Get initial isHost status
 
     if (isRoomCreator) {
         console.log('[APP] Room creator detected - showing host UI immediately');
@@ -722,59 +722,49 @@ function initializeApp(roomId) {
     socket.once('connect', () => { //changed from on to once  IMPORTANT
         if (!window.userMap) window.userMap = {};
         window.userMap[socket.id] = userName;
+        console.log(`[SOCKET] Connected and setting userName in userMap for ${userName} id : ${socket.id}`);
+        // ✅ NEW: Immediately claim ownership upon connection ONLY if it's already the identified host
+        if (isHostInitially) {
+            console.log(`[SOCKET] connect - Claiming ownership for ${userName}`);
 
-        // ✅ NEW: Immediately claim ownership upon connection ONLY if it's the identified host
-        if (sessionStorage.getItem('isHost') === 'true') {
             socket.emit('claimOwnership', {
                 roomId,
                 userName
             });
         }
+        // Request votes by username after initial connection - MOVED higher in logic, fixed timing, check for connection.
 
-        // Request votes by username after initial connection - MOVED higher in logic and code - ENSURE the socket.id is avilable.
-        setTimeout(() => {
-            if (socket && socket.connected && userName) {
-                socket.emit('requestVotesByUsername', {
-                    userName
-                });
-            }
-        }, 1000);
+        if (socket && socket.connected && userName) {
+            console.log(`[SOCKET] connect - Requesting votes by username: ${userName}`);
+            socket.emit('requestVotesByUsername', {
+                userName
+            });
+        }
     });
 
-/*    socket.on('ownershipStatus', (data) => { //CHANGED once removed socket.on
-        const isOwner = data.isOwner;
-        console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
-
-        //ADDED - to persist Host role server side even when the host refresh the page and is set from storage
-        sessionStorage.setItem('isHost', isOwner);
-
-        if (isOwner) {
-            sessionStorage.setItem('isHost', 'true');
-            updateUIForOwnership();
-        } else {
-            sessionStorage.removeItem('isHost');
-            applyGuestRestrictions();
-        }
-    });  */
-
-    socket.once('ownershipStatus', (data) => { // This can change ownership, so persist and apply
+    socket.once('ownershipStatus', (data) => {
         const isOwner = data.isOwner;
         console.log('[SOCKET] ownershipStatus received:', isOwner);
 
-        sessionStorage.setItem('isHost', isOwner); // Persist to storage
+        //ADDED - and PERSIST in storage  and only use one key one session
+        sessionStorage.setItem('isHost', isOwner);
 
-    if (isOwner) {
-             //If host, enable all the interfaces and set values from server
-            console.log('[SOCKET] Enabling host controlls for main.js');
+        if (isOwner) {
+            console.log('[SOCKET] Ownership confirmed - Enabling host controls');
             updateUIForOwnership();
-
         } else {
-             //If guest, remove from session and apply guest conditions
-              console.log('[SOCKET] Applying guest controlls for main.js');
-                applyGuestRestrictions();
+            //If guest, remove from session and apply guest conditions
+            console.log('[SOCKET] Applying guest restrictions');
+            applyGuestRestrictions();
         }
     });
+      //Clean this logic
+     /** if (sessionStorage.getItem('isHost') === 'true') {   ///remove the conditional rendering here
+  console.log('[OWNERSHIP] After Ownership, enabling all the Host Controlls , but you are already here! ');
+                     enableHostControls();  ///remove this block of code, from what im seeing this call is not needed
+     updateUIForOwnership(sessionStorage.getItem('isHost') === 'true'); ///remove it too
 
+    }*/
     if (socket && socket.io) {
         socket.io.reconnectionAttempts = 10;
         socket.io.timeout = 20000;
@@ -904,7 +894,7 @@ function initializeApp(roomId) {
                 for (const [userId, vote] of Object.entries(votes)) {
                     mergeVote(storyId, userId, vote);
                 }
-                votesRevealed[storyId] = serverRevealed ?.[storyId];
+                votesRevealed[storyId] = serverRevealed ? .[storyId];
                 const currentId = getCurrentStoryId();
                 if (storyId === currentId) {
                     applyVotesToUI(votes, !votesRevealed[storyId]);
@@ -996,6 +986,8 @@ function initializeApp(roomId) {
     addNewLayoutStyles();
     setInterval(refreshCurrentStoryVotes, 30000);
 }
+
+
 
 /**
  * Update UI based on server-determined ownership status
