@@ -894,7 +894,7 @@ function initializeApp(roomId) {
                 for (const [userId, vote] of Object.entries(votes)) {
                     mergeVote(storyId, userId, vote);
                 }
-                votesRevealed[storyId] = serverRevealed ? .[storyId];
+                votesRevealed[storyId] = serverRevealed ?.[storyId];
                 const currentId = getCurrentStoryId();
                 if (storyId === currentId) {
                     applyVotesToUI(votes, !votesRevealed[storyId]);
