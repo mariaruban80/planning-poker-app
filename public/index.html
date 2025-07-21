@@ -2126,7 +2126,11 @@ window.showAddTicketModal = showAddTicketModal;
 function setupGuestModeOnLoad() {
   try {
     console.log("Function setupGuestModeOnLoad running");
-
+      const isHost = sessionStorage.getItem('isHost') === 'true';
+    if (isHost) {
+      console.log("User is host, skipping guest mode setup.");
+      return;
+         }
     if (isGuestUser()) {
       console.log('Guest mode activated - hiding control elements');
 
