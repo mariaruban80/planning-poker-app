@@ -1601,6 +1601,7 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
   // Handle CSV data synchronization with improved state management
 
+// In server.js, update the syncCSVData handler:
 socket.on('syncCSVData', (csvData) => {
   const roomId = socket.data.roomId;
   const userName = socket.data.userName;
@@ -1609,67 +1610,75 @@ socket.on('syncCSVData', (csvData) => {
 
   console.log(`[SERVER] Received CSV data for room ${roomId} – ${csvData.length} rows`);
   rooms[roomId].lastActivity = Date.now();
-  rooms[roomId].csvData      = csvData;
+  rooms[roomId].csvData = csvData;
   rooms[roomId].selectedIndex = 0;
 
-  /* ─── 1. Preserve manual tickets ─── */
+  // Preserve manual tickets
   const manualTickets = (rooms[roomId].tickets || []).filter(
     t => !t.id.startsWith('story_csv_')
   );
-  console.log(`[SERVER]   ↳ preserved ${manualTickets.length} manual tickets`);
+  console.log(`[SERVER] Preserved ${manualTickets.length} manual tickets`);
 
-  /* ─── 2. Build the new ticket array in one shot ─── */
-  rooms[roomId].tickets = [...manualTickets, ...csvData];   // ★ KEY LINE ★
+  // Create CSV tickets with proper structure
+  const csvTickets = csvData.map((row, index) => ({
+    id: `story_csv_${index}`,
+    text: Array.isArray(row) ? row.join(' | ') : String(row)
+  }));
 
-  /* ─── 3. Clean deleted‑story tracking (keep non‑CSV only) ─── */
+  // Build the new ticket array
+  rooms[roomId].tickets = [...manualTickets, ...csvTickets];
+
+  // Clean deleted-story tracking (keep non-CSV only)
   if (rooms[roomId].deletedStoryIds) {
     rooms[roomId].deletedStoryIds = new Set(
       [...rooms[roomId].deletedStoryIds].filter(id => !id.startsWith('story_csv_'))
     );
   }
 
-  /* ─── 4. Preserve votes / revealed flags for non‑CSV stories ─── */
-  const keepNonCSV = obj => {
-    const out = {};
-    for (const key in obj) if (!key.startsWith('story_csv_')) out[key] = obj[key];
-    return out;
-  };
-  rooms[roomId].votesPerStory   = keepNonCSV(rooms[roomId].votesPerStory   || {});
-  rooms[roomId].votesRevealed   = keepNonCSV(rooms[roomId].votesRevealed   || {});
-  rooms[roomId].userNameVotes   = Object.fromEntries(
-    Object.entries(rooms[roomId].userNameVotes || {}).map(
-      ([u,v]) => [u, keepNonCSV(v)]
-    )
-  );
+  console.log(`[SERVER] Room now has ${rooms[roomId].tickets.length} total tickets`);
 
-  console.log(`[SERVER]   ↳ room now has ${rooms[roomId].tickets.length} total tickets`);
-
-  /* ─── 5. Notify all current clients ─── */
+  // *** CRITICAL FIX: Notify ALL clients about the new tickets ***
+  // First send the CSV data
   io.to(roomId).emit('syncCSVData', csvData);
-  io.to(roomId).emit('allTickets',  { tickets: rooms[roomId].tickets });
-
-  /* ─── 6. Auto-select the first CSV story ─── */
-  const firstCSVStory = csvData[0];
-  if (firstCSVStory && firstCSVStory.id) {
-    rooms[roomId].selectedIndex = rooms[roomId].tickets.findIndex(t => t.id === firstCSVStory.id);
-    io.to(roomId).emit('storySelected', {
-      storyIndex: rooms[roomId].selectedIndex,
-      storyId: firstCSVStory.id
-    });
-    console.log(`[SERVER] Selected first CSV story: ${firstCSVStory.id}`);
+  
+  // Then send ALL tickets (including CSV) to ALL users
+  io.to(roomId).emit('allTickets', { tickets: rooms[roomId].tickets });
+  
+  // Also send a comprehensive state sync to ensure consistency
+  const activeVotes = {};
+  const revealedVotes = {};
+  
+  for (const [storyId, votes] of Object.entries(rooms[roomId].votesPerStory || {})) {
+    if (!rooms[roomId].deletedStoryIds?.has(storyId)) {
+      activeVotes[storyId] = votes;
+      if (rooms[roomId].votesRevealed?.[storyId]) {
+        revealedVotes[storyId] = true;
+      }
+    }
   }
 
-  /* ─── 7. Extra: Trigger a full resync for late guests (optional but recommended) ─── */
+  // Send comprehensive sync to ALL clients
   io.to(roomId).emit('resyncState', {
     tickets: rooms[roomId].tickets,
-    votesPerStory: rooms[roomId].votesPerStory,
-    votesRevealed: rooms[roomId].votesRevealed,
-    deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds || []),
-    isOwner: roomOwners[roomId]?.ownerName === userName
+    votesPerStory: activeVotes,
+    votesRevealed: revealedVotes,
+    deletedStoryIds: Array.from(rooms[roomId].deletedStoryIds || [])
   });
+
+  // Auto-select the first CSV story
+  const firstCSVStory = csvTickets[0];
+  if (firstCSVStory) {
+    const storyIndex = rooms[roomId].tickets.findIndex(t => t.id === firstCSVStory.id);
+    if (storyIndex >= 0) {
+      rooms[roomId].selectedIndex = storyIndex;
+      io.to(roomId).emit('storySelected', {
+        storyIndex: storyIndex,
+        storyId: firstCSVStory.id
+      });
+      console.log(`[SERVER] Selected first CSV story: ${firstCSVStory.id} at index ${storyIndex}`);
+    }
+  }
 });
-
-
 
 
   
