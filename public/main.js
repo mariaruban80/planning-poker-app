@@ -2,7 +2,7 @@
 let userName = sessionStorage.getItem('userName');
 let processingCSVData = false;
 // Import socket functionality
-import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket, getUserVotes } from './socket.js'; 
+import { initializeWebSocket, emitCSVData, requestStoryVotes, emitAddTicket,emitUpdateTicket,getUserVotes } from './socket.js'; 
 
 // Track deleted stories client-side
 let deletedStoryIds = new Set();
@@ -70,6 +70,91 @@ window.addTicketFromModal = function(ticketData) {
   // Store in manually added tickets
   manuallyAddedTickets.push(ticketData);
 };
+/**
+ * Handle updating a ticket from the modal
+ * @param {Object} ticketData - Updated ticket data {id, text}
+ */
+window.updateTicketFromModal = function(ticketData) {
+  if (!ticketData || !ticketData.id || !ticketData.text) return;
+  
+  console.log('[EDIT] Updating ticket:', ticketData);
+  
+  // Update the DOM
+  const storyCard = document.getElementById(ticketData.id);
+  if (storyCard) {
+    const storyTitle = storyCard.querySelector('.story-title');
+    if (storyTitle) {
+      storyTitle.textContent = ticketData.text;
+    }
+  }
+  
+  // Emit to server for synchronization
+  if (socket) {
+    socket.emit('updateTicket', ticketData);
+  }
+  
+  // Update local tickets array if it exists
+  if (typeof manuallyAddedTickets !== 'undefined') {
+    const ticketIndex = manuallyAddedTickets.findIndex(t => t.id === ticketData.id);
+    if (ticketIndex !== -1) {
+      manuallyAddedTickets[ticketIndex] = ticketData;
+    }
+  }
+};
+
+function addHostMenu(storyItem, storyId = null, storyTextElement = null) {
+  const menuTrigger = storyItem.querySelector('.menu-trigger');
+  const menuDropdown = storyItem.querySelector('.menu-dropdown');
+  const editStoryItem = storyItem.querySelector('.edit-story');
+  const deleteStoryItem = storyItem.querySelector('.delete-story');
+  const storyIdentifier = storyId || storyItem.id;
+
+  if (!menuTrigger || !menuDropdown) {
+    console.warn('[addHostMenu] Menu trigger or dropdown not found for', storyIdentifier);
+    return;
+  }
+
+  // Menu toggle
+  menuTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuDropdown.style.display = menuDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+
+  // Edit story
+  if (editStoryItem) {
+    editStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentText = storyTextElement?.textContent || '';
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(storyIdentifier, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('[addHostMenu] Edit menu item not found for', storyIdentifier);
+  }
+
+  // Delete story
+  if (deleteStoryItem) {
+    deleteStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(storyIdentifier);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('[addHostMenu] Delete menu item not found for', storyIdentifier);
+  }
+
+  // Optional: log edits on story title input
+  if (storyTextElement && typeof storyTextElement.addEventListener === 'function') {
+    storyTextElement.addEventListener('input', (e) => {
+      console.log('[addHostMenu] Story title edited:', e.target.value);
+    });
+  }
+}
+
 
 /**
  * Initialize socket with a specific name (used when joining via invite)
@@ -571,16 +656,33 @@ function setupGuestModeRestrictions() {
 /**
  * Extract room ID from URL parameters
  */
+/**
+ * Extract room ID from URL parameters and handle URL cleanup
+ */
 function getRoomIdFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const isHost = urlParams.get('host') === 'true';
 
-  // ✅ Store host status in sessionStorage
-  if (isHost) {
+  // Check if user is creating a new room (from main.html)
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
+  
+  // Determine initial host status
+  if (isHost || isRoomCreator) {
     sessionStorage.setItem('isHost', 'true');
   } else {
-    sessionStorage.setItem('isHost', 'false');
+    // Only set to false if not already determined to be host
+    // This prevents overriding server-determined ownership status
+    if (sessionStorage.getItem('isHost') === null) {
+      sessionStorage.setItem('isHost', 'false');
+    }
+  }
+
+  // Clean up the URL immediately to remove host parameter
+  if (roomId) {
+    const cleanUrl = `${window.location.pathname}?roomId=${roomId}`;
+    window.history.replaceState({}, document.title, cleanUrl);
+    console.log('[URL] Cleaned URL, removed host parameter');
   }
 
   // Fallback: generate a room if not present
@@ -604,13 +706,33 @@ function appendRoomIdToURL(roomId) {
  * Initialize the application
  */
 function initializeApp(roomId) {
-  // Initialize socket with userName from sessionStorage
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage);
+  const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
+  if (isRoomCreator) {
+    console.log('[APP] Room creator detected - showing host UI immediately');
+    sessionStorage.setItem('isHost', 'true');
+    const currentUser = {
+      id: 'temp-id',
+      name: userName,
+      isOwner: true
+    };
+    setTimeout(() => {
+      updateUserList([currentUser]);
+      enableHostControls();
+    }, 50);
+  }
+
+  // ✅ Only one socket initialization
+  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+
   socket.on('connect', () => {
-  // Immediately map own socket ID to username
-  if (!window.userMap) window.userMap = {};
-  window.userMap[socket.id] = userName;
-});
+    if (!window.userMap) window.userMap = {};
+    window.userMap[socket.id] = userName;
+  });
+
+  socket.on('ownershipStatus', ({ isOwner }) => {
+    console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
+    updateUIForOwnership(isOwner);
+  });
 
   if (socket && socket.io) {
     socket.io.reconnectionAttempts = 10;
@@ -618,277 +740,170 @@ function initializeApp(roomId) {
     socket.io.reconnectionDelay = 2000;
   }
 
-  // Setup heartbeat mechanism to prevent timeouts
-//  setupHeartbeat();
+  // ✅ Add key listeners here:
+socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  const trySelectStory = (attempts = 0) => {
+    const storyCard = document.getElementById(storyId);
+    if (storyCard) {
+      selectStory(storyIndex, false, true);
+    } else if (attempts < 20) { // Retry for up to ~2s
+      setTimeout(() => trySelectStory(attempts + 1), 100);
+    } else {
+      console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
+    }
+  };
+
+  trySelectStory();
+});
+
+
+  socket.on('reconnect_attempt', (attempt) => {
+    console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+    reconnectingInProgress = true;
+    updateConnectionStatus('reconnecting');
+  });
+
+  socket.on('reconnect', () => {
+    console.log('[SOCKET] Reconnected to server');
+    reconnectingInProgress = false;
+    updateConnectionStatus('connected');
+    socket.emit('requestAllTickets');
+    socket.emit('requestCurrentStory');
+    setTimeout(() => {
+      socket.emit('requestFullStateResync');
+      if (typeof getUserVotes === 'function') {
+        const userVotes = getUserVotes();
+        for (const [storyId, vote] of Object.entries(userVotes)) {
+          if (deletedStoryIds.has(storyId)) continue;
+          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+          votesPerStory[storyId][socket.id] = vote;
+          window.currentVotesPerStory = votesPerStory;
+          const currentId = getCurrentStoryId();
+          if (storyId === currentId) {
+            updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
+          }
+        }
+        refreshVoteDisplay();
+      }
+    }, 500);
+  });
 
   socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
     const name = userName || userId;
     mergeVote(storyId, name, vote);
-
     const currentId = getCurrentStoryId();
     if (storyId === currentId) {
       updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
     }
-
     refreshVoteDisplay();
   });
-  
+
   socket.on('storyVotes', ({ storyId, votes }) => {
-    // Don't process votes for deleted stories
-    if (deletedStoryIds.has(storyId)) {
-      console.log(`[VOTE] Ignoring votes for deleted story: ${storyId}`);
-      return;
-    }
-    
-    if (!votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-    
-    // Store the votes
+    if (deletedStoryIds.has(storyId)) return;
+    if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
     votesPerStory[storyId] = { ...votes };
     window.currentVotesPerStory = votesPerStory;
-    
-    // Update UI immediately if this is the current story
+
     const currentStoryId = getCurrentStoryId();
     if (currentStoryId === storyId) {
-      if (votesRevealed[storyId]) {
-        // Show actual votes if revealed
-        applyVotesToUI(votes, false);
-      } else {
-        // Show thumbs up if not revealed
-        applyVotesToUI(votes, true);
-      }
+      applyVotesToUI(votes, !votesRevealed[storyId]);
     }
   });
-  
-  // Updated handler for restored user votes
+
   socket.on('restoreUserVote', ({ storyId, vote }) => {
     const name = sessionStorage.getItem('userName') || socket.id;
     mergeVote(storyId, name, vote);
     refreshVoteDisplay();
   });
-  
-  // Updated resyncState handler to restore votes
-  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds }) => {
-    console.log('[SOCKET] Received resyncState from server');
 
-    // Update local deleted stories tracking
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
+    console.log('[SOCKET] Received resyncState from server');
+    if (typeof isOwner === 'boolean') {
+      updateUIForOwnership(isOwner);
+    }
+
     if (Array.isArray(serverDeletedIds)) {
       serverDeletedIds.forEach(id => deletedStoryIds.add(id));
       saveDeletedStoriesToStorage(roomId);
     }
 
-    // Filter and process non-deleted tickets
     const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
     if (Array.isArray(filteredTickets)) {
       processAllTickets(filteredTickets);
     }
 
-    // Update local vote state for non-deleted stories
     if (serverVotes) {
       for (const [storyId, votes] of Object.entries(serverVotes)) {
         if (deletedStoryIds.has(storyId)) continue;
-
         if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-
         for (const [userId, vote] of Object.entries(votes)) {
           mergeVote(storyId, userId, vote);
         }
-
-        const isRevealed = serverRevealed && serverRevealed[storyId];
-        votesRevealed[storyId] = isRevealed;
-
-        // UI update for current story
+        votesRevealed[storyId] = serverRevealed?.[storyId];
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
-          if (isRevealed) {
-            applyVotesToUI(votes, false);
-            handleVotesRevealed(storyId, votes);  // ✅ Render stats layout
-          } else {
-            applyVotesToUI(votes, true);
-          }
-        } else if (isRevealed) {
-          // ✅ ALSO render stats layout for other stories if needed
+          applyVotesToUI(votes, !votesRevealed[storyId]);
+          if (votesRevealed[storyId]) handleVotesRevealed(storyId, votes);
+        } else if (votesRevealed[storyId]) {
           handleVotesRevealed(storyId, votes);
         }
       }
     }
-console.log('[RESTORE] Skipped manual session restoration — server handles vote recovery');
 
-   
     window.currentVotesPerStory = votesPerStory;
     refreshVoteDisplay();
   });
-  
-  // Updated deleteStory event handler to track deletions locally
+
   socket.on('deleteStory', ({ storyId }) => {
-    console.log('[SOCKET] Story deletion event received:', storyId);
-    
-    // Add to local deletion tracking
     deletedStoryIds.add(storyId);
-    
-    // Save to session storage
     saveDeletedStoriesToStorage(roomId);
-    
-    // Remove from DOM
     const el = document.getElementById(storyId);
     if (el) {
       el.remove();
       normalizeStoryIndexes();
     }
-    
-    // Clear vote data for the deleted story
     delete votesPerStory[storyId];
     delete votesRevealed[storyId];
   });
-  
+
   socket.on('votesRevealed', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
-    
-    // Skip if already revealed to avoid duplicate animations
-    if (votesRevealed[storyId] === true) {
-      console.log(`[VOTE] Votes already revealed for story ${storyId}, not triggering effects again`);
-      return;
-    }
-    
+    if (votesRevealed[storyId]) return;
     votesRevealed[storyId] = true;
     const votes = votesPerStory[storyId] || {};
-    
-    // Hide planning cards for this story
     const planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.classList.add('hidden-until-init');
       planningCardsSection.style.display = 'none';
     }
-    
     handleVotesRevealed(storyId, votes);
-    
-    // Log action for debugging
-    console.log(`[VOTE] Votes revealed for story: ${storyId}, stats should now be visible`);
-  })
+  });
 
   socket.on('votesReset', ({ storyId }) => {
     if (deletedStoryIds.has(storyId)) return;
-
-    if (votesPerStory[storyId]) {
-      votesPerStory[storyId] = {};
-    }
-
+    votesPerStory[storyId] = {};
     votesRevealed[storyId] = false;
     resetAllVoteVisuals();
-
-    // Always show planning cards and hide stats for this story
     const planningCardsSection = document.querySelector('.planning-cards-section');
     if (planningCardsSection) {
       planningCardsSection.classList.remove('hidden-until-init');
       planningCardsSection.style.display = 'block';
     }
-
-    // Hide all stats containers that match this story ID
     const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
-    statsContainers.forEach(container => {
-      container.style.display = 'none';
-    });
-    
-    // Log reset action for debugging
-    console.log(`[VOTE] Votes reset for story: ${storyId}, planning cards should now be visible`);
+    statsContainers.forEach(container => container.style.display = 'none');
   });
-  
-// Improve the storySelected event handler
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  clearAllVoteVisuals();
-  // If storyId is provided directly, use it
-  if (storyId) {
-    // Select the story
-    selectStory(storyIndex, false);
-    return;
-  }
-  
-  // If no storyId was provided, try to resolve it from the index
-  if (typeof storyIndex === 'number') {
-    // Try to find the story card by index
-    const storyCards = document.querySelectorAll('.story-card');
-    if (storyIndex >= 0 && storyIndex < storyCards.length) {
-      const targetCard = storyCards[storyIndex];
-      if (targetCard && targetCard.id) {
-        console.log(`[SOCKET] Resolved storyId from index ${storyIndex}: ${targetCard.id}`);
-        selectStory(storyIndex, false);
-        return;
-      }
-    }
-    
-    // If we still can't find the story, try one more approach:
-    // Find any story card with the matching data-index attribute
-    const indexCard = document.querySelector(`.story-card[data-index="${storyIndex}"]`);
-    if (indexCard && indexCard.id) {
-      console.log(`[SOCKET] Found story card using data-index=${storyIndex}: ${indexCard.id}`);
-      selectStory(storyIndex, false);
-      return;
-    }
-  }
-  
-  console.warn(`[SOCKET] Could not resolve story for index ${storyIndex}`);
-});
-  
-  // Add reconnection handlers for socket
-  if (socket) {
-    // New handler for reconnect attempts
-    socket.on('reconnect_attempt', (attempt) => {
-      console.log(`[SOCKET] Reconnection attempt ${attempt}`);
-      reconnectingInProgress = true;
-      
-      // Update UI to show reconnecting status
-      updateConnectionStatus('reconnecting');
-    });
-    
-    // Handle successful reconnection
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
-      reconnectingInProgress = false;
-      
-      // Update UI to show connected status
-      updateConnectionStatus('connected');
 
-      // Request current state and story
-      socket.emit('requestAllTickets');
-      socket.emit('requestCurrentStory');
-      setTimeout(() => {
-        socket.emit('requestFullStateResync');
-
-        // Re-apply stored votes
-        if (typeof getUserVotes === 'function') {
-          const userVotes = getUserVotes();
-          for (const [storyId, vote] of Object.entries(userVotes)) {
-            if (deletedStoryIds.has(storyId)) continue;
-
-            if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-            votesPerStory[storyId][socket.id] = vote;
-            window.currentVotesPerStory = votesPerStory;
-
-            const currentId = getCurrentStoryId();
-            if (storyId === currentId) {
-              updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
-            }
-          }
-
-          refreshVoteDisplay();
-        }
-      }, 500);
-    });
-  }
-  
-  // Guest: Listen for host's voting system
   socket.on('votingSystemUpdate', ({ votingSystem }) => {
     console.log('[SOCKET] Received voting system from host:', votingSystem);
     sessionStorage.setItem('votingSystem', votingSystem);
-    setupPlanningCards(); // Dynamically regenerate vote cards
+    setupPlanningCards();
   });
 
-  // Host: Emit selected voting system to server
   const isHost = sessionStorage.getItem('isHost') === 'true';
   const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
-
   if (isHost && socket) {
     socket.emit('votingSystemSelected', { roomId, votingSystem });
   }
@@ -898,22 +913,219 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   setupCSVUploader();
   setupInviteButton();
   setupStoryNavigation();
-  setupPlanningCards(); // generates the cards AND sets up drag listeners
+  setupPlanningCards();
   setupRevealResetButtons();
   setupAddTicketButton();
-  setupGuestModeRestrictions(); // Add guest mode restrictions
+  setupGuestModeRestrictions();
   setupStoryCardInteractions();
-  
-  // Add these cleanup and setup calls for delete buttons
   cleanupDeleteButtonHandlers();
   setupCSVDeleteButtons();
-  
-  // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Refresh votes periodically to ensure everyone sees the latest votes
-  setInterval(refreshCurrentStoryVotes, 30000); // Check every 30 seconds
+  setInterval(refreshCurrentStoryVotes, 30000);
 }
+
+
+
+
+
+
+
+
+
+/**
+ * Update UI based on server-determined ownership status
+ * @param {boolean} isOwner - Whether the current user owns the room
+ */
+function updateUIForOwnership(isOwner) {
+  // Update sessionStorage with server-authoritative status
+  sessionStorage.setItem('isHost', isOwner ? 'true' : 'false');
+  
+  console.log(`[UI] Updating interface for ${isOwner ? 'host' : 'guest'} mode`);
+  
+  if (isOwner) {
+    // Enable all host controls
+    enableHostControls();
+  } else {
+    // Apply guest restrictions
+    applyGuestRestrictions();
+  }
+  
+  // Update any UI indicators
+  updateOwnershipIndicators(isOwner);
+  
+  // Remove the creator flag since we've now been assigned proper ownership
+  sessionStorage.removeItem('isRoomCreator');
+}
+
+/**
+ * Enable all host controls and remove guest restrictions
+ */
+function enableHostControls() {
+  console.log('[UI] Enabling host controls');
+  
+  // Show all previously hidden host elements
+  document.querySelectorAll('.hide-for-guests').forEach(el => {
+    el.classList.remove('hide-for-guests');
+    el.style.display = '';
+  });
+  
+  // Enable reveal/reset buttons in sidebar
+  const revealBtn = document.getElementById('revealVotesBtn');
+  const resetBtn = document.getElementById('resetVotesBtn');
+  if (revealBtn) {
+    revealBtn.disabled = false;
+    revealBtn.style.display = 'block';
+    revealBtn.classList.remove('hide-for-guests');
+  }
+  if (resetBtn) {
+    resetBtn.disabled = false;
+    resetBtn.style.display = 'block';
+    resetBtn.classList.remove('hide-for-guests');
+  }
+  
+  // Enable upload and add ticket buttons
+  const fileInputContainer = document.getElementById('fileInputContainer');
+  const addTicketBtn = document.getElementById('addTicketBtn');
+  if (fileInputContainer) {
+    fileInputContainer.style.display = '';
+    fileInputContainer.classList.remove('hide-for-guests');
+  }
+  if (addTicketBtn) {
+    addTicketBtn.style.display = '';
+    addTicketBtn.classList.remove('hide-for-guests');
+  }
+  
+  // Enable navigation buttons
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+  if (nextButton) {
+    nextButton.disabled = false;
+    nextButton.classList.remove('disabled-nav');
+  }
+  if (prevButton) {
+    prevButton.disabled = false;
+    prevButton.classList.remove('disabled-nav');
+  }
+  
+  // Enable story card interactions
+  document.querySelectorAll('.story-card').forEach(card => {
+    card.classList.remove('disabled-story');
+  });
+  
+  // Re-setup story card interactions for hosts
+  setupStoryCardInteractions();
+  
+  // Remove any guest mode indicators
+  const guestIndicator = document.getElementById('guestModeIndicator');
+  if (guestIndicator) {
+    guestIndicator.remove();
+  }
+   console.log('[UI] Setting up story card interactions for host');
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 100);
+  console.log('[UI] Host controls enabled successfully');
+}
+
+/**
+ * Apply guest restrictions to UI elements
+ */
+function applyGuestRestrictions() {
+  console.log('[UI] Applying guest restrictions');
+  
+  // Hide control buttons in sidebar
+  const controlElements = [
+    'revealVotesBtn',
+    'resetVotesBtn', 
+    'fileInputContainer',
+    'addTicketBtn'
+  ];
+  
+  controlElements.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.classList.add('hide-for-guests');
+      element.style.display = 'none';
+    }
+  });
+  
+  // Hide the center REVEAL VOTES button
+  const centerRevealButton = document.querySelector('.reveal-votes-button');
+  if (centerRevealButton) {
+    centerRevealButton.classList.add('hide-for-guests');
+    centerRevealButton.style.display = 'none';
+  }
+  
+  // Disable navigation buttons
+  const nextButton = document.getElementById('nextStory');
+  const prevButton = document.getElementById('prevStory');
+  if (nextButton) {
+    nextButton.disabled = true;
+    nextButton.classList.add('disabled-nav');
+  }
+  if (prevButton) {
+    prevButton.disabled = true;
+    prevButton.classList.add('disabled-nav');
+  }
+  
+  // Disable story card interactions
+  document.querySelectorAll('.story-card').forEach(card => {
+    card.classList.add('disabled-story');
+  });
+  
+  // Add guest mode indicator
+  addGuestModeIndicator();
+  
+  console.log('[UI] Guest restrictions applied successfully');
+}
+
+/**
+ * Add visual indicator for guest mode
+ */
+function addGuestModeIndicator() {
+  if (!document.getElementById('guestModeIndicator')) {
+    const header = document.querySelector('header .nav-links');
+    if (header) {
+      const indicator = document.createElement('div');
+      indicator.id = 'guestModeIndicator';
+      indicator.style.cssText = `
+        color: #673ab7;
+        font-size: 14px;
+        font-weight: 500;
+        margin-right: 15px;
+        padding: 4px 12px;
+        border: 1px solid #673ab7;
+        border-radius: 12px;
+        background-color: rgba(103, 58, 183, 0.1);
+        white-space: nowrap;
+      `;
+      indicator.textContent = 'Guest Mode';
+      
+      // Insert before the LOG OFF button
+      const logOffBtn = document.getElementById('logOffBtn');
+      if (logOffBtn) {
+        header.insertBefore(indicator, logOffBtn);
+      } else {
+        header.appendChild(indicator);
+      }
+    }
+  }
+}
+
+/**
+ * Update ownership indicators in the UI
+ * @param {boolean} isOwner - Whether the current user is the owner
+ */
+function updateOwnershipIndicators(isOwner) {
+  // Update header username display
+  const headerUsername = document.getElementById('headerUsername');
+  if (headerUsername) {
+    const currentText = headerUsername.textContent.replace(' (Host)', '').replace(' (Guest)', '');
+    headerUsername.textContent = `${currentText}${isOwner ? ' (Host)' : ''}`;
+  }
+}
+
+
 
 /**
  * Periodically refresh votes for the current story
@@ -1756,84 +1968,90 @@ function getVoteEmoji(vote) {
  * @param {Object} ticketData - Ticket data { id, text }
  * @param {boolean} selectAfterAdd - Whether to select the ticket after adding
  */
-function addTicketToUI(ticketData, selectAfterAdd = false) {
-  if (!ticketData || !ticketData.id || !ticketData.text) return;
-  
-  // Check if this ticket is in our deleted set
-  if (deletedStoryIds.has(ticketData.id)) {
-    console.log('[ADD] Not adding deleted ticket to UI:', ticketData.id);
-    return;
-  }
-  
+function addTicketToUI(ticketData, isManual = false) {
   const storyList = document.getElementById('storyList');
-  if (!storyList) return;
-  
-  // Check if this ticket already exists (to avoid duplicates)
-  const existingTicket = document.getElementById(ticketData.id);
-  if (existingTicket) return;
-  
-  // Create new story card
-  const storyCard = document.createElement('div');
-  storyCard.className = 'story-card';
-  storyCard.id = ticketData.id;
-  
-  // Set data index attribute (for selection)
-  const newIndex = storyList.children.length;
-  storyCard.dataset.index = newIndex;
-  
-  // Create the story title element
-  const storyTitle = document.createElement('div');
-  storyTitle.className = 'story-title';
-  storyTitle.textContent = ticketData.text;
-  
-  // Add to DOM
-  storyCard.appendChild(storyTitle);
-  
-  // Add delete button for hosts only
-  if (isCurrentUserHost()) {
-    const deleteButton = document.createElement('div');
-    deleteButton.className = 'story-delete-btn';
-    deleteButton.innerHTML = '🗑'; // dustbin symbol
-    deleteButton.title = 'Delete story';
-    
-    // Add click handler for delete button
-    deleteButton.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent story selection when clicking delete
-      deleteStory(ticketData.id);
+  if (!storyList || !ticketData || !ticketData.id || !ticketData.text) return;
+
+  const card = document.createElement('div');
+  card.className = 'story-card';
+  card.id = ticketData.id;
+
+  // Create story text
+  const title = document.createElement('div');
+  title.className = 'story-title';
+  title.textContent = ticketData.text;
+  card.appendChild(title);
+
+  // Only add the menu if current user is host
+  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
+    // Create the dropdown menu container
+    const menuContainer = document.createElement('div');
+    menuContainer.className = 'story-menu-container';
+    menuContainer.innerHTML = `
+      <div class="story-menu-trigger">⋮</div>
+      <div class="story-menu-dropdown">
+        <div class="story-menu-item edit-story">Edit</div>
+        <div class="story-menu-item delete-story">Delete</div>
+      </div>
+    `;
+    card.appendChild(menuContainer);
+
+    // Toggle menu visibility
+    const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+    const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+
+    menuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+      menuDropdown.style.display = 'block';
     });
-    
-    storyCard.appendChild(deleteButton);
-  }
-  
-  storyList.appendChild(storyCard);
-  
-  // Check if user is guest and handle accordingly
-  if (isGuestUser()) {
-    storyCard.classList.add('disabled-story');
-  } else {
-    // Add click event listener only for hosts
-    storyCard.addEventListener('click', () => {
-      selectStory(newIndex);
+
+    // Hide the menu when clicking elsewhere (once per open)
+    document.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
+    });
+
+    // Hook up edit and delete actions (FIXED)
+    menuDropdown.querySelector('.edit-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Get the current text from the card (for latest content)
+      const titleDiv = card.querySelector('.story-title');
+      const currentText = titleDiv ? titleDiv.textContent : ticketData.text;
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(ticketData.id, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+
+    menuDropdown.querySelector('.delete-story')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(ticketData.id);
+      }
+      menuDropdown.style.display = 'none';
     });
   }
-    // Select the new story if requested (only for hosts)
-  if (selectAfterAdd && !isGuestUser()) {
-    selectStory(newIndex);
-  }
-  
-  // Check for stories message
-  const noStoriesMessage = document.getElementById('noStoriesMessage');
-  if (noStoriesMessage) {
-    noStoriesMessage.style.display = 'none';
-  }
-  
-  // Enable planning cards if they were disabled
-  document.querySelectorAll('#planningCards .card').forEach(card => {
-    card.classList.remove('disabled');
-    card.setAttribute('draggable', 'true');
-  });
+
+  // Append card to the list
+  storyList.appendChild(card);
   normalizeStoryIndexes();
-} 
+
+  // ----------- NEW FEATURE: Auto-select newly added ticket if host -----------
+  // Only the host should run this. If this is a CSV story, you may want to skip,
+  // or leave as is if you want ALL stories selected by default.
+  if (typeof isCurrentUserHost === "function" && isCurrentUserHost()) {
+    // Find the card's index in the storyList
+    const index = Array.from(storyList.children).findIndex(child => child.id === ticketData.id);
+    if (index !== -1) {
+      // Select the new ticket, and emit to server to broadcast to all (including guests)
+      selectStory(index, true); // emitToServer = true
+    }
+  }
+}
+
+
+
+
 
 /**
  * Set up a mutation observer to catch any newly added story cards
@@ -1866,27 +2084,7 @@ function setupStoryCardObserver() {
   });
 }
 
-/**
- * Apply guest restrictions to all story cards
- * This ensures manually added cards are also properly restricted
- */
-function applyGuestRestrictions() {
-  if (!isGuestUser()) return; // Only apply to guests
-  
-  // Select all story cards
-  const storyCards = document.querySelectorAll('.story-card');
-  
-  storyCards.forEach(card => {
-    // Make sure the card has the disabled class
-    card.classList.add('disabled-story');
-    
-    // Remove all click events by cloning and replacing
-    const newCard = card.cloneNode(true);
-    if (card.parentNode) {
-      card.parentNode.replaceChild(newCard, card);
-    }
-  });
-}
+
 
 /**
  * Process multiple tickets at once (used when receiving all tickets from server)
@@ -1898,31 +2096,45 @@ function processAllTickets(tickets) {
 
   const storyList = document.getElementById('storyList');
   if (storyList) {
-    const manualCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-    manualCards.forEach(card => card.remove());
+    // ❗ Remove all story cards — not just manual ones
+    storyList.querySelectorAll('.story-card').forEach(card => card.remove());
   }
 
+  // Render each ticket
   filtered.forEach(ticket => {
     if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false);
+      addTicketToUI(ticket, false); // ✅ Will build the card and handle dropdown/menu for host
     }
   });
 
+  // Story selection logic
   if (filtered.length > 0) {
-    if (currentStoryIndex === null || currentStoryIndex === undefined || currentStoryIndex < 0 || currentStoryIndex >= filtered.length) {
+    if (
+      currentStoryIndex === null ||
+      currentStoryIndex === undefined ||
+      currentStoryIndex < 0 ||
+      currentStoryIndex >= filtered.length
+    ) {
       currentStoryIndex = 0;
       selectStory(0, false);
     } else {
       console.log('[INIT] Skipping auto-select, currentStoryIndex already set:', currentStoryIndex);
-      // 🛠️ Add this line to re-highlight the story in UI
       selectStory(currentStoryIndex, false);
     }
   }
 
-  if (isGuestUser()) {
-    applyGuestRestrictions();
-  }
+  // ✅ FIX: Rebind Edit/Delete interactions for uploaded tickets
+  setTimeout(() => {
+    try {
+      setupStoryCardInteractions();
+      console.log('[UI] Story card interactions set up after CSV upload');
+    } catch (err) {
+      console.error('[UI] Error setting up story card interactions:', err);
+    }
+  }, 200);
 }
+
+
 
 // Get storyId from selected card
 function getCurrentStoryId() {
@@ -2097,32 +2309,31 @@ function normalizeStoryIndexes() {
  * Display CSV data in the story list
  */
 function displayCSVData(data) {
-  // Prevent reentrant calls that could cause flickering or data loss
   if (processingCSVData) {
     console.log('[CSV] Already processing CSV data, ignoring reentrant call');
     return;
   }
-  
+
   processingCSVData = true;
-  
+
   try {
     const storyListContainer = document.getElementById('storyList');
     if (!storyListContainer) {
+      console.error('[CSV] storyListContainer not found');
       return;
     }
 
     console.log(`[CSV] Displaying ${data.length} rows of CSV data`);
 
-    // First, identify and save all manually added stories
+    // Saved the existing manual stories
     const existingStories = [];
     const manualStories = storyListContainer.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-    
+
     manualStories.forEach(card => {
-      // Skip deleted stories
-      if (deletedStoryIds.has(card.id)) {
+      if (deletedStoryIds.has(card.id)) {  // Ignore deleted one
+        console.log('[CSV] Not re-adding deleted manual story:', story.id);
         return;
       }
-      
       const title = card.querySelector('.story-title');
       if (title) {
         existingStories.push({
@@ -2131,131 +2342,190 @@ function displayCSVData(data) {
         });
       }
     });
-    
-    console.log(`[CSV] Saved ${existingStories.length} existing manual stories`);
-    
-    // Clear ONLY the CSV-based stories, not manual ones
-    const csvStories = storyListContainer.querySelectorAll('.story-card[id^="story_csv_"]');
-    csvStories.forEach(card => card.remove());
-    
-    // Re-add all stories to ensure they have proper indices
+
+    // Clear ALL existing story cards, CSV + manual
     storyListContainer.innerHTML = '';
-    
-    // First add back manually added stories
+
+    let currentIndex = 0;
+
+    // ------ Function to Create a Story Item -----
+    /** Creates common attributes to story item
+    */
+    const createStoryItem = (story, isCsv, index) => {
+                  console.log('[CSV] Creating story item:', story, isCsv, index);
+      if (!story || typeof story !== 'object') {
+           console.error('[CSV] Invalid story data:', story);
+           return null;
+      }
+      const storyItem = document.createElement('div');
+      storyItem.classList.add('story-card'); // All stories are story-cards
+
+      storyItem.id = isCsv ? `story_csv_${index}` : story.id;
+      storyItem.dataset.index = index;
+
+      const storyTitle = document.createElement('div');
+      storyTitle.classList.add('story-title');
+      storyTitle.textContent = story.text || story;  // Added handling when story is string
+
+      storyItem.appendChild(storyTitle);
+      return storyItem;
+    }
+
+    const addHostMenu = (storyItem, csvStoryId, storyTitle) => {
+        if (!storyItem) {
+            console.error('[addHostMenu] storyItem is null');
+            return;
+        }
+
+        const menuContainer = document.createElement('div');
+        menuContainer.className = 'story-menu-container';
+        menuContainer.innerHTML = `
+            <div class="story-menu-trigger">⋮</div>
+            <div class="story-menu-dropdown">
+              <div class="story-menu-item edit-story">Edit</div>
+              <div class="story-menu-item delete-story">Delete</div>
+            </div>
+        `;
+      storyItem.appendChild(menuContainer);
+
+const menuTrigger = menuContainer.querySelector('.story-menu-trigger');
+const menuDropdown = menuContainer.querySelector('.story-menu-dropdown');
+
+if (menuTrigger && menuDropdown) {
+  menuTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.story-menu-dropdown').forEach(d => d.style.display = 'none');
+    menuDropdown.style.display = 'block';
+  });
+
+  document.addEventListener('click', () => {
+    menuDropdown.style.display = 'none';
+  });
+
+  // Check if edit-story and delete-story exist before adding listeners
+  const editStoryItem = menuDropdown.querySelector('.edit-story');
+  const deleteStoryItem = menuDropdown.querySelector('.delete-story');
+
+  if (editStoryItem) {
+    editStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentText = storyTitle.textContent;
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(csvStoryId ? csvStoryId : storyItem.id, currentText);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('Edit story item not found in menu for', storyItem.id);
+  }
+
+  if (deleteStoryItem) {
+    deleteStoryItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof deleteStory === 'function') {
+        deleteStory(csvStoryId ? csvStoryId : storyItem.id);
+      }
+      menuDropdown.style.display = 'none';
+    });
+  } else {
+    console.warn('Delete story item not found in menu for', storyItem.id);
+  }
+} else {
+  console.warn('Menu trigger or dropdown not found for', storyItem.id);
+}
+    };
+
+    const addStoryEvents = (storyItem, index) => {
+                  if (!storyItem) {
+                      console.error('[addStoryEvents] storyItem is null');
+                      return;
+                 }
+      if (isGuestUser()) {
+        storyItem.classList.add('disabled-story');  // Guests can't interact, just look
+      } else {
+
+        storyItem.addEventListener('click', () => { selectStory(index); });// Now the handler uses selectStory
+      }
+
+    }
+    // ------ Function to append a story item to story list -----
+    const appendStory = (storyItem) => {
+                  if (!storyItem) {
+                    console.error('[appendStory] storyItem is null');
+                     return;
+                   }
+
+      storyListContainer.appendChild(storyItem);
+    }
+    // ----- Render  Manually Added Stories -----
+
     existingStories.forEach((story, index) => {
-      // Skip if this story is in our deleted set
-      if (deletedStoryIds.has(story.id)) {
+      if (deletedStoryIds.has(story.id)) {  // Ignore deleted one
         console.log('[CSV] Not re-adding deleted manual story:', story.id);
         return;
       }
-      
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      storyItem.id = story.id;
-      storyItem.dataset.index = index;
-      
-      const storyTitle = document.createElement('div');
-      storyTitle.classList.add('story-title');
-      storyTitle.textContent = story.text;
-      
-      storyItem.appendChild(storyTitle);
-      
-      // Add delete button for hosts only
+      const storyItem = createStoryItem(story,  false, index);  // is csv false
+                    if (!storyItem) {
+                         console.error('[existingStories.forEach] Skipping null storyItem');
+                         return;
+                      }
+      const storyTextIndexDisplayManual = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item
       if (isCurrentUserHost()) {
-        const deleteButton = document.createElement('div');
-        deleteButton.className = 'story-delete-btn';
-        deleteButton.innerHTML = '🗑'; // dustbin symbol
-        deleteButton.title = 'Delete story';
-        
-        // Use the CORRECT story ID - this was wrong before!
-        deleteButton.onclick = function(e) {
-          e.stopPropagation(); // Prevent story selection
-          e.preventDefault();
-          console.log('[DELETE] Delete button clicked for manual story:', story.id);
-          deleteStory(story.id);
-        };
-        
-        storyItem.appendChild(deleteButton);
+        addHostMenu(storyItem, null, storyTextIndexDisplayManual);
       }
-      
-      storyListContainer.appendChild(storyItem);
-      
-      // Add click event for story selection (for hosts only)
-      const isHost = sessionStorage.getItem('isHost') === 'true';
-      if (isHost) {
-        storyItem.addEventListener('click', () => {
-          selectStory(index);
-        });
-      }
+
+      addStoryEvents(storyItem, index );
+      appendStory(storyItem);// Add to container
+
+      currentIndex++; // Increment the index
     });
-    
-    // Then add CSV data
-    let startIndex = existingStories.length;
+
+    // ------ Render CSV data -------
     data.forEach((row, index) => {
-      const storyItem = document.createElement('div');
-      storyItem.classList.add('story-card');
-      
+
       const csvStoryId = `story_csv_${index}`;
-      
-      // Skip if this CSV story ID is in our deleted set
-      if (deletedStoryIds.has(csvStoryId)) {
+      if (deletedStoryIds.has(csvStoryId)) { // Skip the deleted
         console.log('[CSV] Not adding deleted CSV story:', csvStoryId);
         return;
       }
-      
-      storyItem.id = csvStoryId;
-      storyItem.dataset.index = startIndex + index;
-      
-      const storyTitle = document.createElement('div');
-      storyTitle.classList.add('story-title');
-      storyTitle.textContent = row.join(' | ');
-      
-      storyItem.appendChild(storyTitle);
-      
-      // Add delete button for hosts only
+
+      // Correct way to create story item: force id and text from CSV row data
+    const storyText = Array.isArray(row) ? row.join(' | ') : row;
+    const story = { id: csvStoryId, text: storyText };
+
+      const storyItem = createStoryItem(story, true, existingStories.length + index);
+
+       if (!storyItem) {
+        console.error('[data.forEach] Skipping null storyItem for CSV story');
+        return;
+      }
+      const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
+
       if (isCurrentUserHost()) {
-        console.log('[CSV] Adding delete button to CSV story:', csvStoryId);
-        const deleteButton = document.createElement('div'); // Changed to div
-        deleteButton.className = 'story-delete-btn';
-        deleteButton.innerHTML = '🗑'; // dustbin symbol
-        deleteButton.title = 'Delete CSV story';
-        
-        // Add direct click handler that references the correct ID
-        deleteButton.onclick = function(e) {
-          e.stopPropagation(); // Prevent story selection
-          e.preventDefault();
-          console.log('[DELETE] Delete button clicked for CSV story:', csvStoryId);
-          deleteStory(csvStoryId);
-        };
-        
-        storyItem.appendChild(deleteButton);
-      }
+        console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
       
-      storyListContainer.appendChild(storyItem);
-      
-      // For guests, add 'disabled-story' class and no click handler
-      if (isGuestUser()) {
-        storyItem.classList.add('disabled-story');
-      } else {
-        // Only hosts can select stories
-        storyItem.addEventListener('click', () => {
-          selectStory(startIndex + index);
-        });
+        if (storyTextIndexDisplayCVS) {
+          addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
+        } else {
+          console.warn('[WARN] .story-title not found for CSV card:', storyItem);
+        }
       }
+
+      addStoryEvents(storyItem, existingStories.length + index); //  Event after menu for guest users!
+
+      appendStory(storyItem);
+
+      currentIndex++;     // Update correct new index to DOMS
     });
-    
-    // Update preserved tickets list
+
+    // Update any listeners with all the last versions
     preservedManualTickets = existingStories;
-    
-    console.log(`[CSV] Display complete: ${existingStories.length} manual + ${data.length} CSV = ${storyListContainer.children.length} total`);
-    
-    // Check if there are any stories and show/hide message accordingly
-    const noStoriesMessage = document.getElementById('noStoriesMessage');
+
+    const noStoriesMessage = document.getElementById('noStoriesMessage'); // Set correct states
     if (noStoriesMessage) {
       noStoriesMessage.style.display = storyListContainer.children.length === 0 ? 'block' : 'none';
     }
-    
-    // Enable/disable planning cards based on story availability
+
     const planningCards = document.querySelectorAll('#planningCards .card');
     planningCards.forEach(card => {
       if (storyListContainer.children.length === 0) {
@@ -2266,25 +2536,106 @@ function displayCSVData(data) {
         card.setAttribute('draggable', 'true');
       }
     });
-    
-    // Select first story if none is selected
-    const selectedStory = storyListContainer.querySelector('.story-card.selected');
-    if (!selectedStory && storyListContainer.children.length > 0) {
-      storyListContainer.children[0].classList.add('selected');
-      currentStoryIndex = 0;
-    }
-    
-    // Add cleanup and setup for delete buttons
+
+    // Call select first stories when other story cards are appended already
+    const selectFirstStory = () => {
+      const firstStory = storyListContainer.querySelector('.story-card');
+
+      if (firstStory) {
+        firstStory.classList.add('selected');
+        currentStoryIndex = 0
+        selectStory(0, true) // This should only run one single time
+        // This makes sure that when there's more story index it doesn't keep running
+        selectFirstStory = () => { };
+      }
+    };
+
+    selectFirstStory();
     cleanupDeleteButtonHandlers();
     setupCSVDeleteButtons();
-    
   } finally {
-    normalizeStoryIndexes();
-    setupStoryCardInteractions();
-    // Always release the processing flag
-    processingCSVData = false;
+    normalizeStoryIndexes(); // Run this at the **very end**, ensures clean DOM 1 time
+    setupStoryCardInteractions(); // Update story card Interactions
+    processingCSVData = false;    // After everything is ok
   }
 }
+
+
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+  clearAllVoteVisuals();
+
+  // Always force selection for remote (host-to-guest) updates!
+  // This guarantees retries if DOM is not ready yet, and doesn't apply extra updates!
+  selectStory(storyIndex, false, true);
+});
+
+if (typeof socket !== 'undefined' && socket !== null) {
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
+    selectStory(storyIndex, false, true); // Retry-safe
+  });
+
+  console.log('Before csvStories');
+
+  socket.on('csvStories', (csvStories) => {
+    if (Array.isArray(csvStories)) {
+      stories = csvStories;
+      updateStoriesUI();
+      highlightSelectedStory();
+
+      if (isCurrentUserHost()) {
+        setupStoryCardInteractions();
+      }
+    }
+  });
+
+  console.log('After csvStories');
+} else {
+  console.warn('[WARN] socket not defined when registering csvStories handlers.');
+}
+
+socket.on('allTickets', ({ tickets }) => {
+  console.log('[SOCKET] Received all tickets:', tickets.length);
+  
+  if (!Array.isArray(tickets)) return;
+
+  // Filter out deleted tickets
+  const filteredTickets = tickets.filter(ticket =>
+    !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+  );
+
+  // Store filtered in memory
+  lastKnownRoomState.tickets = filteredTickets || [];
+
+  // Clear existing cards
+  const storyList = document.getElementById('storyList');
+  if (storyList) {
+    storyList.innerHTML = '';
+  }
+
+  // ✅ Use addTicketToUI so menu + event listeners are added
+  filteredTickets.forEach(ticket => {
+    if (ticket?.id && ticket?.text) {
+      addTicketToUI(ticket, false); // false = not manually added
+    }
+  });
+
+  // Ensure correct indexes
+  normalizeStoryIndexes();
+
+  // ✅ Setup interaction (Edit/Delete menu)
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 100);
+
+  // Notify any state handler
+  handleMessage({ type: 'allTickets', tickets: filteredTickets });
+});
+
+
+
 
 /**
  * Select a story by index
@@ -2565,7 +2916,7 @@ function updateUserList(users) {
     topVoteRow.appendChild(voteCard);
   });
 
-  // Create reveal button
+  // Create reveal button container
   const revealButtonContainer = document.createElement('div');
   revealButtonContainer.classList.add('reveal-button-container');
   
@@ -2573,10 +2924,17 @@ function updateUserList(users) {
   revealBtn.textContent = 'REVEAL VOTES';
   revealBtn.classList.add('reveal-votes-button');
   
-  // Handle guest mode for the reveal button
-  if (isGuestUser()) {
-    revealBtn.classList.add('hide-for-guests');
-  } else {
+  // FIXED: Check host status properly and add debug logging
+  const isCurrentlyHost = sessionStorage.getItem('isHost') === 'true';
+  console.log(`[REVEAL] Creating center reveal button - isHost: ${isCurrentlyHost}, sessionStorage: ${sessionStorage.getItem('isHost')}`);
+
+  if (isCurrentlyHost) {
+    // Show for hosts
+    revealBtn.classList.remove('hide-for-guests');
+    revealBtn.style.display = 'block';
+    revealBtn.style.visibility = 'visible';
+    console.log('[REVEAL] Center reveal button enabled for host');
+    
     revealBtn.onclick = () => {
       // Get the current story ID
       const storyId = getCurrentStoryId();
@@ -2616,6 +2974,12 @@ function updateUserList(users) {
         console.warn('[UI] Cannot reveal votes: No story selected');
       }
     };
+  } else {
+    // Hide for guests
+    revealBtn.classList.add('hide-for-guests');
+    revealBtn.style.display = 'none';
+    revealBtn.style.visibility = 'hidden';
+    console.log('[REVEAL] Center reveal button hidden for guest');
   }
   
   revealButtonContainer.appendChild(revealBtn);
@@ -2919,6 +3283,7 @@ function setupStoryNavigation() {
     // Get all story cards and filter out deleted ones
     const allCards = [...document.querySelectorAll('.story-card')];
     return allCards.filter(card => !deletedStoryIds.has(card.id));
+    
   }
 
   function getSelectedCardIndex() {
@@ -2954,57 +3319,31 @@ function setupStoryNavigation() {
  * Set up story card interactions based on user role
  */
 function setupStoryCardInteractions() {
-  // Check if user is a guest (joined via shared URL)
-  const isGuest = isGuestUser();
-  
-  // Select all story cards
-  const storyCards = document.querySelectorAll('.story-card');
-  
+  const storyList = document.getElementById('storyList');
+  if (!storyList) return;
+
+  const storyCards = storyList.querySelectorAll('.story-card');
   storyCards.forEach(card => {
-    // Skip deleted stories
-    if (deletedStoryIds.has(card.id)) {
-      return;
-    }
-    
-    if (isGuest) {
-      // For guests: disable clicking and add visual indicator
-      card.classList.add('disabled-story');
-      
-      // Remove any existing click handlers by cloning and replacing
-      const newCard = card.cloneNode(true);
-      if (card.parentNode) {
-        card.parentNode.replaceChild(newCard, card);
-      }
+    const storyId = card.id;
+
+    // Host: Enable story card interactions
+    if (isCurrentUserHost()) {
+      card.classList.remove('disabled-story'); // Ensure it's enabled
     } else {
-      // For hosts: maintain normal selection behavior
-      // Remove existing handlers first to prevent duplicates
-      const newCard = card.cloneNode(true);
-      if (card.parentNode) {
-        card.parentNode.replaceChild(newCard, card);
-      
-        // Add fresh click event listener
-        newCard.addEventListener('click', () => {
-          const index = parseInt(newCard.dataset.index || 0);
-          selectStory(index);
-        });
-        
-        // Re-add delete button if needed
-        if (isCurrentUserHost() && !newCard.querySelector('.story-delete-btn')) {
-          const deleteButton = document.createElement('div');
-          deleteButton.className = 'story-delete-btn';
-          deleteButton.innerHTML = '🗑';
-          deleteButton.title = 'Delete story';
-          
-          deleteButton.onclick = function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            deleteStory(newCard.id);
-          };
-          
-          newCard.appendChild(deleteButton);
-        }
-      }
+      // Guest: Disable clicking and apply styling
+      card.classList.add('disabled-story');
+      card.onclick = null; // remove any inline click handlers added
     }
+
+
+    // == STORY SELECTION ==
+    card.addEventListener('click', () => {
+        const index = [...storyList.children].indexOf(card);
+        const cards = getOrderedCards();
+        if (!isGuestUser()  && (cards[index] == card)) {
+          selectStory(index);
+        }
+      });
   });
 }
 
@@ -3111,6 +3450,11 @@ function handleSocketMessage(message) {
         applyGuestRestrictions();
       }
       break;
+
+     case 'ownershipStatus':
+      // Update UI based on ownership status
+      updateUIForOwnership(message.isOwner);
+      break;
       
     case 'votingSystemUpdate':
       console.log('[DEBUG] Got voting system update:', message.votingSystem);
@@ -3215,15 +3559,34 @@ function handleSocketMessage(message) {
         }
       }
       break;
+    case 'updateTicket':
+       if (message.ticketData) {
+    console.log('[SOCKET] Ticket update received:', message.ticketData);
+    
+    // Update the card in the DOM
+    const card = document.getElementById(message.ticketData.id);
+    if (card) {
+      const title = card.querySelector('.story-title');
+      if (title) {
+        title.textContent = message.ticketData.text;
+      }
+    }
 
+    // Update local ticket list
+    const index = lastKnownRoomState.tickets.findIndex(t => t.id === message.ticketData.id);
+    if (index !== -1) {
+      lastKnownRoomState.tickets[index] = message.ticketData;
+    }
+  }
+  break;
     case 'allTickets':
-      // Handle receiving all tickets (used when joining a room)
+     // Handle receiving all tickets (used when joining a room)
       if (Array.isArray(message.tickets)) {
         // Filter out any deleted tickets
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
         processAllTickets(filteredTickets);
-        applyGuestRestrictions();
+  
       }
       break;
       
@@ -3468,48 +3831,43 @@ function handleSocketMessage(message) {
       }
       break;
       
-    case 'syncCSVData':
-      // Handle CSV data sync with improved state handling
-      if (Array.isArray(message.csvData)) {
-        console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
-        
-        // Store the CSV data
-        csvData = message.csvData;
-        csvDataLoaded = true;
-        
-        // Temporarily save manually added tickets to preserve them
-        const storyList = document.getElementById('storyList');
-        const manualTickets = [];
-        
-        if (storyList) {
-          const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-          manualStoryCards.forEach(card => {
-            // Skip if this is a deleted story
-            if (deletedStoryIds.has(card.id)) {
-              return;
-            }
-            
-            const title = card.querySelector('.story-title');
-            if (title) {
-              manualTickets.push({
-                                id: card.id,
-                text: title.textContent
-              });
-            }
+case 'syncCSVData':
+  if (Array.isArray(message.csvData)) {
+    console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
+
+    csvData = message.csvData;
+    csvDataLoaded = true;
+
+    // Save manual tickets only if storyList exists (i.e., DOM is ready)
+    const storyList = document.getElementById('storyList');
+    const manualTickets = [];
+
+    if (storyList) {
+      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
+      manualStoryCards.forEach(card => {
+        if (deletedStoryIds.has(card.id)) return;
+
+        const title = card.querySelector('.story-title');
+        if (title) {
+          manualTickets.push({
+            id: card.id,
+            text: title.textContent
           });
         }
-        
-        console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
-        
-        // Display CSV data (this will clear CSV stories but preserve manual ones)
-        displayCSVData(csvData);
-        
-        // We don't need to re-add manual tickets because displayCSVData now preserves them
-        
-        // Update UI
-        renderCurrentStory();
-      }
-      break;
+      });
+    }
+
+    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
+
+    // ✅ Ensure stories are processed correctly
+    processAllTickets(csvData);
+
+    // ✅ Re-render current story to show vote cards
+    renderCurrentStory();
+  }
+  break;
+
+
 
     case 'connect':
       // When connection is established
@@ -3602,3 +3960,40 @@ window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
   }
 });
+document.addEventListener('click', function (event) {
+  const isMenuButton = event.target.closest('.menu-button');
+  const isDropdownItem = event.target.closest('.dropdown-item');
+
+  // Close all dropdowns by default
+  document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+
+  if (isMenuButton) {
+    const menu = isMenuButton.nextElementSibling;
+    if (menu) {
+      menu.classList.toggle('hidden');
+      event.stopPropagation();
+    }
+  } else if (isDropdownItem) {
+    const card = event.target.closest('.story-card');
+    const storyId = card?.id;
+
+    if (event.target.classList.contains('edit')) {
+      // Get the current text from the card
+      const storyTitle = card.querySelector('.story-title');
+      const currentText = storyTitle ? storyTitle.textContent : '';
+
+      // Use the existing modal function
+      if (typeof window.showEditTicketModal === 'function') {
+        window.showEditTicketModal(storyId, currentText);
+      }
+    } else if (event.target.classList.contains('delete')) {
+      if (typeof deleteStory === 'function') {
+        deleteStory(storyId);
+      }
+    }
+  } else {
+    // Click outside dropdown
+    document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+  }
+});
+
