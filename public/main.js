@@ -721,10 +721,24 @@ function initializeApp(roomId) {
     window.userMap[socket.id] = userName;
   });
 
-  socket.on('ownershipStatus', ({ isOwner }) => {
+/**  socket.on('ownershipStatus', ({ isOwner }) => {
     console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
     updateUIForOwnership(isOwner);
-  });
+  }); */
+socket.on('ownershipStatus', (data) => {
+  const isOwner = data.isOwner;
+  console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
+
+  if (isOwner) {
+    sessionStorage.setItem('isHost', 'true');
+    updateUIForOwnership();
+  } else {
+    sessionStorage.removeItem('isHost');
+    applyGuestRestrictions();
+  }
+});
+
+  
 
   if (socket && socket.io) {
     socket.io.reconnectionAttempts = 10;
