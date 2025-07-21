@@ -327,14 +327,22 @@ socket.on('connect', () => {
     handleMessage({ type: 'votingSystemUpdate', ...data });
   });
 
- socket.on('syncCSVData', (csvData) => {
+// In socket.js, update the syncCSVData handler:
+socket.on('syncCSVData', (csvData) => {
   console.log('[SOCKET] Received CSV data:', Array.isArray(csvData) ? csvData.length : 'invalid', 'rows');
 
   // Store in last known state
   lastKnownRoomState.csvData = csvData;
 
- 
   handleMessage({ type: 'syncCSVData', csvData }); 
+
+  // Request all tickets after CSV sync to ensure we get the complete list
+  setTimeout(() => {
+    console.log('[SOCKET] Requesting all tickets after CSV sync');
+    if (socket && socket.connected) {
+      socket.emit('requestAllTickets');
+    }
+  }, 500);
 
   setTimeout(() => {
     console.log('[SOCKET] Notifying server that CSV data is loaded');
