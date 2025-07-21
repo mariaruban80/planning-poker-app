@@ -713,32 +713,37 @@ function initializeApp(roomId) {
     }, 50);
   }
 
-  // ✅ Only one socket initialization
-  socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+  if (!socket) {
+    socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+  }
 
-  socket.on('connect', () => {
+  socket.once('connect', () => { //changed from on to once  IMPORTANT
     if (!window.userMap) window.userMap = {};
     window.userMap[socket.id] = userName;
+
+    // ✅ NEW: Immediately claim ownership upon connection ONLY if it's already the identified host
+    if (sessionStorage.getItem('isHost') === 'true') {
+      socket.emit('claimOwnership', { roomId, userName });
+    }
   });
 
-/**  socket.on('ownershipStatus', ({ isOwner }) => {
+  socket.once('ownershipStatus', (data) => { //changed from on to once
+    const isOwner = data.isOwner;
     console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
-    updateUIForOwnership(isOwner);
-  }); */
-socket.on('ownershipStatus', (data) => {
-  const isOwner = data.isOwner;
-  console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
 
-  if (isOwner) {
-    sessionStorage.setItem('isHost', 'true');
-    updateUIForOwnership();
-  } else {
-    sessionStorage.removeItem('isHost');
-    applyGuestRestrictions();
-  }
-});
+    //ADDED - to persist Host role server side even when the host refresh the page and is set from storage
+    sessionStorage.setItem('isHost', isOwner);
 
-  
+    if (isOwner) {
+      sessionStorage.setItem('isHost', 'true');
+      updateUIForOwnership();
+    } else {
+      sessionStorage.removeItem('isHost');
+      applyGuestRestrictions();
+    }
+  });
+
+
 
   if (socket && socket.io) {
     socket.io.reconnectionAttempts = 10;
@@ -747,23 +752,26 @@ socket.on('ownershipStatus', (data) => {
   }
 
   // ✅ Add key listeners here:
-socket.on('storySelected', ({ storyIndex, storyId }) => {
-  console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-  clearAllVoteVisuals();
+  socket.on('storySelected', ({
+    storyIndex,
+    storyId
+  }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    clearAllVoteVisuals();
 
-  const trySelectStory = (attempts = 0) => {
-    const storyCard = document.getElementById(storyId);
-    if (storyCard) {
-      selectStory(storyIndex, false, true);
-    } else if (attempts < 20) { // Retry for up to ~2s
-      setTimeout(() => trySelectStory(attempts + 1), 100);
-    } else {
-      console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
-    }
-  };
+    const trySelectStory = (attempts = 0) => {
+      const storyCard = document.getElementById(storyId);
+      if (storyCard) {
+        selectStory(storyIndex, false, true);
+      } else if (attempts < 20) { // Retry for up to ~2s
+        setTimeout(() => trySelectStory(attempts + 1), 100);
+      } else {
+        console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
+      }
+    };
 
-  trySelectStory();
-});
+    trySelectStory();
+  });
 
 
   socket.on('reconnect_attempt', (attempt) => {
@@ -797,7 +805,12 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     }, 500);
   });
 
-  socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
+  socket.on('voteUpdate', ({
+    userId,
+    userName,
+    vote,
+    storyId
+  }) => {
     const name = userName || userId;
     mergeVote(storyId, name, vote);
     const currentId = getCurrentStoryId();
@@ -807,10 +820,14 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     refreshVoteDisplay();
   });
 
-  socket.on('storyVotes', ({ storyId, votes }) => {
+  socket.on('storyVotes', ({
+    storyId,
+    votes
+  }) => {
     if (deletedStoryIds.has(storyId)) return;
     if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-    votesPerStory[storyId] = { ...votes };
+    votesPerStory[storyId] = { ...votes
+    };
     window.currentVotesPerStory = votesPerStory;
 
     const currentStoryId = getCurrentStoryId();
@@ -819,13 +836,22 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     }
   });
 
-  socket.on('restoreUserVote', ({ storyId, vote }) => {
+  socket.on('restoreUserVote', ({
+    storyId,
+    vote
+  }) => {
     const name = sessionStorage.getItem('userName') || socket.id;
     mergeVote(storyId, name, vote);
     refreshVoteDisplay();
   });
 
-  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
+  socket.on('resyncState', ({
+    tickets,
+    votesPerStory: serverVotes,
+    votesRevealed: serverRevealed,
+    deletedStoryIds: serverDeletedIds,
+    isOwner
+  }) => {
     console.log('[SOCKET] Received resyncState from server');
     if (typeof isOwner === 'boolean') {
       updateUIForOwnership(isOwner);
@@ -848,7 +874,7 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
         for (const [userId, vote] of Object.entries(votes)) {
           mergeVote(storyId, userId, vote);
         }
-        votesRevealed[storyId] = serverRevealed?.[storyId];
+        votesRevealed[storyId] = serverRevealed ? .[storyId];
         const currentId = getCurrentStoryId();
         if (storyId === currentId) {
           applyVotesToUI(votes, !votesRevealed[storyId]);
@@ -863,7 +889,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     refreshVoteDisplay();
   });
 
-  socket.on('deleteStory', ({ storyId }) => {
+  socket.on('deleteStory', ({
+    storyId
+  }) => {
     deletedStoryIds.add(storyId);
     saveDeletedStoriesToStorage(roomId);
     const el = document.getElementById(storyId);
@@ -875,7 +903,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     delete votesRevealed[storyId];
   });
 
-  socket.on('votesRevealed', ({ storyId }) => {
+  socket.on('votesRevealed', ({
+    storyId
+  }) => {
     if (deletedStoryIds.has(storyId)) return;
     if (votesRevealed[storyId]) return;
     votesRevealed[storyId] = true;
@@ -888,7 +918,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     handleVotesRevealed(storyId, votes);
   });
 
-  socket.on('votesReset', ({ storyId }) => {
+  socket.on('votesReset', ({
+    storyId
+  }) => {
     if (deletedStoryIds.has(storyId)) return;
     votesPerStory[storyId] = {};
     votesRevealed[storyId] = false;
@@ -902,7 +934,9 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
     statsContainers.forEach(container => container.style.display = 'none');
   });
 
-  socket.on('votingSystemUpdate', ({ votingSystem }) => {
+  socket.on('votingSystemUpdate', ({
+    votingSystem
+  }) => {
     console.log('[SOCKET] Received voting system from host:', votingSystem);
     sessionStorage.setItem('votingSystem', votingSystem);
     setupPlanningCards();
@@ -911,7 +945,10 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   const isHost = sessionStorage.getItem('isHost') === 'true';
   const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
   if (isHost && socket) {
-    socket.emit('votingSystemSelected', { roomId, votingSystem });
+    socket.emit('votingSystemSelected', {
+      roomId,
+      votingSystem
+    });
   }
 
   updateHeaderStyle();
@@ -929,10 +966,6 @@ socket.on('storySelected', ({ storyIndex, storyId }) => {
   addNewLayoutStyles();
   setInterval(refreshCurrentStoryVotes, 30000);
 }
-
-
-
-
 
 
 
