@@ -1910,8 +1910,11 @@ function setupAddTicketButton() {
   const addTicketBtn = document.getElementById('addTicketBtn');
   if (!addTicketBtn) return;
 
-  // Use the modal instead of prompt
-  addTicketBtn.addEventListener('click', () => {
+  // ✅ Add event parameter and prevent default behavior
+  addTicketBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (typeof window.showAddTicketModal === 'function') {
       window.showAddTicketModal();
     } else {
@@ -1923,7 +1926,6 @@ function setupAddTicketButton() {
           text: storyText.trim()
         };
         
-        // Check if this ID is in our deleted set
         if (deletedStoryIds.has(ticketData.id)) {
           console.log('[ADD] Cannot add previously deleted ticket:', ticketData.id);
           return;
@@ -1934,13 +1936,16 @@ function setupAddTicketButton() {
         } else if (socket) {
           socket.emit('addTicket', ticketData);
         }
-        
-        addTicketToUI(ticketData, true);
-        manuallyAddedTickets.push(ticketData);
+
+        // Let the socket handler handle UI updates
+        // Remove this if duplicate UI insertion occurs:
+        // addTicketToUI(ticketData, true);
+        // manuallyAddedTickets.push(ticketData);
       }
     }
   });
 }
+
 
 function getVoteEmoji(vote) {
   const map = {
