@@ -157,40 +157,39 @@ socket.on('connect', () => {
     isCreator: isCreator  // Pass the creator flag to server
   });
 
-  // ✅ ADD THESE TWO LINES right after joinRoom
-  socket.emit('requestAllTickets');
-  socket.emit('requestCurrentStory');
+    // If returning user might be owner but isn't creator, claim ownership
+    if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
+      setTimeout(() => {
+        socket.emit('claimOwnership', { 
+          roomId: roomIdentifier, 
+          userName: userNameValue 
+        });
+      }, 200);
+    }
+  socket.on('storyEdited', ({ storyId, newText }) => {
+  console.log('[SOCKET] Story edited:', storyId, newText);
 
-  // If returning user might be owner but isn't creator, claim ownership
-  if (sessionStorage.getItem('isHost') === 'true' && !isCreator) {
-    setTimeout(() => {
-      socket.emit('claimOwnership', { 
-        roomId: roomIdentifier, 
-        userName: userNameValue 
-      });
-    }, 200);
+  // Update DOM title on the story card
+  const card = document.getElementById(storyId);
+  if (card) {
+    const title = card.querySelector('.story-title');
+    if (title) {
+      title.textContent = newText;
+    }
   }
 
-  socket.on('storyEdited', ({ storyId, newText }) => {
-    console.log('[SOCKET] Story edited:', storyId, newText);
+  // Update local state if applicable
+  const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
+  if (ticket) {
+    ticket.text = newText;
+  }
+});
 
-    const card = document.getElementById(storyId);
-    if (card) {
-      const title = card.querySelector('.story-title');
-      if (title) {
-        title.textContent = newText;
-      }
-    }
-
-    const ticket = lastKnownRoomState.tickets.find(t => t.id === storyId);
-    if (ticket) {
-      ticket.text = newText;
-    }
-  });
-
+  
+  // Listen for votes updates from server
   socket.on('votesUpdate', (votesData) => {
     console.log('[SOCKET] votesUpdate received:', votesData);
-    // updateVoteVisuals(votesData);
+    // updateVoteVisuals(votesData);  // Your function to update UI with new votes
   });
 
   // Request votes by username after initial connection
@@ -200,11 +199,12 @@ socket.on('connect', () => {
     }
   }, 1000);
 
+  // Notify UI of successful connection
   handleMessage({ type: 'connect' });
+
+  // Apply any saved votes from session storage
+  // console.log('[SOCKET] Skipped local vote restoration to prevent duplication.');
 });
-
-
-  
 
   // Handle ownership status from server
   socket.on('ownershipStatus', ({ isOwner }) => {
