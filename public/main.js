@@ -48,27 +48,16 @@ window.notifyStoriesUpdated = function() {
  */
 window.addTicketFromModal = function(ticketData) {
   if (!ticketData || !ticketData.id || !ticketData.text) return;
-  
-  // Don't add if this story is in our deleted set
+
   if (deletedStoryIds.has(ticketData.id)) {
     console.log('[MODAL] Cannot add previously deleted ticket:', ticketData.id);
     return;
   }
-  
+
   console.log('[MODAL] Adding ticket from modal:', ticketData);
-  
-  // Emit to server for synchronization
-  if (typeof emitAddTicket === 'function') {
-    emitAddTicket(ticketData);
-  } else if (socket) {
-    socket.emit('addTicket', ticketData);
-  }
-  
-  // Add ticket locally
-  addTicketToUI(ticketData, true);
-  
-  // Store in manually added tickets
-  manuallyAddedTickets.push(ticketData);
+
+  // Emit to server for synchronization only
+  emitAddTicket(ticketData);
 };
 /**
  * Handle updating a ticket from the modal
@@ -377,6 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
   
+  if (!sessionStorage.getItem('isHost') && sessionStorage.getItem('isRoomCreator') === 'true') {
+    sessionStorage.setItem('isHost', 'true');
+  }
   initializeApp(roomId);
 });
 
@@ -3946,6 +3938,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load deleted stories from storage first
   loadDeletedStoriesFromStorage(roomId);
   
+  if (!sessionStorage.getItem('isHost') && sessionStorage.getItem('isRoomCreator') === 'true') {
+    sessionStorage.setItem('isHost', 'true');
+  }
   initializeApp(roomId);
 });
 
@@ -3997,3 +3992,14 @@ document.addEventListener('click', function (event) {
   }
 });
 
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const safeEl = document.getElementById('some-element-id');
+  if (safeEl) {
+    safeEl.addEventListener('click', () => {
+      console.log('Safe handler running');
+    });
+  }
+});
