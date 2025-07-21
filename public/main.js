@@ -723,27 +723,35 @@ function initializeApp(roomId) {
 
     // ✅ NEW: Immediately claim ownership upon connection ONLY if it's already the identified host
     if (sessionStorage.getItem('isHost') === 'true') {
-      socket.emit('claimOwnership', { roomId, userName });
+      socket.emit('claimOwnership', {
+        roomId,
+        userName
+      });
     }
+
+         // Request votes by username after initial connection - MOVED higher in logic and code
+         setTimeout(() => {
+            if (socket && socket.connected && userName) {
+               socket.emit('requestVotesByUsername', { userName });
+                   }
+                  }, 1000);
   });
+    
+    socket.once('ownershipStatus', (data) => { //changed from on to once
+      const isOwner = data.isOwner;
+      console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
 
-  socket.once('ownershipStatus', (data) => { //changed from on to once
-    const isOwner = data.isOwner;
-    console.log('[OWNERSHIP] Server determined ownership status:', isOwner);
+         //ADDED - to persist Host role server side even when the host refresh the page and is set from storage
+          sessionStorage.setItem('isHost', isOwner);
 
-    //ADDED - to persist Host role server side even when the host refresh the page and is set from storage
-    sessionStorage.setItem('isHost', isOwner);
-
-    if (isOwner) {
-      sessionStorage.setItem('isHost', 'true');
-      updateUIForOwnership();
-    } else {
-      sessionStorage.removeItem('isHost');
-      applyGuestRestrictions();
-    }
-  });
-
-
+        if (isOwner) {
+           sessionStorage.setItem('isHost', 'true');
+          updateUIForOwnership();
+           } else {
+            sessionStorage.removeItem('isHost');
+        applyGuestRestrictions();
+      }
+});
 
   if (socket && socket.io) {
     socket.io.reconnectionAttempts = 10;
@@ -966,9 +974,6 @@ function initializeApp(roomId) {
   addNewLayoutStyles();
   setInterval(refreshCurrentStoryVotes, 30000);
 }
-
-
-
 
 
 /**
