@@ -149,7 +149,7 @@ function handleSocketMessage(message) {
       if (Array.isArray(message.users)) {
         updateUserList(message.users);
       }
-      break;.
+      break;
     case 'addTicket':
       // FIX: Only add to UI in response to socket event
       if (message.ticketData) {
