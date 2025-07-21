@@ -699,8 +699,8 @@ function appendRoomIdToURL(roomId) {
  */
 function initializeApp(roomId) {
     const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
-    const isHostInitially = sessionStorage.getItem('isHost') === 'true'; // Get initial isHost status
-
+    const getIsHostInitially = () => sessionStorage.getItem('isHost') === 'true';  //READ INITIAL STATE HERE.
+    console.log(`[APP] initializeApp - isRoomCreator:${isRoomCreator} and isHostInitially: ${getIsHostInitially()}`);
     if (isRoomCreator) {
         console.log('[APP] Room creator detected - showing host UI immediately');
         sessionStorage.setItem('isHost', 'true');
@@ -715,63 +715,76 @@ function initializeApp(roomId) {
         }, 50);
     }
 
-    if (!socket) {
-        socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
-    }
+         //✅ 1 Initialize and Setup Single Event Handlers
+                //✅ Ensure this runs ONLY once for each event
+                      if (!socket) {
 
-    socket.once('connect', () => { //changed from on to once  IMPORTANT
-        if (!window.userMap) window.userMap = {};
-        window.userMap[socket.id] = userName;
-        console.log(`[SOCKET] Connected and setting userName in userMap for ${userName} id : ${socket.id}`);
-        // ✅ NEW: Immediately claim ownership upon connection ONLY if it's already the identified host
-        if (isHostInitially) {
-            console.log(`[SOCKET] connect - Claiming ownership for ${userName}`);
+              socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
 
-            socket.emit('claimOwnership', {
-                roomId,
-                userName
-            });
-        }
-        // Request votes by username after initial connection - MOVED higher in logic, fixed timing, check for connection.
+            socket.once('connect', () => {   //IMPORTANT, you do not want to stack events.
+                if (!window.userMap) window.userMap = {};
+               ///IMPORTANT ensure you are not using socket.id on set up if it doesnt exist yet
+                window.userMap[socket.id] = userName;  //map usernames ids to the function
+                console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
 
-        if (socket && socket.connected && userName) {
-            console.log(`[SOCKET] connect - Requesting votes by username: ${userName}`);
-            socket.emit('requestVotesByUsername', {
-                userName
-            });
-        }
-    });
+             //✅2 Claim ownership, check
+              if (getIsHostInitially()===true){       // If the app has host already set then claim it.
+                console.log(`[SOCKET|ONCE] Immediate claim from : Connect`);  //<- check if the host already exists then take over
+                  socket.emit('claimOwnership', {
+                 roomId,
+                    userName
+               });
+             }          //✅✅✅ Request votes should go inside connect to run
 
-    socket.once('ownershipStatus', (data) => {
-        const isOwner = data.isOwner;
-        console.log('[SOCKET] ownershipStatus received:', isOwner);
+         //✅ 3 Request Votes after setup of socket connection
+        setTimeout(() => {  //Added after delay since username can take time to load
+            if (socket && socket.connected){
+                console.log(`AppInit -> Connect event Request: ${userName} vote`);
+                socket.emit('requestVotesByUsername', {      //Get the latest user name information inside app on message
+                       userName
+                });
+            }
+          }, 1500);   ///<- ensure there's ample time.
 
-        //ADDED - and PERSIST in storage  and only use one key one session
-        sessionStorage.setItem('isHost', isOwner);
+       //✅ Finally, notify the UI of the successful connection
+        setTimeout(() => {
+              console.log(`requestFor syncSTATE to all components to load, but it worked right!!`);
+window.initializeApp = true;      //<- to check if it ran
+               }, 1000);
+          clearTimeout();
+     });
 
-        if (isOwner) {
-            console.log('[SOCKET] Ownership confirmed - Enabling host controls');
-            updateUIForOwnership();
-        } else {
-            //If guest, remove from session and apply guest conditions
-            console.log('[SOCKET] Applying guest restrictions');
-            applyGuestRestrictions();
-        }
-    });
-      //Clean this logic
-     /** if (sessionStorage.getItem('isHost') === 'true') {   ///remove the conditional rendering here
-  console.log('[OWNERSHIP] After Ownership, enabling all the Host Controlls , but you are already here! ');
-                     enableHostControls();  ///remove this block of code, from what im seeing this call is not needed
-     updateUIForOwnership(sessionStorage.getItem('isHost') === 'true'); ///remove it too
+      //Setup the onOwnership
+      socket.once('ownershipStatus', (data) => {   		//IMPORTANT
 
-    }*/
+                   const isOwner = data.isOwner;
+                console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
+
+        //✅Set it immediately after the server responds so can be found by functions
+         sessionStorage.setItem('isHost', isOwner);
+
+        if (isOwner === true) {
+             console.log('[UI|ONCE] Enabling host controls');
+             updateUIForOwnership();  //Check if works or needs to be before setting to store
+        ///         console.log('check if user is setting up  user is: ', sessionStorage==null ?  "StorageClear" : sessionStorage.getItem('userName'));
+
+                 } else {  ///Make sure these actually are taking control
+                   console.log('[UI|ONCE] ownership: Applying the guest controls from host mode');
+                     applyGuestRestrictions();
+        //    applyGuestModeRestrictions();
+          }   },1500);        //<- the timer is important.
+     }
+
+    //Clean Up from other socket calls
+
     if (socket && socket.io) {
         socket.io.reconnectionAttempts = 10;
         socket.io.timeout = 20000;
         socket.io.reconnectionDelay = 2000;
     }
 
-    // ✅ Add key listeners here:
+    // ✅ Add key listeners here:  (Ensure everything that might run before
+     //the above "Socket setup" section is removed)
     socket.on('storySelected', ({
         storyIndex,
         storyId
@@ -986,8 +999,6 @@ function initializeApp(roomId) {
     addNewLayoutStyles();
     setInterval(refreshCurrentStoryVotes, 30000);
 }
-
-
 
 /**
  * Update UI based on server-determined ownership status
