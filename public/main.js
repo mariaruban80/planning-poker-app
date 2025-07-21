@@ -174,7 +174,9 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Initialize socket with the name
   socket = initializeWebSocket(roomId, name, handleSocketMessage);
-  
+  if (socket && socket.connected) {
+  socket.emit('requestAllTickets');
+}
   // Continue with other initialization steps
   setupCSVUploader();
   setupInviteButton();
