@@ -748,6 +748,31 @@ socket.on('updateTicket', (ticketData) => {
     console.log(`[SERVER] Broadcasted ticket update to room ${roomId}`);
   }
 });
+
+// temp function 
+
+  socket.on('uploadTickets', ({ tickets }) => {
+  const roomId = socket.data.roomId;
+  if (!roomId || !rooms[roomId]) return;
+
+  if (!Array.isArray(tickets)) return;
+
+  // Add to current list (if it exists)
+  if (!rooms[roomId].tickets) {
+    rooms[roomId].tickets = [];
+  }
+
+  // Append new tickets
+  rooms[roomId].tickets.push(...tickets);
+
+  // Broadcast each ticket to other users
+  tickets.forEach(ticket => {
+    io.to(roomId).emit('addTicket', { ticketData: ticket });
+  });
+
+  console.log(`[SERVER] Host uploaded ${tickets.length} tickets to room ${roomId}`);
+});
+
   
   
   // Handle explicit vote restoration requests
