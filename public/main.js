@@ -2637,7 +2637,10 @@ if (menuTrigger && menuDropdown) {
 
 socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
-  
+  if (!lastKnownRoomState) {
+    console.warn('[SOCKET] lastKnownRoomState is not yet initialized, skipping ticket processing');
+    return;
+  }
   if (!Array.isArray(tickets)) return;
 
   // Filter out deleted tickets
@@ -3601,6 +3604,10 @@ function handleSocketMessage(message) {
     case 'updateTicket':
        if (message.ticketData) {
     console.log('[SOCKET] Ticket update received:', message.ticketData);
+      if (!lastKnownRoomState || !Array.isArray(lastKnownRoomState.tickets)) {
+            console.warn('[SOCKET] Cannot process updateTicket - lastKnownRoomState is incomplete');
+            return;
+          }
     
     // Update the card in the DOM
     const card = document.getElementById(message.ticketData.id);
