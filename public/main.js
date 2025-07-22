@@ -3632,7 +3632,7 @@ function handleSocketMessage(message) {
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
         processAllTickets(filteredTickets);
-        applyGuestRestrictions();
+     //   applyGuestRestrictions();
   
       }
       break;
