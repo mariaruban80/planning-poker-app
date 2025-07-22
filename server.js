@@ -1645,7 +1645,12 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   // ✅ Broadcast updated data to ALL users (host + guests)
   io.to(roomId).emit('syncCSVData', csvData);
   io.to(roomId).emit('allTickets', { tickets: rooms[roomId].tickets });
-
+const clients = await io.in(roomId).fetchSockets();
+for (const client of clients) {
+  if (client.connected) {
+    client.emit('allTickets', { tickets: rooms[roomId].tickets });
+  }
+}
   // Optional: also sync current state (useful for late guests)
   const activeVotes = {};
   const revealedVotes = {};
