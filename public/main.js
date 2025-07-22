@@ -2635,7 +2635,7 @@ if (menuTrigger && menuDropdown) {
   selectStory(storyIndex, false, true);
 });
 
-socket.on('allTickets', ({ tickets }) => {
+/** socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
   if (!lastKnownRoomState) {
     console.warn('[SOCKET] lastKnownRoomState is not yet initialized, skipping ticket processing');
@@ -2674,7 +2674,7 @@ socket.on('allTickets', ({ tickets }) => {
 
   // Notify any state handler
   handleMessage({ type: 'allTickets', tickets: filteredTickets });
-});
+}); */
 
 
 
@@ -3632,6 +3632,7 @@ function handleSocketMessage(message) {
         const filteredTickets = message.tickets.filter(ticket => !deletedStoryIds.has(ticket.id));
         console.log(`[SOCKET] Received ${filteredTickets.length} valid tickets (filtered from ${message.tickets.length})`);
         processAllTickets(filteredTickets);
+        applyGuestRestrictions();
   
       }
       break;
