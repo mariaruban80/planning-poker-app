@@ -1594,6 +1594,7 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   // Handle story navigation
   socket.on('storyNavigation', ({ index }) => {
     const roomId = socket.data.roomId;
+    const clients = await io.in(roomId).fetchSockets();
     if (roomId && rooms[roomId]) {
       // Update room activity timestamp
       rooms[roomId].lastActivity = Date.now();
@@ -1645,7 +1646,7 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   // ✅ Broadcast updated data to ALL users (host + guests)
   io.to(roomId).emit('syncCSVData', csvData);
   io.to(roomId).emit('allTickets', { tickets: rooms[roomId].tickets });
-const clients = await io.in(roomId).fetchSockets();
+
 for (const client of clients) {
   if (client.connected) {
     client.emit('allTickets', { tickets: rooms[roomId].tickets });
