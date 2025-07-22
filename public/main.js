@@ -2566,15 +2566,27 @@ if (menuTrigger && menuDropdown) {
       }
       const storyTextIndexDisplayCVS = storyItem.querySelector('.story-title'); // Get story Title after it appends to story Item;
 
-      if (isCurrentUserHost()) {
-        console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
-      
-        if (storyTextIndexDisplayCVS) {
-          addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
-        } else {
-          console.warn('[WARN] .story-title not found for CSV card:', storyItem);
-        }
-      }
+    if (isCurrentUserHost()) {
+  console.log('Adding host menu to CSV card:', csvStoryId, storyItem);
+
+  if (storyTextIndexDisplayCVS) {
+    addHostMenu(storyItem, csvStoryId, storyTextIndexDisplayCVS);
+  } else {
+    console.warn('[WARN] .story-title not found for CSV card:', storyItem);
+  }
+
+  // ✅ Fix inserted here
+  const deleteButton = storyItem.querySelector('.csv-delete');
+  if (deleteButton) {
+    deleteButton.addEventListener('click', deleteCSVTickets);
+  } else {
+    console.warn('[UI] CSV delete button not found in storyItem:', storyItem);
+  }
+}
+
+addStoryEvents(storyItem, existingStories.length + index); // Event after menu for guest users!
+appendStory(storyItem);
+
 
       addStoryEvents(storyItem, existingStories.length + index); //  Event after menu for guest users!
 
