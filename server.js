@@ -692,6 +692,10 @@ socket.on('joinRoom', ({ roomId, userName, isCreator }) => {
       }
     }
   }, 2000);
+  if (rooms[roomId].tickets && rooms[roomId].tickets.length > 0) {
+  console.log(`[JOIN] Sending ${rooms[roomId].tickets.length} tickets to ${userName}`);
+  socket.emit('allTickets', { tickets: rooms[roomId].tickets });
+}
 });
 
 // Add handler for ownership claims (for reconnections)
