@@ -3904,12 +3904,12 @@ case 'syncCSVData':
     }
 
     console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
-
+ displayCSVData(csvData);
     // ✅ Ensure stories are processed correctly
    // processAllTickets(csvData);
 
     // ✅ Re-render current story to show vote cards
- //   renderCurrentStory();
+   renderCurrentStory();
   }
   break;
 
