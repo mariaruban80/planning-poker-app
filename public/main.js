@@ -2635,7 +2635,7 @@ if (menuTrigger && menuDropdown) {
   selectStory(storyIndex, false, true);
 });
 
-/** socket.on('allTickets', ({ tickets }) => {
+socket.on('allTickets', ({ tickets }) => {
   console.log('[SOCKET] Received all tickets:', tickets.length);
   if (!lastKnownRoomState) {
     console.warn('[SOCKET] lastKnownRoomState is not yet initialized, skipping ticket processing');
@@ -2674,7 +2674,7 @@ if (menuTrigger && menuDropdown) {
 
   // Notify any state handler
   handleMessage({ type: 'allTickets', tickets: filteredTickets });
-}); */
+}); 
 
 
 
