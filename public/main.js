@@ -161,8 +161,16 @@ window.initializeSocketWithName = function(roomId, name) {
   // Load deleted stories from sessionStorage first
   loadDeletedStoriesFromStorage(roomId);
   
-  // Initialize socket with the name
-  socket = initializeWebSocket(roomId, name, handleSocketMessage);
+  // ✅ CRITICAL: Only initialize socket if it doesn't exist
+  if (!socket || !socket.connected) {
+    socket = initializeWebSocket(roomId, name, handleSocketMessage);
+  }
+  
+  // ✅ ENSURE SOCKET EXISTS BEFORE CONTINUING
+  if (!socket) {
+    console.error('[APP] Failed to initialize socket with name');
+    return;
+  }
   
   // Continue with other initialization steps
   setupCSVUploader();
@@ -177,9 +185,6 @@ window.initializeSocketWithName = function(roomId, name) {
   
   // Add CSS for new layout
   addNewLayoutStyles();
-  
-  // Setup heartbeat to prevent idle timeouts
-//  setupHeartbeat();
 };
 
 /**
@@ -360,6 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return; // Exit early, we'll initialize after username is provided
   }
   
+  // ✅ ENSURE USERNAME EXISTS
+  if (!sessionStorage.getItem('userName')) {
+    console.log('[APP] No username found, waiting for user input');
+    return;
+  }
+  
+  userName = sessionStorage.getItem('userName');
+  
   // Normal initialization for users who already have a name
   let roomId = getRoomIdFromURL();
   if (!roomId) {
@@ -374,12 +387,19 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionStorage.setItem('isHost', 'true');
   }
   
-  initializeApp(roomId);
-  
-  // *** ADD THIS LINE TO MARK AS INITIALIZED ***
-  window.appInitialized = true;
+  // ✅ INITIALIZE WITH PROPER ERROR HANDLING
+  try {
+    const result = initializeApp(roomId);
+    if (result) {
+      window.appInitialized = true;
+      console.log('[APP] Successfully initialized');
+    } else {
+      console.error('[APP] Failed to initialize app');
+    }
+  } catch (error) {
+    console.error('[APP] Error during initialization:', error);
+  }
 });
-
 
 // Global state variables
 let pendingStoryIndex = null;
