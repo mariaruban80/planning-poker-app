@@ -204,18 +204,20 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
 
 io.on('connection', (socket) => {
   
-  socket.on('syncCSVData', (csvData) => {
-    const roomId = socket.data.roomId;
-    if (!roomId || !rooms[roomId]) return;
+socket.on('syncCSVData', (csvData) => {
+  const roomId = socket.data.roomId;
+  if (!roomId || !rooms[roomId]) return;
 
-    // Store the CSV data in server memory
-    rooms[roomId].csvData = csvData;
+  // 🔁 Store the CSV stories as active tickets
+  rooms[roomId].csvData = csvData;
+  rooms[roomId].tickets = csvData;
 
-    // Broadcast the CSV data to everyone in the room
-    io.to(roomId).emit('syncCSVData', csvData);
+  // ✅ Broadcast to everyone including guests
+  io.to(roomId).emit('syncCSVData', csvData);
 
-    console.log(`[SERVER] CSV data synced and broadcasted to room ${roomId} (${csvData.length} stories)`);
-  });
+  console.log(`[SERVER] CSV data synced and saved to tickets for room ${roomId} (${csvData.length} stories)`);
+});
+
 
 socket.on('requestCurrentStory', () => {
     const roomId = socket.data.roomId;
