@@ -706,7 +706,6 @@ function appendRoomIdToURL(roomId) {
 /**
  * Initialize the application
  */
-
 function initializeApp(roomId) {
   const isRoomCreator = sessionStorage.getItem('isRoomCreator') === 'true';
   const getIsHostInitially = () => sessionStorage.getItem('isHost') === 'true';
@@ -716,6 +715,12 @@ function initializeApp(roomId) {
   if (socket && socket.connected) {
     console.log('[APP] Socket already exists and connected, skipping re-initialization');
     return socket;
+  }
+
+  // *** VERIFY USERNAME EXISTS ***
+  if (!userName) {
+    console.error('[APP] Cannot initialize without username');
+    return null;
   }
 
   if (isRoomCreator) {
@@ -732,261 +737,345 @@ function initializeApp(roomId) {
     }, 50);
   }
 
+  // *** INITIALIZE SOCKET ONLY ONCE ***
   if (!socket) {
-    socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
-
-    // *** WRAP ALL SOCKET LISTENERS IN A CHECK ***
-    if (socket) {
-      socket.on('connect', () => {
-        if (!window.userMap) window.userMap = {};
-        window.userMap[socket.id] = userName;
-        console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
-
-        if (getIsHostInitially()) {
-          console.log(`[SOCKET|ONCE] Immediate claim from : Connect`);
-          socket.emit('claimOwnership', { roomId, userName });
-        }
-
-        setTimeout(() => {
-          if (socket && socket.connected) {
-            console.log(`AppInit -> Connect event Request: ${userName} vote`);
-            socket.emit('requestVotesByUsername', { userName });
-          }
-        }, 1500);
-
-        // ✅ Add csvStories handler here after socket is connected
-        socket.on('csvStories', (csvStories) => {
-          console.log('[SOCKET] Received csvStories:', csvStories);
-          if (Array.isArray(csvStories)) {
-            stories = csvStories;
-            updateStoriesUI();
-            highlightSelectedStory();
-
-            if (isCurrentUserHost()) {
-              setupStoryCardInteractions();
-            }
-          }
-        });
-
-        setTimeout(() => {
-          console.log('requestFor syncSTATE to all components to load, but it worked right!!');
-          window.initializeApp = true;
-        }, 1000);
-      });
-
-      socket.once('ownershipStatus', (data) => {
-        const isOwner = data.isOwner;
-        console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
-        sessionStorage.setItem('isHost', isOwner);
-
-        if (isOwner === true) {
-          console.log('[UI|ONCE] Enabling host controls');
-          updateUIForOwnership(true);
-        } else {
-          console.log('[UI|ONCE] ownership: Applying the guest controls from host mode');
-          applyGuestRestrictions();
-        }
-      });
+    try {
+      socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
+      
+      if (!socket) {
+        console.error('[APP] Failed to initialize WebSocket');
+        return null;
+      }
+      
+      console.log('[APP] Socket initialized successfully');
+    } catch (error) {
+      console.error('[APP] Error initializing socket:', error);
+      return null;
     }
   }
 
-  // *** ADD NULL CHECKS FOR ALL SOCKET OPERATIONS ***
+  // *** CONFIGURE SOCKET SETTINGS SAFELY ***
   if (socket && socket.io) {
-    socket.io.reconnectionAttempts = 10;
-    socket.io.timeout = 20000;
-    socket.io.reconnectionDelay = 2000;
+    try {
+      socket.io.reconnectionAttempts = 10;
+      socket.io.timeout = 20000;
+      socket.io.reconnectionDelay = 2000;
+      socket.io.reconnectionDelayMax = 5000;
+    } catch (error) {
+      console.warn('[APP] Could not configure socket settings:', error);
+    }
   }
 
-  // *** WRAP ALL REMAINING SOCKET LISTENERS IN CHECKS ***
+  // *** SETUP SOCKET LISTENERS SAFELY ***
   if (socket && typeof socket.on === 'function') {
-    // Register core socket listeners
-    socket.on('storySelected', ({ storyIndex, storyId }) => {
-      console.log('[SOCKET] storySelected received:', storyIndex, storyId);
-      clearAllVoteVisuals();
+    try {
+      setupSocketListeners(socket, roomId, userName, getIsHostInitially);
+    } catch (error) {
+      console.error('[APP] Error setting up socket listeners:', error);
+    }
+  } else {
+    console.warn('[APP] Socket is null or invalid, cannot attach listeners');
+    return null;
+  }
 
-      const trySelectStory = (attempts = 0) => {
-        const storyCard = document.getElementById(storyId);
-        if (storyCard) {
-          selectStory(storyIndex, false, true);
-        } else if (attempts < 20) {
-          setTimeout(() => trySelectStory(attempts + 1), 100);
-        } else {
-          console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
-        }
-      };
+  // *** SETUP UI COMPONENTS ***
+  try {
+    const isHost = sessionStorage.getItem('isHost') === 'true';
+    const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
+    
+    if (isHost && socket && socket.connected) {
+      socket.emit('votingSystemSelected', { roomId, votingSystem });
+    }
 
-      trySelectStory();
-    });
+    // Initialize UI components
+    updateHeaderStyle();
+    addFixedVoteStatisticsStyles();
+    setupCSVUploader();
+    setupInviteButton();
+    setupStoryNavigation();
+    setupPlanningCards();
+    setupRevealResetButtons();
+    setupAddTicketButton();
+    setupGuestModeRestrictions();
+    setupStoryCardInteractions();
+    cleanupDeleteButtonHandlers();
+    setupCSVDeleteButtons();
+    addNewLayoutStyles();
+    
+    // Setup periodic refresh
+    setInterval(refreshCurrentStoryVotes, 30000);
+    
+    console.log('[APP] UI components initialized successfully');
+  } catch (error) {
+    console.error('[APP] Error setting up UI components:', error);
+  }
 
-    socket.on('reconnect_attempt', (attempt) => {
-      console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+  // *** RETURN THE SOCKET FOR REFERENCE ***
+  return socket;
+}
+
+// *** SEPARATE FUNCTION FOR SOCKET LISTENERS ***
+function setupSocketListeners(socket, roomId, userName, getIsHostInitially) {
+  // Connection event
+  socket.on('connect', () => {
+    if (!window.userMap) window.userMap = {};
+    window.userMap[socket.id] = userName;
+    console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
+
+    if (getIsHostInitially()) {
+      console.log(`[SOCKET|ONCE] Immediate claim from : Connect`);
+      socket.emit('claimOwnership', { roomId, userName });
+    }
+
+    setTimeout(() => {
+      if (socket && socket.connected) {
+        console.log(`AppInit -> Connect event Request: ${userName} vote`);
+        socket.emit('requestVotesByUsername', { userName });
+      }
+    }, 1500);
+
+    setTimeout(() => {
+      console.log('requestFor syncSTATE to all components to load, but it worked right!!');
+      window.initializeApp = true;
+    }, 1000);
+  });
+
+  // Ownership status (use once to prevent multiple handlers)
+  socket.once('ownershipStatus', (data) => {
+    const isOwner = data.isOwner;
+    console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
+    sessionStorage.setItem('isHost', isOwner);
+
+    if (isOwner === true) {
+      console.log('[UI|ONCE] Enabling host controls');
+      updateUIForOwnership(true);
+    } else {
+      console.log('[UI|ONCE] ownership: Applying the guest controls from host mode');
+      applyGuestRestrictions();
+    }
+  });
+
+  // CSV Stories handler
+  socket.on('csvStories', (csvStories) => {
+    console.log('[SOCKET] Received csvStories:', csvStories);
+    if (Array.isArray(csvStories)) {
+      if (typeof stories !== 'undefined') stories = csvStories;
+      if (typeof updateStoriesUI === 'function') updateStoriesUI();
+      if (typeof highlightSelectedStory === 'function') highlightSelectedStory();
+
+      if (isCurrentUserHost()) {
+        setupStoryCardInteractions();
+      }
+    }
+  });
+
+  // Story selection handler
+  socket.on('storySelected', ({ storyIndex, storyId }) => {
+    console.log('[SOCKET] storySelected received:', storyIndex, storyId);
+    if (typeof clearAllVoteVisuals === 'function') clearAllVoteVisuals();
+
+    const trySelectStory = (attempts = 0) => {
+      const storyCard = document.getElementById(storyId);
+      if (storyCard) {
+        selectStory(storyIndex, false, true);
+      } else if (attempts < 20) {
+        setTimeout(() => trySelectStory(attempts + 1), 100);
+      } else {
+        console.warn(`[SOCKET] Failed to find story card ${storyId} after retries`);
+      }
+    };
+
+    trySelectStory();
+  });
+
+  // Reconnection handlers
+  socket.on('reconnect_attempt', (attempt) => {
+    console.log(`[SOCKET] Reconnection attempt ${attempt}`);
+    if (typeof updateConnectionStatus === 'function') {
       reconnectingInProgress = true;
       updateConnectionStatus('reconnecting');
-    });
+    }
+  });
 
-    socket.on('reconnect', () => {
-      console.log('[SOCKET] Reconnected to server');
+  socket.on('reconnect', () => {
+    console.log('[SOCKET] Reconnected to server');
+    if (typeof updateConnectionStatus === 'function') {
       reconnectingInProgress = false;
       updateConnectionStatus('connected');
-      if (socket && socket.connected) {
-        socket.emit('requestAllTickets');
-        socket.emit('requestCurrentStory');
-        setTimeout(() => {
-          socket.emit('requestFullStateResync');
-          if (typeof getUserVotes === 'function') {
-            const userVotes = getUserVotes();
-            for (const [storyId, vote] of Object.entries(userVotes)) {
-              if (deletedStoryIds.has(storyId)) continue;
+    }
+    
+    if (socket && socket.connected) {
+      socket.emit('requestAllTickets');
+      socket.emit('requestCurrentStory');
+      setTimeout(() => {
+        socket.emit('requestFullStateResync');
+        if (typeof getUserVotes === 'function') {
+          const userVotes = getUserVotes();
+          for (const [storyId, vote] of Object.entries(userVotes)) {
+            if (typeof deletedStoryIds !== 'undefined' && deletedStoryIds.has(storyId)) continue;
+            if (typeof votesPerStory !== 'undefined') {
               if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
               votesPerStory[storyId][socket.id] = vote;
               window.currentVotesPerStory = votesPerStory;
               const currentId = getCurrentStoryId();
-              if (storyId === currentId) {
+              if (storyId === currentId && typeof updateVoteVisuals === 'function') {
                 updateVoteVisuals(socket.id, votesRevealed[storyId] ? vote : '👍', true);
               }
             }
-            refreshVoteDisplay();
           }
-        }, 500);
-      }
-    });
+          if (typeof refreshVoteDisplay === 'function') refreshVoteDisplay();
+        }
+      }, 500);
+    }
+  });
 
-    socket.on('voteUpdate', ({ userId, userName, vote, storyId }) => {
-      const name = userName || userId;
-      mergeVote(storyId, name, vote);
-      const currentId = getCurrentStoryId();
-      if (storyId === currentId) {
-        updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
-      }
-      refreshVoteDisplay();
-    });
+  // Vote update handler
+  socket.on('voteUpdate', ({ userId, userName: voteUserName, vote, storyId }) => {
+    const name = voteUserName || userId;
+    if (typeof mergeVote === 'function') mergeVote(storyId, name, vote);
+    const currentId = getCurrentStoryId();
+    if (storyId === currentId && typeof updateVoteVisuals === 'function') {
+      updateVoteVisuals(name, votesRevealed[storyId] ? vote : '👍', true);
+    }
+    if (typeof refreshVoteDisplay === 'function') refreshVoteDisplay();
+  });
 
-    socket.on('storyVotes', ({ storyId, votes }) => {
-      if (deletedStoryIds.has(storyId)) return;
+  // Story votes handler
+  socket.on('storyVotes', ({ storyId, votes }) => {
+    if (typeof deletedStoryIds !== 'undefined' && deletedStoryIds.has(storyId)) return;
+    if (typeof votesPerStory !== 'undefined') {
       if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
       votesPerStory[storyId] = { ...votes };
       window.currentVotesPerStory = votesPerStory;
 
       const currentStoryId = getCurrentStoryId();
-      if (currentStoryId === storyId) {
+      if (currentStoryId === storyId && typeof applyVotesToUI === 'function') {
         applyVotesToUI(votes, !votesRevealed[storyId]);
       }
-    });
+    }
+  });
 
-    socket.on('restoreUserVote', ({ storyId, vote }) => {
-      const name = sessionStorage.getItem('userName') || socket.id;
-      mergeVote(storyId, name, vote);
-      refreshVoteDisplay();
-    });
+  // Restore user vote handler
+  socket.on('restoreUserVote', ({ storyId, vote }) => {
+    const name = sessionStorage.getItem('userName') || socket.id;
+    if (typeof mergeVote === 'function') mergeVote(storyId, name, vote);
+    if (typeof refreshVoteDisplay === 'function') refreshVoteDisplay();
+  });
 
-    socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
-      console.log('[SOCKET] Received resyncState from server');
-      if (typeof isOwner === 'boolean') updateUIForOwnership(isOwner);
+  // Resync state handler
+  socket.on('resyncState', ({ tickets, votesPerStory: serverVotes, votesRevealed: serverRevealed, deletedStoryIds: serverDeletedIds, isOwner }) => {
+    console.log('[SOCKET] Received resyncState from server');
+    if (typeof isOwner === 'boolean' && typeof updateUIForOwnership === 'function') {
+      updateUIForOwnership(isOwner);
+    }
 
-      if (Array.isArray(serverDeletedIds)) {
-        serverDeletedIds.forEach(id => deletedStoryIds.add(id));
+    if (Array.isArray(serverDeletedIds) && typeof deletedStoryIds !== 'undefined') {
+      serverDeletedIds.forEach(id => deletedStoryIds.add(id));
+      if (typeof saveDeletedStoriesToStorage === 'function') {
         saveDeletedStoriesToStorage(roomId);
       }
+    }
 
-      const filteredTickets = (tickets || []).filter(ticket => !deletedStoryIds.has(ticket.id));
-      if (Array.isArray(filteredTickets)) {
-        console.log(`[SOCKET] Processing ${filteredTickets.length} tickets from resyncState`);
-        processAllTickets(filteredTickets);
-      }
+    const filteredTickets = (tickets || []).filter(ticket => 
+      typeof deletedStoryIds === 'undefined' || !deletedStoryIds.has(ticket.id)
+    );
+    
+    if (Array.isArray(filteredTickets)) {
+      console.log(`[SOCKET] Processing ${filteredTickets.length} tickets from resyncState`);
+      if (typeof processAllTickets === 'function') processAllTickets(filteredTickets);
+    }
 
-      if (serverVotes) {
-        for (const [storyId, votes] of Object.entries(serverVotes)) {
-          if (deletedStoryIds.has(storyId)) continue;
-          if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
-          for (const [userId, vote] of Object.entries(votes)) {
-            mergeVote(storyId, userId, vote);
-          }
+    if (serverVotes && typeof votesPerStory !== 'undefined') {
+      for (const [storyId, votes] of Object.entries(serverVotes)) {
+        if (typeof deletedStoryIds !== 'undefined' && deletedStoryIds.has(storyId)) continue;
+        if (!votesPerStory[storyId]) votesPerStory[storyId] = {};
+        for (const [userId, vote] of Object.entries(votes)) {
+          if (typeof mergeVote === 'function') mergeVote(storyId, userId, vote);
+        }
+        if (typeof votesRevealed !== 'undefined') {
           votesRevealed[storyId] = serverRevealed?.[storyId];
-          const currentId = getCurrentStoryId();
-          if (storyId === currentId) {
+        }
+        const currentId = getCurrentStoryId();
+        if (storyId === currentId) {
+          if (typeof applyVotesToUI === 'function') {
             applyVotesToUI(votes, !votesRevealed[storyId]);
-            if (votesRevealed[storyId]) handleVotesRevealed(storyId, votes);
-          } else if (votesRevealed[storyId]) {
+          }
+          if (votesRevealed[storyId] && typeof handleVotesRevealed === 'function') {
             handleVotesRevealed(storyId, votes);
           }
+        } else if (votesRevealed[storyId] && typeof handleVotesRevealed === 'function') {
+          handleVotesRevealed(storyId, votes);
         }
       }
+    }
 
-      window.currentVotesPerStory = votesPerStory;
-      refreshVoteDisplay();
-    });
+    window.currentVotesPerStory = votesPerStory;
+    if (typeof refreshVoteDisplay === 'function') refreshVoteDisplay();
+  });
 
-    socket.on('deleteStory', ({ storyId }) => {
+  // Delete story handler
+  socket.on('deleteStory', ({ storyId }) => {
+    if (typeof deletedStoryIds !== 'undefined') {
       deletedStoryIds.add(storyId);
-      saveDeletedStoriesToStorage(roomId);
-      const el = document.getElementById(storyId);
-      if (el) {
-        el.remove();
-        normalizeStoryIndexes();
+      if (typeof saveDeletedStoriesToStorage === 'function') {
+        saveDeletedStoriesToStorage(roomId);
       }
-      delete votesPerStory[storyId];
-      delete votesRevealed[storyId];
-    });
+    }
+    
+    const el = document.getElementById(storyId);
+    if (el) {
+      el.remove();
+      if (typeof normalizeStoryIndexes === 'function') normalizeStoryIndexes();
+    }
+    
+    if (typeof votesPerStory !== 'undefined') delete votesPerStory[storyId];
+    if (typeof votesRevealed !== 'undefined') delete votesRevealed[storyId];
+  });
 
-    socket.on('votesRevealed', ({ storyId }) => {
-      if (deletedStoryIds.has(storyId)) return;
-      if (votesRevealed[storyId]) return;
-      votesRevealed[storyId] = true;
-      const votes = votesPerStory[storyId] || {};
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      if (planningCardsSection) {
-        planningCardsSection.classList.add('hidden-until-init');
-        planningCardsSection.style.display = 'none';
-      }
-      handleVotesRevealed(storyId, votes);
-    });
+  // Votes revealed handler
+  socket.on('votesRevealed', ({ storyId }) => {
+    if (typeof deletedStoryIds !== 'undefined' && deletedStoryIds.has(storyId)) return;
+    if (typeof votesRevealed !== 'undefined' && votesRevealed[storyId]) return;
+    
+    if (typeof votesRevealed !== 'undefined') votesRevealed[storyId] = true;
+    
+    const votes = (typeof votesPerStory !== 'undefined' && votesPerStory[storyId]) || {};
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.add('hidden-until-init');
+      planningCardsSection.style.display = 'none';
+    }
+    
+    if (typeof handleVotesRevealed === 'function') handleVotesRevealed(storyId, votes);
+  });
 
-    socket.on('votesReset', ({ storyId }) => {
-      if (deletedStoryIds.has(storyId)) return;
-      votesPerStory[storyId] = {};
-      votesRevealed[storyId] = false;
-      resetAllVoteVisuals();
-      const planningCardsSection = document.querySelector('.planning-cards-section');
-      if (planningCardsSection) {
-        planningCardsSection.classList.remove('hidden-until-init');
-        planningCardsSection.style.display = 'block';
-      }
-      const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
-      statsContainers.forEach(container => container.style.display = 'none');
-    });
+  // Votes reset handler
+  socket.on('votesReset', ({ storyId }) => {
+    if (typeof deletedStoryIds !== 'undefined' && deletedStoryIds.has(storyId)) return;
+    
+    if (typeof votesPerStory !== 'undefined') votesPerStory[storyId] = {};
+    if (typeof votesRevealed !== 'undefined') votesRevealed[storyId] = false;
+    
+    if (typeof resetAllVoteVisuals === 'function') resetAllVoteVisuals();
+    
+    const planningCardsSection = document.querySelector('.planning-cards-section');
+    if (planningCardsSection) {
+      planningCardsSection.classList.remove('hidden-until-init');
+      planningCardsSection.style.display = 'block';
+    }
+    
+    const statsContainers = document.querySelectorAll(`.vote-statistics-container[data-story-id="${storyId}"]`);
+    statsContainers.forEach(container => container.style.display = 'none');
+  });
 
-    socket.on('votingSystemUpdate', ({ votingSystem }) => {
-      console.log('[SOCKET] Received voting system from host:', votingSystem);
-      sessionStorage.setItem('votingSystem', votingSystem);
-      setupPlanningCards();
-    });
-  } else {
-    console.warn('[APP] Socket is null or invalid, cannot attach listeners');
-  }
+  // Voting system update handler
+  socket.on('votingSystemUpdate', ({ votingSystem }) => {
+    console.log('[SOCKET] Received voting system from host:', votingSystem);
+    sessionStorage.setItem('votingSystem', votingSystem);
+    if (typeof setupPlanningCards === 'function') setupPlanningCards();
+  });
 
-  const isHost = sessionStorage.getItem('isHost') === 'true';
-  const votingSystem = sessionStorage.getItem('votingSystem') || 'fibonacci';
-  if (isHost && socket && socket.connected) {
-    socket.emit('votingSystemSelected', { roomId, votingSystem });
-  }
-
-  updateHeaderStyle();
-  addFixedVoteStatisticsStyles();
-  setupCSVUploader();
-  setupInviteButton();
-  setupStoryNavigation();
-  setupPlanningCards();
-  setupRevealResetButtons();
-  setupAddTicketButton();
-  setupGuestModeRestrictions();
-  setupStoryCardInteractions();
-  cleanupDeleteButtonHandlers();
-  setupCSVDeleteButtons();
-  addNewLayoutStyles();
-  setInterval(refreshCurrentStoryVotes, 30000);
-
-  // *** RETURN THE SOCKET FOR REFERENCE ***
-  return socket;
+  console.log('[APP] Socket listeners setup completed');
 }
 
 
