@@ -122,7 +122,7 @@ socket.on('connect_error', (error) => {
     const filteredTickets = tickets.filter(ticket => 
       !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
     );
-    
+    console.log('[SOCKET] Filtered tickets:', filteredTickets.length);
     // Store filtered tickets in last known state
     lastKnownRoomState.tickets = filteredTickets || [];
     
