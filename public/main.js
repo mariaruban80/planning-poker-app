@@ -774,6 +774,48 @@ function initializeApp(roomId) {
         }, 1000);
       });
 
+socket.on('allTickets', ({ tickets }) => {
+  console.log('[SOCKET] Received all tickets:', tickets.length);
+  if (!lastKnownRoomState) {
+    console.warn('[SOCKET] lastKnownRoomState is not yet initialized, skipping ticket processing');
+    return;
+  }
+  if (!Array.isArray(tickets)) return;
+
+  // Filter out deleted tickets
+  const filteredTickets = tickets.filter(ticket =>
+    !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
+  );
+
+  // Store filtered in memory
+  lastKnownRoomState.tickets = filteredTickets || [];
+
+  // Clear existing cards
+  const storyList = document.getElementById('storyList');
+  if (storyList) {
+    storyList.innerHTML = '';
+  }
+
+  // ✅ Use addTicketToUI so menu + event listeners are added
+  filteredTickets.forEach(ticket => {
+    if (ticket?.id && ticket?.text) {
+      addTicketToUI(ticket, false); // false = not manually added
+    }
+  });
+
+  // Ensure correct indexes
+  normalizeStoryIndexes();
+
+  // ✅ Setup interaction (Edit/Delete menu)
+  setTimeout(() => {
+    setupStoryCardInteractions();
+  }, 100);
+
+  // Notify any state handler
+  handleMessage({ type: 'allTickets', tickets: filteredTickets });
+}); 
+      
+
       socket.once('ownershipStatus', (data) => {
         const isOwner = data.isOwner;
         console.log(`[SOCKET|ONCE] Ownership status has been called: ${isOwner}`);
@@ -2646,50 +2688,6 @@ appendStory(storyItem);
   // This guarantees retries if DOM is not ready yet, and doesn't apply extra updates!
   selectStory(storyIndex, false, true);
 });
-
-socket.on('allTickets', ({ tickets }) => {
-  console.log('[SOCKET] Received all tickets:', tickets.length);
-  if (!lastKnownRoomState) {
-    console.warn('[SOCKET] lastKnownRoomState is not yet initialized, skipping ticket processing');
-    return;
-  }
-  if (!Array.isArray(tickets)) return;
-
-  // Filter out deleted tickets
-  const filteredTickets = tickets.filter(ticket =>
-    !lastKnownRoomState.deletedStoryIds.includes(ticket.id)
-  );
-
-  // Store filtered in memory
-  lastKnownRoomState.tickets = filteredTickets || [];
-
-  // Clear existing cards
-  const storyList = document.getElementById('storyList');
-  if (storyList) {
-    storyList.innerHTML = '';
-  }
-
-  // ✅ Use addTicketToUI so menu + event listeners are added
-  filteredTickets.forEach(ticket => {
-    if (ticket?.id && ticket?.text) {
-      addTicketToUI(ticket, false); // false = not manually added
-    }
-  });
-
-  // Ensure correct indexes
-  normalizeStoryIndexes();
-
-  // ✅ Setup interaction (Edit/Delete menu)
-  setTimeout(() => {
-    setupStoryCardInteractions();
-  }, 100);
-
-  // Notify any state handler
-  handleMessage({ type: 'allTickets', tickets: filteredTickets });
-}); 
-
-
-
 
 /**
  * Select a story by index
