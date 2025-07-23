@@ -1225,13 +1225,17 @@ socket.on('addTicket', (ticketData) => {
   });
   
   // Handle getting all tickets
- socket.on('requestAllTickets', () => {
+socket.on('requestAllTickets', () => {
   const roomId = socket.data.roomId;
-  if (!roomId || !rooms[roomId]) return;
+  if (!roomId || !rooms[roomId]) {
+    console.log(`[SERVER] requestAllTickets failed - roomId: ${roomId}, room exists: ${!!rooms[roomId]}`);
+    return;
+  }
 
   const allTickets = rooms[roomId].tickets || [];
-
-  console.log(`[SERVER] Sending all tickets to ${socket.id}: ${allTickets.length}`);
+  console.log(`[SERVER] Sending ${allTickets.length} tickets to ${socket.id} in room ${roomId}`);
+  console.log(`[SERVER] Tickets:`, allTickets.map(t => ({id: t.id, text: t.text.substring(0, 50)})));
+  
   socket.emit('allTickets', { tickets: allTickets });
 
   // Optionally also send selected story again
