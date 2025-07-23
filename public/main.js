@@ -3904,42 +3904,30 @@ case 'addTicket':
         }
       }
       break;
-      
-case 'syncCSVData':
+     case 'syncCSVData':
   if (Array.isArray(message.csvData)) {
     console.log('[SOCKET] Received CSV data, length:', message.csvData.length);
 
-    csvData = message.csvData;
-    csvDataLoaded = true;
+    // Update global stories array
+    stories = message.csvData;
 
-    // Save manual tickets only if storyList exists (i.e., DOM is ready)
-    const storyList = document.getElementById('storyList');
-    const manualTickets = [];
+    // Optional: save to session storage for reload support
+    sessionStorage.setItem('csvStories', JSON.stringify(stories));
 
-    if (storyList) {
-      const manualStoryCards = storyList.querySelectorAll('.story-card[id^="story_"]:not([id^="story_csv_"])');
-      manualStoryCards.forEach(card => {
-        if (deletedStoryIds.has(card.id)) return;
+    // Process all tickets into UI
+    processAllTickets(stories);
 
-        const title = card.querySelector('.story-title');
-        if (title) {
-          manualTickets.push({
-            id: card.id,
-            text: title.textContent
-          });
-        }
-      });
-    }
+    // Ensure interactions are ready
+    setupStoryCardInteractions();
 
-    console.log(`[SOCKET] Preserved ${manualTickets.length} manually added tickets before CSV processing`);
- displayCSVData(csvData);
-    // ✅ Ensure stories are processed correctly
-   // processAllTickets(csvData);
+    // Highlight the currently selected story if needed
+    highlightSelectedStory();
 
-    // ✅ Re-render current story to show vote cards
-   renderCurrentStory();
+    // Update planning cards and votes section
+    renderCurrentStory();
   }
   break;
+ 
 
 
 
