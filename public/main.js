@@ -737,7 +737,7 @@ function initializeApp(roomId) {
 
     // *** WRAP ALL SOCKET LISTENERS IN A CHECK ***
     if (socket) {
-      socket.once('connect', () => {
+      socket.on('connect', () => {
         if (!window.userMap) window.userMap = {};
         window.userMap[socket.id] = userName;
         console.log(`[SOCKET|ONCE] Connected and setting in userMap :${userName} ID: ${socket.id}`);
@@ -3488,22 +3488,37 @@ function handleSocketMessage(message) {
         updateUserList(message.users);
       }
       break;
-
-    case 'addTicket':
-      // Handle ticket added by another user
-      if (message.ticketData) {
-        // Skip if this is a deleted story
-        if (deletedStoryIds.has(message.ticketData.id)) {
-          console.log('[TICKET] Ignoring deleted ticket:', message.ticketData.id);
-          return;
-        }
-        
-        console.log('[SOCKET] New ticket received:', message.ticketData);
-        // Add ticket to UI without selecting it (to avoid loops)
-        addTicketToUI(message.ticketData, false);
-        //applyGuestRestrictions();
+case 'addTicket':
+  // Handle ticket added by another user
+  if (message.ticketData) {
+    // Skip if this is a deleted story
+    if (deletedStoryIds.has(message.ticketData.id)) {
+      console.log('[TICKET] Ignoring deleted ticket:', message.ticketData.id);
+      return;
+    }
+    
+    console.log('[SOCKET] New ticket received:', message.ticketData);
+    
+    // ✅ Always add ticket to UI for guests
+    addTicketToUI(message.ticketData, false);
+    
+    // ✅ Update the story card interactions after adding
+    setTimeout(() => {
+      setupStoryCardInteractions();
+      normalizeStoryIndexes();
+      
+      // If this is the first ticket and no story is selected, select it
+      const storyCards = document.querySelectorAll('.story-card');
+      const selectedCard = document.querySelector('.story-card.selected');
+      
+      if (storyCards.length > 0 && !selectedCard) {
+        console.log('[TICKET] Auto-selecting first ticket for guest');
+        selectStory(0, false); // Don't emit to server since guest can't control selection
       }
-      break;
+    }, 100);
+  }
+  break;
+
 
      case 'ownershipStatus':
       // Update UI based on ownership status
