@@ -203,7 +203,21 @@ function restoreUserVotesToCurrentSocket(roomId, socket) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('requestCurrentStory', () => {
+  
+  socket.on('syncCSVData', (csvData) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || !rooms[roomId]) return;
+
+    // Store the CSV data in server memory
+    rooms[roomId].csvData = csvData;
+
+    // Broadcast the CSV data to everyone in the room
+    io.to(roomId).emit('syncCSVData', csvData);
+
+    console.log(`[SERVER] CSV data synced and broadcasted to room ${roomId} (${csvData.length} stories)`);
+  });
+
+socket.on('requestCurrentStory', () => {
     const roomId = socket.data.roomId;
     if (!roomId || !rooms[roomId]) return;
 
@@ -1225,17 +1239,13 @@ socket.on('addTicket', (ticketData) => {
   });
   
   // Handle getting all tickets
-socket.on('requestAllTickets', () => {
+ socket.on('requestAllTickets', () => {
   const roomId = socket.data.roomId;
-  if (!roomId || !rooms[roomId]) {
-    console.log(`[SERVER] requestAllTickets failed - roomId: ${roomId}, room exists: ${!!rooms[roomId]}`);
-    return;
-  }
+  if (!roomId || !rooms[roomId]) return;
 
   const allTickets = rooms[roomId].tickets || [];
-  console.log(`[SERVER] Sending ${allTickets.length} tickets to ${socket.id} in room ${roomId}`);
-  console.log(`[SERVER] Tickets:`, allTickets.map(t => ({id: t.id, text: t.text.substring(0, 50)})));
-  
+
+  console.log(`[SERVER] Sending all tickets to ${socket.id}: ${allTickets.length}`);
   socket.emit('allTickets', { tickets: allTickets });
 
   // Optionally also send selected story again
