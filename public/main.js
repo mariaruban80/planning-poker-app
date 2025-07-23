@@ -736,7 +736,7 @@ function initializeApp(roomId) {
     socket = initializeWebSocket(roomId, userName, handleSocketMessage, isRoomCreator);
 
     // *** WRAP ALL SOCKET LISTENERS IN A CHECK ***
-    if (socket) {
+    if (socket && typeof socket.on === 'function') {
       socket.on('connect', () => {
         if (!window.userMap) window.userMap = {};
         window.userMap[socket.id] = userName;
