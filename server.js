@@ -1071,38 +1071,49 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   });
   
   // Handle ticket synchronization
-  socket.on('addTicket', (ticketData) => {
-    const roomId = socket.data.roomId;
-    if (roomId && rooms[roomId]) {
-      console.log(`[SERVER] New ticket added to room ${roomId}:`, ticketData.id);
-      
-      // Update room activity timestamp
-      rooms[roomId].lastActivity = Date.now();
-      
-      // Make sure the ticket isn't in the deleted set
-      if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(ticketData.id)) {
-        rooms[roomId].deletedStoryIds.delete(ticketData.id);
-      }
-      
-      // Broadcast the new ticket to everyone in the room EXCEPT sender
-     // socket.broadcast.to(roomId).emit('addTicket', { ticketData });
-      io.to(roomId).emit('addTicket', { ticketData });
-      
-      // Keep track of tickets on the server
-      if (!rooms[roomId].tickets) {
-        rooms[roomId].tickets = [];
-      }
-      
-      // Check for duplicate tickets before adding
-      const existingIndex = rooms[roomId].tickets.findIndex(ticket => ticket.id === ticketData.id);
-      if (existingIndex === -1) {
-        rooms[roomId].tickets.push(ticketData);
-        console.log(`[SERVER] Ticket added to server state. Total tickets: ${rooms[roomId].tickets.length}`);
-      } else {
-        console.log(`[SERVER] Ticket ${ticketData.id} already exists, not duplicating`);
-      }
+// Handle ticket synchronization
+socket.on('addTicket', (ticketData) => {
+  const roomId = socket.data.roomId;
+  if (roomId && rooms[roomId]) {
+    console.log(`[SERVER] New ticket added to room ${roomId}:`, ticketData.id);
+    
+    // Update room activity timestamp
+    rooms[roomId].lastActivity = Date.now();
+    
+    // Make sure the ticket isn't in the deleted set
+    if (rooms[roomId].deletedStoryIds && rooms[roomId].deletedStoryIds.has(ticketData.id)) {
+      rooms[roomId].deletedStoryIds.delete(ticketData.id);
     }
-  });
+    
+    // Keep track of tickets on the server
+    if (!rooms[roomId].tickets) {
+      rooms[roomId].tickets = [];
+    }
+    
+    // Check for duplicate tickets before adding
+    const existingIndex = rooms[roomId].tickets.findIndex(ticket => ticket.id === ticketData.id);
+    if (existingIndex === -1) {
+      rooms[roomId].tickets.push(ticketData);
+      console.log(`[SERVER] Ticket added to server state. Total tickets: ${rooms[roomId].tickets.length}`);
+    } else {
+      // Update existing ticket
+      rooms[roomId].tickets[existingIndex] = ticketData;
+      console.log(`[SERVER] Ticket ${ticketData.id} updated in server state`);
+    }
+    
+    // ✅ CRITICAL: Broadcast to ALL clients in the room (including sender)
+    io.to(roomId).emit('addTicket', { ticketData });
+    
+    // ✅ ALSO send updated ticket list to ensure synchronization
+    setTimeout(() => {
+      const activeTickets = rooms[roomId].tickets.filter(t => 
+        !rooms[roomId].deletedStoryIds || !rooms[roomId].deletedStoryIds.has(t.id)
+      );
+      io.to(roomId).emit('allTickets', { tickets: activeTickets });
+      console.log(`[SERVER] Broadcasted ${activeTickets.length} active tickets to all clients`);
+    }, 100);
+  }
+});
   
   socket.on('deleteCSVStory', ({ storyId, csvIndex }) => {
     const roomId = socket.data.roomId;
