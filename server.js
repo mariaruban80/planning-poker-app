@@ -1592,19 +1592,18 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
   });
 
   // Handle story navigation
-  socket.on('storyNavigation', ({ index }) => {
-    const roomId = socket.data.roomId;
-    const clients = await io.in(roomId).fetchSockets();
-    if (roomId && rooms[roomId]) {
-      // Update room activity timestamp
-      rooms[roomId].lastActivity = Date.now();
-      
-      // Broadcast navigation to all clients
-      io.to(roomId).emit('storyNavigation', { index });
-    }
-  });
-
- socket.on('syncCSVData', (csvData) => {
+socket.on('storyNavigation', async ({ index }) => { 
+  const roomId = socket.data.roomId;
+  const clients = await io.in(roomId).fetchSockets();
+  if (roomId && rooms[roomId]) {
+    // Update room activity timestamp
+    rooms[roomId].lastActivity = Date.now();
+    
+    // Broadcast navigation to all clients
+    io.to(roomId).emit('storyNavigation', { index });
+  }
+});
+socket.on('syncCSVData', async (csvData) => { // ✅ Add async here
   // SAFELY RESOLVE roomId even if socket.data is not populated yet
   const roomId = socket.data.roomId || socket.handshake.query.roomId;
   const userName = socket.data.userName || socket.handshake.query.userName;
@@ -1643,15 +1642,19 @@ socket.on('restoreUserVote', ({ storyId, vote }) => {
 
   console.log(`[SERVER] Room ${roomId} now has ${rooms[roomId].tickets.length} total tickets`);
 
+  // ✅ Get clients properly with await
+  const clients = await io.in(roomId).fetchSockets();
+
   // ✅ Broadcast updated data to ALL users (host + guests)
   io.to(roomId).emit('syncCSVData', csvData);
   io.to(roomId).emit('allTickets', { tickets: rooms[roomId].tickets });
 
-for (const client of clients) {
-  if (client.connected) {
-    client.emit('allTickets', { tickets: rooms[roomId].tickets });
+  for (const client of clients) {
+    if (client.connected) {
+      client.emit('allTickets', { tickets: rooms[roomId].tickets });
+    }
   }
-}
+
   // Optional: also sync current state (useful for late guests)
   const activeVotes = {};
   const revealedVotes = {};
@@ -1686,6 +1689,7 @@ for (const client of clients) {
     }
   }
 });
+
 
 
 
